@@ -28,7 +28,10 @@ const Layout: React.FC = () => {
                         <li><NavLink to="/profile" className={getLinkClassName}>Mi Perfil</NavLink></li>
                         <li><NavLink to="/admin/users" className={getLinkClassName}>Usuarios</NavLink></li>
                         <li><NavLink to="/admin/companies" className={getLinkClassName}>Empresas</NavLink></li>
-                        {/* ✅ 3. Aquí está el nuevo enlace al panel de ubicaciones */}
+                        
+                        {/* ✅ NUEVO: Enlace a Gestión de Depositarios */}
+                        <li><NavLink to="/admin/depositarios" className={getLinkClassName}>🏧 Gestión de Depositarios</NavLink></li>
+
                         <li><NavLink to="/admin/ubicaciones" className={getLinkClassName}>Ubicaciones</NavLink></li>
                         <li><NavLink to="/admin/problemas" className={getLinkClassName}>Problemáticas</NavLink></li>
                         <li><NavLink to="/admin/tickets" className={getLinkClassName}>Tickets</NavLink></li>
@@ -42,6 +45,9 @@ const Layout: React.FC = () => {
                         <li><NavLink to="/agent" end className={getLinkClassName}>Dashboard</NavLink></li>
                         <li><NavLink to="/profile" className={getLinkClassName}>Mi Perfil</NavLink></li>
                         <li><NavLink to="/agent/tickets" className={getLinkClassName}>Mis Tickets</NavLink></li>
+                        
+                        {/* ✅ NUEVO: Enlace a Mantenimiento para Agentes */}
+                        <li><NavLink to="/agent/depositarios" className={getLinkClassName}>🏧 Mantenimiento Equipos</NavLink></li>
                     </>
                 );
             case 'client':

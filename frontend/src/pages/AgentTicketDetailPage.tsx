@@ -3,10 +3,18 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { toast } from 'react-toastify';
 import api from '../config/axiosConfig';
 import { useAuth } from '../context/AuthContext';
-import { TicketData, Comment as TicketComment, TicketStatus, User } from '../types';
+// ✅ MODIFICACIÓN: Se importa TicketPriority
+import { TicketData, Comment as TicketComment, TicketStatus, User, Attachment, TicketPriority } from '../types';
 import { ticketStatusTranslations, ticketPriorityTranslations } from '../utils/traslations';
 import { formatLocalDate } from '../utils/dateFormatter';
 import CommentForm from '../components/Common/CommentForm';
+
+// ✅ AÑADIDO: Icono de Archivo Genérico
+const FileIcon: React.FC<{ className?: string }> = ({ className = "w-16 h-16" }) => (
+    <svg className={`${className} mx-auto text-gray-400 mb-2`} fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+    </svg>
+);
 
 // Componente Badge local para simplicidad visual.
 const Badge: React.FC<{ color: string; children: React.ReactNode }> = ({ color, children }) => (
@@ -33,7 +41,7 @@ const AgentTicketDetailPage: React.FC = () => {
         try {
             const [ticketResponse, agentsResponse] = await Promise.all([
                 api.get(`/api/tickets/${id}`),
-                api.get('/api/users/agents') // Endpoint que devuelve la lista de usuarios con rol 'agent'.
+                api.get('/api/users/agents')
             ]);
             setTicket(ticketResponse.data.data);
             setAgents(agentsResponse.data.data || []);
@@ -59,7 +67,7 @@ const AgentTicketDetailPage: React.FC = () => {
             await api.put(`/api/tickets/${ticket.id}/reassign`, { newAgentId: selectedAgentId });
             toast.success("¡Ticket reasignado exitosamente!");
             setSelectedAgentId('');
-            await fetchAllData(); // Recarga los datos para reflejar el cambio.
+            await fetchAllData(); 
         } catch (error) {
             toast.error("Error al reasignar el ticket.");
         } finally {
@@ -76,11 +84,24 @@ const AgentTicketDetailPage: React.FC = () => {
                 is_internal: isInternal
             });
             toast.success(isInternal ? "Nota interna añadida." : "Comentario añadido.");
-            await fetchAllData(); // Recarga los datos para mostrar el nuevo comentario.
+            await fetchAllData();
         } catch (err) {
             toast.error("Error al añadir comentario.");
         }
     };
+
+    // ✅ AÑADIDO: Función para cambiar la prioridad (para Agente)
+    const handlePriorityChange = async (newPriority: TicketPriority) => {
+        if (!ticket) return;
+        try {
+            await api.put(`/api/tickets/${ticket.id}`, { priority: newPriority });
+            toast.success(`La prioridad del ticket se actualizó a "${ticketPriorityTranslations[newPriority] || newPriority}".`);
+            fetchAllData(); // Recargamos los datos del ticket
+        } catch (error) {
+            toast.error("No se pudo actualizar la prioridad del ticket.");
+        }
+    };
+    // FIN MODIFICACIÓN
     
     // Funciones auxiliares para estilos...
     const getStatusBadgeColor = (status: TicketStatus) => {
@@ -115,7 +136,11 @@ const AgentTicketDetailPage: React.FC = () => {
                             </div>
                             <div>
                                 <strong className="block text-sm text-gray-500">Departamento</strong>
-                                <p className="text-lg">{ticket.department_id}</p>
+                                <p className="text-lg">{ticket.ticket_department_name || ticket.department_id}</p>
+                            </div>
+                            <div>
+                                <strong className="block text-sm text-gray-500">Creado</strong>
+                                <p className="text-lg">{formatLocalDate(ticket.created_at)}</p>
                             </div>
                             <div className="sm:col-span-2">
                                 <strong className="block text-sm text-gray-500">Descripción</strong>
@@ -123,7 +148,41 @@ const AgentTicketDetailPage: React.FC = () => {
                             </div>
                         </div>
                     </div>
-
+                    
+                    {/* Sección de Archivos Adjuntos */}
+                    {ticket.attachments && ticket.attachments.length > 0 && (
+                        <div className="bg-white p-6 rounded-lg shadow-md">
+                            <h2 className="text-xl font-bold text-gray-800 mb-4 border-b pb-2">Archivos Adjuntos</h2>
+                            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
+                                {ticket.attachments.map(att => (
+                                    <a 
+                                        key={att.id}
+                                        href={`/${att.file_path.replace(/\\/g, '/')}`} 
+                                        target="_blank" 
+                                        rel="noopener noreferrer"
+                                        className="border rounded-lg p-2 text-center hover:bg-gray-50 transition-colors group"
+                                        title={`Ver: ${att.file_name}`}
+                                    >
+                                        {att.file_type && att.file_type.startsWith('image/') ? (
+                                            <img src={`/${att.file_path.replace(/\\/g, '/')}`} alt={att.file_name} className="w-full h-24 object-cover rounded-md mb-2"/>
+                                        ) : att.file_type && att.file_type.startsWith('video/') ? (
+                                            <div className="w-full h-24 bg-black rounded-md mb-2 flex items-center justify-center">
+                                                <svg className="w-10 h-10 text-white opacity-75" fill="currentColor" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg">
+                                                    <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z" clipRule="evenodd"></path>
+                                                </svg>
+                                            </div>
+                                        ) : (
+                                            <FileIcon className="w-full h-24" />
+                                        )}
+                                        <p className="text-sm text-gray-700 truncate group-hover:underline">
+                                            {att.file_name}
+                                        </p>
+                                    </a>
+                                ))}
+                            </div>
+                        </div>
+                    )}
+                    
                     {/* Sección de Conversación */}
                     <div className="bg-white p-6 rounded-lg shadow-md">
                         <h2 className="text-xl font-bold text-gray-800 mb-4 border-b pb-2">Conversación</h2>
@@ -154,15 +213,36 @@ const AgentTicketDetailPage: React.FC = () => {
 
                 {/* Columna Lateral de Acciones */}
                 <div className="lg:col-span-1 space-y-6">
+                    {/* ✅ MODIFICACIÓN: Se separa Estado y Prioridad, y Prioridad ahora es un <select> */}
                     <div className="bg-white p-6 rounded-lg shadow-md">
-                        <strong className="block text-sm text-gray-500 mb-2">Estado y Prioridad</strong>
-                        <div className="flex items-center gap-4">
-                            <Badge color={getStatusBadgeColor(ticket.status)}>
-                                {ticketStatusTranslations[ticket.status] || ticket.status}
-                            </Badge>
-                            <span className="font-semibold">{ticketPriorityTranslations[ticket.priority] || ticket.priority}</span>
+                        <h2 className="text-xl font-bold text-gray-800 mb-4">Estado y Prioridad</h2>
+                        <div className="space-y-4">
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700">Estado Actual</label>
+                                <div className="mt-1">
+                                    <Badge color={getStatusBadgeColor(ticket.status)}>
+                                        {ticketStatusTranslations[ticket.status] || ticket.status}
+                                    </Badge>
+                                </div>
+                            </div>
+                            <div>
+                                <label htmlFor="priority-select" className="block text-sm font-medium text-gray-700">Prioridad</label>
+                                <select 
+                                    id="priority-select"
+                                    value={ticket.priority}
+                                    onChange={(e) => handlePriorityChange(e.target.value as TicketPriority)}
+                                    className="mt-1 block w-full p-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-red-500 focus:border-red-500"
+                                    disabled={ticket.status === 'closed'}
+                                >
+                                    {Object.entries(ticketPriorityTranslations).map(([key, value]) => (
+                                        <option key={key} value={key}>{value}</option>
+                                    ))}
+                                </select>
+                            </div>
                         </div>
                     </div>
+                    {/* FIN MODIFICACIÓN */}
+                    
                     <div className="bg-white p-6 rounded-lg shadow-md">
                         <strong className="block text-sm text-gray-500 mb-2">Agente Asignado</strong>
                         <p className="text-lg font-medium">{ticket.agent_name || 'No asignado'}</p>
@@ -178,7 +258,9 @@ const AgentTicketDetailPage: React.FC = () => {
                                 >
                                     <option value="">-- Selecciona un agente --</option>
                                     {agents.map(agent => (
-                                        <option key={agent.id} value={agent.id}>{agent.username}</option>
+                                        <option key={agent.id} value={agent.id}>
+                                            {agent.first_name && agent.last_name ? `${agent.first_name} ${agent.last_name}` : agent.username}
+                                        </option>
                                     ))}
                                 </select>
                                 <button 

@@ -7,6 +7,8 @@ import { TicketData, ActivityLog, ApiResponseError, AgentMetrics, AgentNote, Tic
 import { isAxiosErrorTypeGuard } from '../utils/typeGuards';
 import { toast } from 'react-toastify';
 import { formatLocalDate } from '../utils/dateFormatter';
+// ✅ IMPORTAR WIDGET
+import DepositariosWidget from '../components/Dashboard/DepositariosWidget';
 
 // --- Componente genérico para el Modal de Detalles (DISEÑO MEJORADO) ---
 const DetailsModal: React.FC<{ title: string; items: Partial<TicketData>[]; onClose: () => void; loading: boolean; role: 'agent' | 'admin' | 'client' }> = ({ title, items, onClose, loading, role }) => {
@@ -233,7 +235,8 @@ const AgentDashboard: React.FC = () => {
             <div className="container mx-auto p-4 sm:p-6 lg:p-8 bg-gray-50 min-h-screen">
                 <h1 className="text-2xl sm:text-3xl font-bold text-gray-800 mb-6 border-b pb-4">Dashboard de Agente</h1>
 
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
+                {/* ✅ GRILA DE MÉTRICAS + WIDGET */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
                     <button onClick={() => handleCardClick('assigned')} className="bg-white p-6 rounded-lg shadow-md text-center hover:shadow-xl transition-shadow text-left cursor-pointer">
                         <h3 className="text-lg font-semibold text-gray-600">Tickets Asignados</h3>
                         <p className="text-3xl sm:text-4xl font-bold text-indigo-600 mt-2">{agentMetrics?.assignedTickets ?? 0}</p>
@@ -246,6 +249,9 @@ const AgentDashboard: React.FC = () => {
                         <h3 className="text-lg font-semibold text-gray-600">Tickets Resueltos</h3>
                         <p className="text-3xl sm:text-4xl font-bold text-green-600 mt-2">{agentMetrics?.resolvedByMe ?? 0}</p>
                     </button>
+
+                    {/* ✅ WIDGET AQUI */}
+                    <DepositariosWidget />
                 </div>
 
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
@@ -314,4 +320,3 @@ const AgentDashboard: React.FC = () => {
 };
 
 export default AgentDashboard;
-

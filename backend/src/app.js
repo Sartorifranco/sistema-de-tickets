@@ -16,15 +16,18 @@ const server = http.createServer(app);
 // --- CONFIGURACIÓN DE CORS ---
 const allowedOrigins = [
   process.env.FRONTEND_URL,
-  'http://bacarsa.dyndns.org:3020',
-  'http://localhost:3020'
+  'http://bacarsa.dyndns.org:8001',
+  'http://localhost:3020',
+  'http://192.168.0.9:5040',
 ];
 
 const corsOptions = {
   origin: function (origin, callback) {
-    if (!origin || allowedOrigins.indexOf(origin) !== -1) {
+    console.log('[CORS] Petición recibida del origen:', origin);
+    if (!origin || allowedOrigins.includes(origin)) {
       callback(null, true);
     } else {
+      console.error(`[CORS] Origen RECHAZADO: ${origin}. No está en la lista de permitidos.`);
       callback(new Error('No permitido por la política de CORS'));
     }
   },
@@ -37,6 +40,14 @@ app.options('*', cors(corsOptions));
 app.use(express.json());
 
 app.use('/uploads', express.static(path.join(__dirname, '../uploads')));
+
+// ✅ SOLUCIÓN: Middleware para corregir la duplicación de /api/ en la URL
+app.use((req, res, next) => {
+  if (req.url.startsWith('/api/api/')) {
+    req.url = req.url.replace('/api/api/', '/api/');
+  }
+  next();
+});
 
 const io = new Server(server, {
   cors: corsOptions
@@ -65,7 +76,9 @@ const problemRoutes = require('./routes/problemRoutes');
 const categoryRoutes = require('./routes/categoryRoutes');
 const locationRoutes = require('./routes/locationRoutes');
 const { startCronJobs } = require('./services/cronJobs');
-// --- Conectar Rutas ---
+const depositarioRoutes = require('./routes/depositarioRoutes');
+
+// Las rutas de la API AHORA VAN ANTES de servir el frontend.
 app.use('/api/auth', authRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/tickets', ticketRoutes);
@@ -83,9 +96,10 @@ app.use('/api/problems', problemRoutes);
 app.use('/api/categories', categoryRoutes);
 app.use('/api/locations', locationRoutes);
 app.use('/api/admin', require('./routes/problemAdminRoutes'));
+app.use('/api/depositarios', depositarioRoutes);
 
 
-// --- Lógica de Socket.IO (sin cambios) ---
+// --- Lógica de Socket.IO ---
 io.on('connection', (socket) => {
   console.log(`[Socket.IO Server] Usuario conectado: ${socket.id}`);
   
@@ -95,15 +109,12 @@ io.on('connection', (socket) => {
           const decoded = jwt.verify(token, process.env.JWT_SECRET);
           socket.user = decoded;
           console.log(`[Socket.IO Server] Socket ${socket.id} autenticado como usuario ${decoded.id} (${decoded.role})`);
-
           socket.join(`user-${decoded.id}`);
           console.log(`[Socket.IO Server] Socket ${socket.id} se unió a la sala 'user-${decoded.id}'.`);
-          
           if (decoded.role) {
               socket.join(decoded.role);
               console.log(`[Socket.IO Server] Socket ${socket.id} se unió a la sala de rol '${decoded.role}'.`);
           }
-
       } catch (error) {
           console.error('[Socket.IO Server] Error de autenticación de token:', error.message);
           socket.disconnect(true);
@@ -117,20 +128,17 @@ io.on('connection', (socket) => {
   });
 });
 
-// --- SERVIR EL FRONTEND EN PRODUCCIÓN (sin cambios) ---
-if (process.env.NODE_ENV === 'production') {
-  app.use(express.static(path.join(__dirname, '../../frontend/build')));
-  app.get('*', (req, res) =>
-      res.sendFile(path.resolve(__dirname, '../../frontend', 'build', 'index.html'))
-  );
-} else {
-  app.get('/', (req, res) => res.send('API is running...'));
-}
-
+// --- SERVIR EL FRONTEND Y MANEJAR RUTAS DE REACT (Catch-all) ---
+// Esto ahora va DESPUÉS de las rutas de la API.
+app.use(express.static(path.join(__dirname, '../../frontend/build')));
+app.get('*', (req, res) => {
+  res.sendFile(path.resolve(__dirname, '../../frontend/build', 'index.html'));
+});
 
 
 const PORT = process.env.PORT || 5040;
 server.listen(PORT, '0.0.0.0', () => {
   console.log(`Servidor iniciado en http://0.0.0.0:${PORT}`);
-  startCronJobs(); // ✅ CORRECCIÓN: Se inicia la tarea programada aquí.
+  startCronJobs();
 });
+

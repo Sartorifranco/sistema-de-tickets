@@ -5,6 +5,7 @@ export interface Attachment {
     id: number;
     file_name: string;
     file_path: string;
+    file_type: string | null; // ✅ MODIFICACIÓN: Cambiado de 'any' a 'string | null'
 }
 
 export interface Comment {
@@ -33,6 +34,8 @@ export interface Company {
 export type UserRole = 'admin' | 'agent' | 'client';
 
 export interface User {
+    last_name: any;
+    first_name: any;
     id: number;
     username: string;
     email: string;
@@ -76,11 +79,11 @@ export type TicketStatus = 'open' | 'in-progress' | 'resolved' | 'closed' | 'reo
 export type TicketPriority = 'low' | 'medium' | 'high' | 'urgent';
 
 export interface TicketData {
-    category_name: ReactNode;
-    // ✅ CORRECCIÓN: 'closure_reason' se marca como opcional con '?'
+    ticket_department_name?: number | null; // Debería ser string?
+    category_name?: ReactNode; // Debería ser string?
     closure_reason?: string; 
     
-    user_username: ReactNode;
+    user_username?: ReactNode; // Este parece ser un tipo antiguo
     id: number;
     title: string;
     description: string;
@@ -97,10 +100,11 @@ export interface TicketData {
     // Nombres que vienen de los JOINs en el backend
     client_name: string; 
     agent_name: string | null;
+    ticket_category_name?: string; // Añadido en AdminTicketDetailPage
     
     // Propiedades opcionales
     comments?: Comment[];
-    attachments?: Attachment[];
+    attachments?: Attachment[]; // ✅ Esta línea ya estaba, lo cual es bueno
     
     // Otros campos que puedas tener
     closed_at?: string | null;
@@ -232,4 +236,39 @@ export interface UpdateUser {
     role?: UserRole;
     department_id?: number | null;
     company_id?: number | null;
+}
+// ====================================================================
+// DEPOSITARIOS & MANTENIMIENTO
+// ====================================================================
+export interface Depositario {
+    id: number;
+    alias: string;
+    company_id: number;
+    company_name?: string;
+    serial_number: string;
+    location_description: string;
+    address: string;
+    km_from_base: string;
+    duration_trip: string;
+    last_maintenance?: string; // Fecha
+}
+
+export interface MaintenanceTask {
+    name: string; // "Limpieza", "Clear RAM", etc.
+    done: boolean;
+    comment: string;
+}
+
+export interface MaintenanceRecord {
+    id: number;
+    depositario_id: number;
+    user_id: number;
+    username: string; // Del técnico
+    first_name?: string;
+    last_name?: string;
+    companion_name?: string;
+    maintenance_date: string;
+    tasks_log: MaintenanceTask[]; // JSON parseado
+    observations: string;
+    created_at: string;
 }

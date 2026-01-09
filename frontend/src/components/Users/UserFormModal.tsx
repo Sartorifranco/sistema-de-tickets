@@ -1,6 +1,7 @@
-// src/components/Users/UserFormModal.tsx
 import React, { useState, useEffect } from 'react';
+import api from '../../config/axiosConfig';
 import { User, Department, Company, NewUser, UpdateUser } from '../../types';
+import { toast } from 'react-toastify';
 
 interface UserFormModalProps {
     isOpen: boolean;
@@ -12,7 +13,7 @@ interface UserFormModalProps {
 }
 
 const UserFormModal: React.FC<UserFormModalProps> = ({ isOpen, onClose, onSave, initialData, departments, companies }) => {
-    // Estado inicial del formulario
+    
     const getInitialFormData = () => ({
         firstName: '',
         lastName: '',
@@ -26,11 +27,12 @@ const UserFormModal: React.FC<UserFormModalProps> = ({ isOpen, onClose, onSave, 
 
     const [formData, setFormData] = useState(getInitialFormData);
     const [loading, setLoading] = useState(false);
+    const [isInternal, setIsInternal] = useState(false);
 
-    // Efecto para resetear el formulario cuando se abre o cambian los datos iniciales
     useEffect(() => {
         if (isOpen) {
             setFormData(getInitialFormData());
+            setIsInternal(false);
         }
     }, [initialData, isOpen]);
 
@@ -45,30 +47,27 @@ const UserFormModal: React.FC<UserFormModalProps> = ({ isOpen, onClose, onSave, 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         
-        if (!initialData && formData.password !== formData.confirmPassword) {
+        if (!initialData && !isInternal && formData.password !== formData.confirmPassword) {
             alert("Las contraseñas no coinciden.");
             return;
         }
 
         setLoading(true);
         try {
-            let dataToSave: NewUser | UpdateUser;
-
             if (initialData) {
-                // Editando un usuario existente
+                // UPDATE (Usa la función onSave del padre)
                 const updateData: UpdateUser = {
                     email: formData.email,
                     role: formData.role,
                     department_id: formData.department_id,
                     company_id: formData.company_id,
                 };
-                if (formData.password) {
-                    updateData.password = formData.password;
-                }
-                dataToSave = updateData;
+                if (formData.password) updateData.password = formData.password;
+                
+                await onSave(updateData);
             } else {
-                // Creando un nuevo usuario
-                const newData: NewUser = {
+                // CREATE (Nuevo Usuario)
+                const newData = {
                     firstName: formData.firstName,
                     lastName: formData.lastName,
                     email: formData.email,
@@ -76,15 +75,24 @@ const UserFormModal: React.FC<UserFormModalProps> = ({ isOpen, onClose, onSave, 
                     role: formData.role,
                     department_id: formData.department_id,
                     company_id: formData.company_id,
+                    isInternal: isInternal // Flag para usuario interno
                 };
-                dataToSave = newData;
-            }
 
-            await onSave(dataToSave);
+                // ⚠️ CAMBIO CLAVE: Usamos '/users' en lugar de '/auth/register'
+                // Esto asegura que use la función createUser del backend (la que modificamos)
+                await api.post('/api/users', newData);
+                
+                toast.success('Usuario creado exitosamente.');
+                
+                // Recargar para ver el nuevo usuario en la tabla
+                window.location.reload(); 
+            }
+            
             onClose();
-        } catch (error) {
-            console.error('Error en UserFormModal al guardar:', error);
-            // La notificación de error se maneja en la página padre
+        } catch (error: any) {
+            console.error('Error:', error);
+            const msg = error.response?.data?.message || 'Error al guardar usuario';
+            toast.error(msg);
         } finally {
             setLoading(false);
         }
@@ -99,35 +107,59 @@ const UserFormModal: React.FC<UserFormModalProps> = ({ isOpen, onClose, onSave, 
                     {initialData ? 'Editar Usuario' : 'Crear Nuevo Usuario'}
                 </h2>
                 <form onSubmit={handleSubmit}>
-                    {/* Campos de Nombre y Apellido (solo para creación) */}
+                    
                     {!initialData && (
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-                            <div>
-                                <label className="block text-gray-700 font-medium">Nombre:</label>
-                                <input type="text" name="firstName" value={formData.firstName} onChange={handleChange} className="w-full p-2 border rounded mt-1" required disabled={loading} />
+                        <>
+                            {/* CHECKBOX INTERNO */}
+                            <div className="bg-yellow-50 p-3 rounded-md border border-yellow-200 flex items-center gap-3 mb-4">
+                                <input 
+                                    type="checkbox" 
+                                    id="isInternal"
+                                    checked={isInternal}
+                                    onChange={(e) => setIsInternal(e.target.checked)}
+                                    className="w-5 h-5 text-yellow-600 rounded cursor-pointer"
+                                />
+                                <label htmlFor="isInternal" className="text-sm font-bold text-gray-700 cursor-pointer select-none">
+                                    Usuario Interno (Sin Acceso)
+                                    <span className="block text-xs font-normal text-gray-500">
+                                        No requiere email ni contraseña. Solo para asignación de tickets.
+                                    </span>
+                                </label>
                             </div>
-                            <div>
-                                <label className="block text-gray-700 font-medium">Apellido:</label>
-                                <input type="text" name="lastName" value={formData.lastName} onChange={handleChange} className="w-full p-2 border rounded mt-1" required disabled={loading} />
+
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                                <div>
+                                    <label className="block text-gray-700 font-medium">Nombre:</label>
+                                    <input type="text" name="firstName" value={formData.firstName} onChange={handleChange} className="w-full p-2 border rounded mt-1" required disabled={loading} />
+                                </div>
+                                <div>
+                                    <label className="block text-gray-700 font-medium">Apellido:</label>
+                                    <input type="text" name="lastName" value={formData.lastName} onChange={handleChange} className="w-full p-2 border rounded mt-1" required disabled={loading} />
+                                </div>
                             </div>
-                        </div>
+                        </>
                     )}
                     
-                    <div className="mb-4">
-                        <label className="block text-gray-700 font-medium">Email:</label>
-                        <input type="email" name="email" value={formData.email} onChange={handleChange} className="w-full p-2 border rounded mt-1" required disabled={loading} />
-                    </div>
+                    {/* Campos de Email y Password ocultos si es interno */}
+                    {!isInternal && (
+                        <>
+                            <div className="mb-4">
+                                <label className="block text-gray-700 font-medium">Email:</label>
+                                <input type="email" name="email" value={formData.email} onChange={handleChange} className="w-full p-2 border rounded mt-1" required={!isInternal} disabled={loading} />
+                            </div>
 
-                    <div className="mb-4">
-                        <label className="block text-gray-700 font-medium">{initialData ? 'Nueva Contraseña (opcional)' : 'Contraseña'}:</label>
-                        <input type="password" name="password" value={formData.password} onChange={handleChange} className="w-full p-2 border rounded mt-1" required={!initialData} disabled={loading} />
-                    </div>
+                            <div className="mb-4">
+                                <label className="block text-gray-700 font-medium">{initialData ? 'Nueva Contraseña (opcional)' : 'Contraseña'}:</label>
+                                <input type="password" name="password" value={formData.password} onChange={handleChange} className="w-full p-2 border rounded mt-1" required={!initialData && !isInternal} disabled={loading} />
+                            </div>
 
-                    {!initialData && (
-                         <div className="mb-4">
-                            <label className="block text-gray-700 font-medium">Confirmar Contraseña:</label>
-                            <input type="password" name="confirmPassword" value={formData.confirmPassword} onChange={handleChange} className="w-full p-2 border rounded mt-1" required={!initialData} disabled={loading} />
-                        </div>
+                            {!initialData && (
+                                 <div className="mb-4">
+                                    <label className="block text-gray-700 font-medium">Confirmar Contraseña:</label>
+                                    <input type="password" name="confirmPassword" value={formData.confirmPassword} onChange={handleChange} className="w-full p-2 border rounded mt-1" required={!initialData && !isInternal} disabled={loading} />
+                                </div>
+                            )}
+                        </>
                     )}
 
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">

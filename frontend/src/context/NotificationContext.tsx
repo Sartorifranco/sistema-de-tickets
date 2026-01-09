@@ -1,111 +1,190 @@
-import React, { createContext, useState, useContext, ReactNode, useCallback, useEffect } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback, ReactNode } from 'react';
 import { toast } from 'react-toastify';
-import { Notification } from '../types';
-import api from '../config/axiosConfig';
-import { useAuth } from './AuthContext';
-import { SocketInstance } from '../App';
+// 🛑 Importamos 'io' y el namespace completo para los tipos
+import io, * as SocketIOClient from 'socket.io-client'; 
+import api from '../config/axiosConfig'; 
+import { useAuth } from './AuthContext'; 
+
+// 1. DEFINICIÓN DE TIPOS CLAVE
+interface Notification {
+    id: number;
+    user_id: number;
+    message: string;
+    type: string;
+    related_id: number;
+    related_type: string;
+    is_read: boolean;
+    created_at: string;
+}
+
+type ToastType = 'success' | 'error' | 'info' | 'warning';
 
 interface NotificationContextType {
+    // ✅ CRÍTICO: Exponemos el socket aquí para que AdminDashboard lo pueda usar
+    socket: SocketIOClient.Socket | null; 
     notifications: Notification[];
     unreadCount: number;
     fetchNotifications: () => Promise<void>;
-    markNotificationAsRead: (notificationId: number) => Promise<void>;
+    markNotificationAsRead: (id: number) => Promise<void>;
     markAllNotificationsAsRead: () => Promise<void>;
-    deleteNotification: (notificationId: number) => Promise<void>;
+    deleteNotification: (id: number) => Promise<void>;
     deleteAllNotifications: () => Promise<void>;
-    addNotification: (message: string, type: 'info' | 'success' | 'error' | 'warning') => void;
-    socket: SocketInstance | null;
+    addNotification: (message: string, type: ToastType) => void;
 }
 
 const NotificationContext = createContext<NotificationContextType | undefined>(undefined);
 
-export const NotificationProvider: React.FC<{ children: ReactNode, socket: SocketInstance | null }> = ({ children, socket }) => {
-    const [notifications, setNotifications] = useState<Notification[]>([]);
-    const [unreadCount, setUnreadCount] = useState(0);
-    const { isAuthenticated } = useAuth();
+const SOCKET_SERVER_URL = 'http://bacarsa.dyndns.org:5040';
 
-    const addNotification = useCallback((message: string, type: 'info' | 'success' | 'error' | 'warning') => {
-        toast[type](message);
+// 2. COMPONENTE PROVIDER
+export const NotificationProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
+    const [notifications, setNotifications] = useState<Notification[]>([]); 
+    const [unreadCount, setUnreadCount] = useState<number>(0);
+    // ✅ Usamos el tipo Socket explícitamente
+    const [socket, setSocket] = useState<SocketIOClient.Socket | null>(null); 
+    const { isAuthenticated, user } = useAuth(); 
+
+    const addNotification = useCallback((message: string, type: ToastType) => {
+        if (toast[type]) {
+            (toast[type] as any)(message); 
+        } else {
+            toast.info(message); 
+        }
     }, []);
 
     const fetchNotifications = useCallback(async () => {
-        if (!isAuthenticated) return;
-        try {
-            const response = await api.get('/api/notifications');
-            const fetched = response.data.data || [];
-            setNotifications(fetched);
-            setUnreadCount(fetched.filter((n: Notification) => !n.is_read).length);
-        } catch (error) {
-            console.error("Error fetching notifications:", error);
+        if (isAuthenticated) {
+            try {
+                const res = await api.get('/api/notifications');
+                const data: Notification[] = res.data.data || []; 
+                setNotifications(data);
+                setUnreadCount(data.filter((n: Notification) => !n.is_read).length);
+            } catch (error) {
+                console.error("Error fetching notifications:", error);
+            }
         }
     }, [isAuthenticated]);
 
+    // --- Lógica de Conexión de Socket.IO ---
+    useEffect(() => {
+        if (isAuthenticated && user) {
+            const token = localStorage.getItem('token'); 
+            
+            // ✅ Conexión al socket
+            const newSocket: SocketIOClient.Socket = io(SOCKET_SERVER_URL, { 
+                auth: {
+                    token: token, 
+                },
+                transports: ['websocket', 'polling']
+            });
+
+            setSocket(newSocket); 
+            console.log(`[Frontend Socket] Intentando conectar a ${SOCKET_SERVER_URL}...`);
+
+            newSocket.on("connect_error", (err: Error) => {
+                console.error(`[Frontend Socket] Error de conexión: ${err.message}`);
+            });
+            
+            newSocket.on('connect', () => {
+                console.log(`[Frontend Socket] Conectado. ID: ${newSocket.id}`);
+            });
+
+            return () => {
+                newSocket.disconnect();
+                setSocket(null);
+                console.log(`[Frontend Socket] Desconectado.`);
+            };
+        } else {
+            // Si se desloguea, desconectar
+            if (socket) {
+                socket.disconnect();
+                setSocket(null);
+            }
+        }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [isAuthenticated, user]); // Quitamos 'socket' de dependencias para evitar bucles, usamos cleanup function
+
+    // --- Lógica de Escucha de Eventos (Real-time) ---
+    useEffect(() => {
+        if (socket) { 
+            const handleNewNotification = (notification: Notification) => {
+                toast.info(`🔔 ${notification.message}`);
+                
+                setNotifications((prev: Notification[]) => [notification, ...prev]); 
+                setUnreadCount((prev) => prev + 1);
+            };
+
+            const handleDashboardUpdate = (data: { message: string }) => {
+                console.log("Evento dashboard_update recibido:", data.message);
+            };
+
+            socket.on('new_notification', handleNewNotification);
+            socket.on('dashboard_update', handleDashboardUpdate); 
+
+            return () => {
+                socket.off('new_notification', handleNewNotification);
+                socket.off('dashboard_update', handleDashboardUpdate);
+            };
+        }
+    }, [socket]); 
+
+    // --- Polling y Carga Inicial ---
+    useEffect(() => {
+        if (!isAuthenticated) return;
+
+        fetchNotifications();
+
+        const intervalId = setInterval(() => {
+            console.log("Auto-actualizando notificaciones (polling de respaldo)...");
+            fetchNotifications();
+        }, 120000); 
+
+        return () => clearInterval(intervalId);
+    }, [isAuthenticated, fetchNotifications]);
+
+    // --- Funciones CRUD ---
     const markNotificationAsRead = useCallback(async (id: number) => {
         try {
             await api.put(`/api/notifications/${id}/read`);
             fetchNotifications();
-        } catch (err) {
-            addNotification('Error al marcar la notificación.', 'error');
+        } catch (error) {
+            console.error(error);
         }
-    }, [fetchNotifications, addNotification]);
+    }, [fetchNotifications]);
 
     const markAllNotificationsAsRead = useCallback(async () => {
         try {
-            await api.put(`/api/notifications`); // Ruta corregida para coincidir con el backend
+            await api.put('/api/notifications');
             addNotification('Todas las notificaciones marcadas como leídas.', 'success');
             fetchNotifications();
-        } catch (err) {
-            addNotification('Error al marcar todas las notificaciones.', 'error');
+        } catch (error) {
+            addNotification('Error al marcar notificaciones.', 'error');
         }
     }, [fetchNotifications, addNotification]);
-    
+
     const deleteNotification = useCallback(async (id: number) => {
         try {
             await api.delete(`/api/notifications/${id}`);
             addNotification('Notificación eliminada.', 'success');
             fetchNotifications();
-        } catch (err) {
-            addNotification('Error al eliminar la notificación.', 'error');
+        } catch (error) {
+            addNotification('Error al eliminar notificación.', 'error');
         }
     }, [fetchNotifications, addNotification]);
 
     const deleteAllNotifications = useCallback(async () => {
         try {
-            await api.delete(`/api/notifications/delete-all`);
-            addNotification('Todas las notificaciones han sido eliminadas.', 'success');
+            await api.delete('/api/notifications/delete-all');
+            addNotification('Todas las notificaciones eliminadas.', 'success');
             fetchNotifications();
-        } catch (err) {
-            addNotification('Error al eliminar las notificaciones.', 'error');
+        } catch (error) {
+            addNotification('Error al eliminar notificaciones.', 'error');
         }
     }, [fetchNotifications, addNotification]);
 
-    useEffect(() => {
-        if (isAuthenticated) {
-            fetchNotifications();
-        }
-    }, [isAuthenticated, fetchNotifications]);
-
-    // ✅ CORRECCIÓN: Lógica para escuchar y manejar notificaciones en tiempo real
-    useEffect(() => {
-        if (socket) {
-            const handleNotification = (newNotification: Notification) => {
-                toast.info(`🔔 ${newNotification.message}`);
-                // Actualiza el estado de forma optimista para una respuesta instantánea
-                setNotifications(prev => [newNotification, ...prev]);
-                setUnreadCount(prev => prev + 1);
-            };
-
-            // Escucha el evento 'new_notification' que envía el backend
-            socket.on('new_notification', handleNotification);
-
-            // Limpia el listener al desmontar el componente para evitar duplicados
-            return () => {
-                socket.off('new_notification', handleNotification);
-            };
-        }
-    }, [socket]); // El array de dependencias solo necesita el socket
-
-    const value = {
+    // 3. OBJETO VALUE: Aquí agregamos 'socket'
+    const value: NotificationContextType = { 
+        socket, // ✅ AHORA SÍ ESTÁ DISPONIBLE PARA EL RESTO DE LA APP
         notifications,
         unreadCount,
         fetchNotifications,
@@ -114,16 +193,12 @@ export const NotificationProvider: React.FC<{ children: ReactNode, socket: Socke
         deleteNotification,
         deleteAllNotifications,
         addNotification,
-        socket,
     };
 
-    return (
-        <NotificationContext.Provider value={value}>
-            {children}
-        </NotificationContext.Provider>
-    );
+    return <NotificationContext.Provider value={value}>{children}</NotificationContext.Provider>;
 };
 
+// 4. HOOK CUSTOM
 export const useNotification = () => {
     const context = useContext(NotificationContext);
     if (context === undefined) {

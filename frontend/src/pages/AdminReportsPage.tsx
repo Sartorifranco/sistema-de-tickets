@@ -1,36 +1,36 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { Link } from 'react-router-dom';
 import api from '../config/axiosConfig';
 import { useAuth } from '../context/AuthContext';
-import { ApiResponseError, TicketData } from '../types';
+import { ApiResponseError, TicketData, User, Company, Department, TicketCategory } from '../types';
 import { isAxiosErrorTypeGuard } from '../utils/typeGuards';
-import { Bar, Pie } from 'react-chartjs-2';
-import { Chart as ChartJS, CategoryScale, LinearScale, BarElement, Title, Tooltip, Legend, ArcElement, Chart } from 'chart.js';
+import { Bar, Pie, Line, getElementAtEvent } from 'react-chartjs-2';
+import 'chart.js/auto'; 
+import type { Chart, ChartData } from 'chart.js'; 
 import jsPDF from 'jspdf';
-import 'jspdf-autotable';
-import html2canvas from 'html2canvas'; // Importación necesaria para el PDF
+import autoTable from 'jspdf-autotable'; // ✅ Importación corregida
+import html2canvas from 'html2canvas';
 import { ticketStatusTranslations, ticketPriorityTranslations } from '../utils/traslations';
 import { toast } from 'react-toastify';
-import { getElementAtEvent } from 'react-chartjs-2';
-import autoTable from 'jspdf-autotable';
 
-// Declaración para autoTable
-declare module 'jspdf' {
-    interface jsPDF {
-        autoTable: (options: any) => jsPDF;
-    }
-}
-
-ChartJS.register(CategoryScale, LinearScale, BarElement, Title, Tooltip, Legend, ArcElement);
-
-// --- Interfaces para los datos de reportes ---
+// ✅ Interfaces corregidas como Arrays
 interface ReportData {
     ticketsByStatus: { status: string; count: number }[];
     ticketsByPriority: { priority: string; count: number }[];
-    ticketsByDepartment: { departmentName: string; count: number }[];
-    companyReport: { companyName: string; ticketCount: number, companyId: number }[];
-    agentPerformance: { username: string; assignedTickets: number; closedTickets: number, agentId: number }[];
-    agentResolutionTimes: { agentName: string; resolvedTickets: number; avgResolutionTimeHours: number | null }[];
+    ticketsByDepartment: { departmentName: string; count: number; departmentId: number }[]; 
+    agentPerformance: { agentName: string; assignedTickets: number; closedTickets: number, agentId: number }[];
+    agentResolutionTimes: { agentName: string; resolvedTickets: number; avgResolutionTimeHours: number | null, agentId: number }[];
+    ticketsByCategory: { categoryName: string; count: number; categoryId: number }[]; 
+    topClients: { clientName: string; count: number, clientId: number }[];
+    ticketsByHour: { hour: number; count: number }[];
+}
+
+// --- Interface para los datos de los filtros ---
+interface FilterOptions {
+    agents: User[];
+    clients: User[];
+    companies: Company[];
+    departments: Department[];
+    categories: TicketCategory[];
 }
 
 // --- Componente para el Modal de Detalles ---
@@ -47,7 +47,7 @@ const DetailsModal: React.FC<{ title: string; items: Partial<TicketData>[]; onCl
                             {items.map((ticket) => (
                                 <li key={ticket.id} className="p-2 border-b flex justify-between items-center">
                                     <span>#{ticket.id} - {ticket.title} ({ticket.client_name})</span>
-                                    <Link to={`/admin/tickets/${ticket.id}`} className="text-red-600 hover:underline">Ver</Link>
+                                    <span className="text-sm text-gray-500">Estado: {ticketStatusTranslations[ticket.status as keyof typeof ticketStatusTranslations] || ticket.status}</span>
                                 </li>
                             ))}
                         </ul>
@@ -69,8 +69,23 @@ const AdminReportsPage: React.FC = () => {
     const [error, setError] = useState<string | null>(null);
     const [isDownloading, setIsDownloading] = useState(false);
     
-    const [startDate, setStartDate] = useState('2020-01-01');
-    const [endDate, setEndDate] = useState(new Date().toISOString().split('T')[0]);
+    const [filters, setFilters] = useState({
+        startDate: '2020-01-01',
+        endDate: new Date().toISOString().split('T')[0],
+        agentId: '',
+        companyId: '',
+        departmentId: '',
+        categoryId: '',
+        clientId: ''
+    });
+    
+    const [filterOptions, setFilterOptions] = useState<FilterOptions>({
+        agents: [],
+        clients: [],
+        companies: [],
+        departments: [],
+        categories: []
+    });
 
     // Estados para el modal
     const [isModalOpen, setIsModalOpen] = useState(false);
@@ -79,17 +94,55 @@ const AdminReportsPage: React.FC = () => {
 
     // Referencias para los gráficos
     const reportContainerRef = useRef<HTMLDivElement>(null);
-    const statusChartRef = useRef<ChartJS<'pie'>>(null);
-    const priorityChartRef = useRef<ChartJS<'bar'>>(null);
-    const departmentChartRef = useRef<ChartJS<'bar'>>(null);
-    const companyChartRef = useRef<ChartJS<'bar'>>(null);
-    const agentChartRef = useRef<ChartJS<'bar'>>(null);
+    const statusChartRef = useRef<Chart<'pie'>>(null);
+    const priorityChartRef = useRef<Chart<'bar'>>(null);
+    const departmentChartRef = useRef<Chart<'bar'>>(null);
+    const categoryChartRef = useRef<Chart<'bar'>>(null);
+    const hourChartRef = useRef<Chart<'line'>>(null);
+    const agentChartRef = useRef<Chart<'bar'>>(null);
 
+    // Cargar todos los datos para los filtros
+    useEffect(() => {
+        const fetchFilterData = async () => {
+            try {
+                const [agentsRes, clientsRes, companiesRes, departmentsRes, categoriesRes] = await Promise.all([
+                    api.get('/api/users/agents'),
+                    api.get('/api/users?role=client'), 
+                    api.get('/api/companies'),
+                    api.get('/api/departments'),
+                    api.get('/api/tickets/categories')
+                ]);
+                setFilterOptions({
+                    agents: agentsRes.data.data || [],
+                    clients: clientsRes.data.data || [],
+                    companies: companiesRes.data.data || [],
+                    departments: departmentsRes.data.data || [],
+                    categories: categoriesRes.data.data || []
+                });
+            } catch (error) {
+                toast.error("No se pudo cargar la data para los filtros.");
+            }
+        };
+        if (user?.role === 'admin') {
+            fetchFilterData();
+        }
+    }, [user]);
+
+    // Cargar datos de reportes
     const fetchReportData = useCallback(async () => {
         setLoading(true);
         setError(null);
         try {
-            const res = await api.get(`/api/reports?startDate=${startDate}&endDate=${endDate}`);
+            const params = new URLSearchParams();
+            params.append('startDate', filters.startDate);
+            params.append('endDate', filters.endDate);
+            if (filters.agentId) params.append('agentId', filters.agentId);
+            if (filters.companyId) params.append('companyId', filters.companyId);
+            if (filters.departmentId) params.append('departmentId', filters.departmentId);
+            if (filters.categoryId) params.append('categoryId', filters.categoryId);
+            if (filters.clientId) params.append('clientId', filters.clientId);
+            
+            const res = await api.get(`/api/reports?${params.toString()}`);
             setReportData(res.data.data);
         } catch (err) {
             const message = isAxiosErrorTypeGuard(err) ? (err.response?.data as ApiResponseError)?.message || 'Error al cargar los reportes.' : 'Error inesperado.';
@@ -97,7 +150,7 @@ const AdminReportsPage: React.FC = () => {
         } finally {
             setLoading(false);
         }
-    }, [startDate, endDate]);
+    }, [filters]);
 
     useEffect(() => {
         if (user?.role === 'admin') {
@@ -105,16 +158,25 @@ const AdminReportsPage: React.FC = () => {
         }
     }, [user, fetchReportData]);
 
-    // Función para abrir el modal con los tickets filtrados
-    const showFilteredTickets = async (title: string, filters: Record<string, string | string[]>) => {
+    // Mostrar tickets filtrados en modal
+    const showFilteredTickets = async (title: string, modalFilters: Record<string, string | string[]>) => {
         setModalLoading(true);
         setIsModalOpen(true);
 
         try {
             const params = new URLSearchParams();
-            params.append('startDate', startDate);
-            params.append('endDate', endDate);
-            Object.entries(filters).forEach(([key, value]) => {
+            // Aplicar filtros globales de la página
+            params.append('startDate', filters.startDate);
+            params.append('endDate', filters.endDate);
+            if (filters.agentId) params.append('agentId', filters.agentId);
+            if (filters.companyId) params.append('companyId', filters.companyId);
+            if (filters.departmentId) params.append('departmentId', filters.departmentId);
+            if (filters.categoryId) params.append('categoryId', filters.categoryId);
+            if (filters.clientId) params.append('clientId', filters.clientId);
+
+            // Sobrescribir con filtros específicos del clic
+            Object.entries(modalFilters).forEach(([key, value]) => {
+                params.delete(key); 
                 if (Array.isArray(value)) {
                     value.forEach(v => params.append(key, v));
                 } else {
@@ -131,40 +193,51 @@ const AdminReportsPage: React.FC = () => {
             setModalLoading(false);
         }
     };
-
-    // Manejadores de clic para cada gráfico
-    const handleChartClick = (ref: React.RefObject<Chart<any>>, event: React.MouseEvent<HTMLCanvasElement>, type: 'status' | 'priority' | 'department' | 'company' | 'agentPerformance') => {
+    
+    // Click en gráficos
+    const handleChartClick = (ref: React.RefObject<Chart<'pie' | 'bar' | 'line'>>, event: React.MouseEvent<HTMLCanvasElement>, type: 'status' | 'priority' | 'department' | 'agentPerformance' | 'category' | 'client' | 'hour') => {
         if (!ref.current || !reportData) return;
         const element = getElementAtEvent(ref.current, event);
         if (!element.length) return;
 
         const { index } = element[0];
-        let filters: Record<string, string> = {};
+        let modalFilters: Record<string, string> = {};
         let title = '';
 
         if (type === 'status') {
             const statusKey = reportData.ticketsByStatus[index].status;
-            filters = { status: statusKey };
+            modalFilters = { status: statusKey };
             title = ticketStatusTranslations[statusKey as keyof typeof ticketStatusTranslations] || statusKey;
         } else if (type === 'priority') {
             const priorityKey = reportData.ticketsByPriority[index].priority;
-            filters = { priority: priorityKey };
+            modalFilters = { priority: priorityKey };
             title = ticketPriorityTranslations[priorityKey as keyof typeof ticketPriorityTranslations] || priorityKey;
         } else if (type === 'department') {
-            const deptName = reportData.ticketsByDepartment[index].departmentName;
-            filters = { departmentName: deptName };
-            title = deptName;
-        } else if (type === 'company') {
-            const companyId = reportData.companyReport[index].companyId;
-            filters = { companyId: String(companyId) };
-            title = reportData.companyReport[index].companyName;
+            const deptId = reportData.ticketsByDepartment[index].departmentId;
+            modalFilters = { departmentId: String(deptId) };
+            title = reportData.ticketsByDepartment[index].departmentName;
+        } else if (type === 'category') {
+            const catId = reportData.ticketsByCategory[index].categoryId;
+            modalFilters = { categoryId: String(catId) };
+            title = reportData.ticketsByCategory[index].categoryName;
+        } else if (type === 'client') {
+            const clientId = reportData.topClients[index].clientId;
+            modalFilters = { clientId: String(clientId) }; 
+            title = `Cliente: ${reportData.topClients[index].clientName}`;
         } else if (type === 'agentPerformance') {
              const agentId = reportData.agentPerformance[index].agentId;
-             filters = { agentId: String(agentId) };
-             title = reportData.agentPerformance[index].username;
+             modalFilters = { agentId: String(agentId) };
+             title = `Agente: ${reportData.agentPerformance[index].agentName}`;
         }
         
-        showFilteredTickets(title, filters);
+        if (Object.keys(modalFilters).length > 0) {
+            showFilteredTickets(title, modalFilters);
+        }
+    };
+
+    // Manejador para los cambios en los filtros
+    const handleFilterChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
+        setFilters(prev => ({ ...prev, [e.target.name]: e.target.value }));
     };
 
     const handleGenerateReport = (e: React.FormEvent) => {
@@ -172,32 +245,46 @@ const AdminReportsPage: React.FC = () => {
         fetchReportData();
     };
 
-    // ✅ CORRECCIÓN: Se completa la función handleDownloadPdf
+    // Descargar PDF - ✅ FUNCIÓN CORREGIDA
     const handleDownloadPdf = async () => {
         if (!reportData || !reportContainerRef.current) return;
         setIsDownloading(true);
         toast.info("Generando PDF, por favor espera...");
-
         try {
             const doc = new jsPDF('p', 'mm', 'a4');
             doc.setFontSize(18);
             doc.text('Reporte General del Sistema de Tickets', 14, 22);
             doc.setFontSize(11);
             doc.setTextColor(100);
-            doc.text(`Generado el: ${new Date().toLocaleString('es-AR')} | Rango: ${startDate} a ${endDate}`, 14, 30);
-
-            // Añadir tablas
+            
+            const agentName = filters.agentId ? filterOptions.agents.find(a => a.id === parseInt(filters.agentId, 10)) : null;
+            let subtitle = `Rango: ${filters.startDate} a ${filters.endDate}`;
+            if (agentName) subtitle += ` | Agente: ${agentName.first_name} ${agentName.last_name}`;
+            doc.text(subtitle, 14, 30);
+            
+            // ✅ Uso correcto de autoTable como función externa
             autoTable(doc, {
                 startY: 40,
                 head: [['Estado del Ticket', 'Cantidad']],
                 body: reportData.ticketsByStatus.map(item => [ticketStatusTranslations[item.status as keyof typeof ticketStatusTranslations] || item.status, item.count]),
             });
+
+            // Las tablas siguientes se acomodan automáticamente debajo de la anterior
             autoTable(doc, {
                 head: [['Agente', 'Tickets Resueltos', 'Tiempo Promedio (Horas)']],
-                body: reportData.agentResolutionTimes.map(item => [item.agentName, item.resolvedTickets, item.avgResolutionTimeHours !== null ? `${item.avgResolutionTimeHours} hs` : 'N/A']),
+                body: reportData.agentResolutionTimes.map(item => [item.agentName, item.resolvedTickets, item.avgResolutionTimeHours !== null ? `${item.avgResolutionTimeHours.toFixed(2)} hs` : 'N/A']),
             });
 
-            // Añadir gráficos como imágenes
+            autoTable(doc, {
+                head: [['Top Clientes', 'Cantidad de Tickets']],
+                body: reportData.topClients.map(item => [item.clientName, item.count]),
+            });
+
+            autoTable(doc, {
+                head: [['Problemática', 'Cantidad de Tickets']],
+                body: reportData.ticketsByCategory.map(item => [item.categoryName, item.count]),
+            });
+
             const canvas = await html2canvas(reportContainerRef.current, { scale: 2 });
             const imgData = canvas.toDataURL('image/png');
             doc.addPage();
@@ -206,7 +293,7 @@ const AdminReportsPage: React.FC = () => {
             const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
             doc.addImage(imgData, 'PNG', 14, 30, pdfWidth, pdfHeight);
 
-            doc.save(`reporte-tickets-${endDate}.pdf`);
+            doc.save(`reporte-tickets-${filters.endDate}.pdf`);
             toast.success("PDF generado exitosamente!");
         } catch (err) {
             toast.error("No se pudo generar el PDF.");
@@ -220,27 +307,47 @@ const AdminReportsPage: React.FC = () => {
     if (error) return <div className="p-8 text-center text-red-500">{error}</div>;
     if (!reportData) return <div className="p-8 text-center">No se encontraron datos.</div>;
 
-    const statusChartData = {
+    // --- Definición de Datos para Gráficos ---
+    
+    const statusChartData: ChartData<'pie'> = {
         labels: reportData.ticketsByStatus.map(item => ticketStatusTranslations[item.status as keyof typeof ticketStatusTranslations] || item.status),
         datasets: [{ data: reportData.ticketsByStatus.map(item => item.count), backgroundColor: ['#3B82F6', '#6B7280', '#F59E0B', '#10B981', '#8B5CF6', '#EF4444'] }],
     };
-    const priorityChartData = {
+    const priorityChartData: ChartData<'bar'> = {
         labels: reportData.ticketsByPriority.map(item => ticketPriorityTranslations[item.priority as keyof typeof ticketPriorityTranslations] || item.priority),
-        datasets: [{ data: reportData.ticketsByPriority.map(item => item.count), backgroundColor: ['#10B981', '#F59E0B', '#EF4444', '#DC2626'] }],
+        datasets: [{ label: 'Tickets', data: reportData.ticketsByPriority.map(item => item.count), backgroundColor: ['#10B981', '#F59E0B', '#EF4444', '#DC2626'] }],
     };
-    const departmentChartData = {
+    const departmentChartData: ChartData<'bar'> = {
         labels: reportData.ticketsByDepartment.map(item => item.departmentName),
         datasets: [{ label: 'Tickets', data: reportData.ticketsByDepartment.map(item => item.count), backgroundColor: '#14B8A6' }],
     };
-    const companyChartData = {
-        labels: reportData.companyReport.map(item => item.companyName),
-        datasets: [{ label: 'Tickets', data: reportData.companyReport.map(item => item.ticketCount), backgroundColor: '#3B82F6' }],
+    
+    const categoryChartData: ChartData<'bar'> = {
+        labels: reportData.ticketsByCategory.map(item => item.categoryName),
+        datasets: [{ label: 'Tickets', data: reportData.ticketsByCategory.map(item => item.count), backgroundColor: '#8B5CF6' }],
     };
-    const agentChartData = {
-        labels: reportData.agentPerformance.map(item => item.username),
+
+    const ticketsByHourData = Array(24).fill(0);
+    reportData.ticketsByHour.forEach(item => {
+        ticketsByHourData[item.hour] = item.count;
+    });
+    const hourChartData: ChartData<'line'> = {
+        labels: Array.from({ length: 24 }, (_, i) => `${i}:00`),
+        datasets: [{
+            label: 'Tickets Creados',
+            data: ticketsByHourData,
+            fill: true,
+            backgroundColor: 'rgba(59, 130, 246, 0.2)',
+            borderColor: 'rgba(59, 130, 246, 1)',
+            tension: 0.3
+        }],
+    };
+
+    const agentChartData: ChartData<'bar'> = {
+        labels: reportData.agentPerformance.map(item => item.agentName), 
         datasets: [
             { label: 'Asignados', data: reportData.agentPerformance.map(item => item.assignedTickets), backgroundColor: '#10B981' },
-            { label: 'Cerrados', data: reportData.agentPerformance.map(item => item.closedTickets), backgroundColor: '#8B5CF6' },
+            { label: 'Cerrados', data: reportData.agentPerformance.map(item => item.closedTickets), backgroundColor: '#6366F1' },
         ],
     };
 
@@ -255,47 +362,78 @@ const AdminReportsPage: React.FC = () => {
                 </div>
                 
                 <div className="bg-white p-6 rounded-lg shadow-md mb-8">
-                    <form onSubmit={handleGenerateReport} className="flex flex-col sm:flex-row gap-4 items-end">
-                        <div>
-                            <label htmlFor="startDate" className="block text-sm font-medium text-gray-700">Desde</label>
-                            <input type="date" id="startDate" value={startDate} onChange={(e) => setStartDate(e.target.value)} className="mt-1 block w-full p-2 border rounded-md"/>
+                    <form onSubmit={handleGenerateReport} className="space-y-4">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                            <div>
+                                <label htmlFor="startDate" className="block text-sm font-medium text-gray-700">Desde</label>
+                                <input type="date" name="startDate" id="startDate" value={filters.startDate} onChange={handleFilterChange} className="mt-1 block w-full p-2 border rounded-md"/>
+                            </div>
+                            <div>
+                                <label htmlFor="endDate" className="block text-sm font-medium text-gray-700">Hasta</label>
+                                <input type="date" name="endDate" id="endDate" value={filters.endDate} onChange={handleFilterChange} className="mt-1 block w-full p-2 border rounded-md"/>
+                            </div>
+                            <div>
+                                <label htmlFor="agentId" className="block text-sm font-medium text-gray-700">Agente</label>
+                                <select name="agentId" id="agentId" value={filters.agentId} onChange={handleFilterChange} className="mt-1 block w-full p-2 border rounded-md bg-white">
+                                    <option value="">Todos los Agentes</option>
+                                    {filterOptions.agents.map(agent => (
+                                        <option key={agent.id} value={agent.id}>
+                                            {agent.first_name && agent.last_name ? `${agent.first_name} ${agent.last_name}` : agent.username}
+                                        </option>
+                                    ))}
+                                </select>
+                            </div>
+                            <div>
+                                <label htmlFor="clientId" className="block text-sm font-medium text-gray-700">Cliente</label>
+                                <select name="clientId" id="clientId" value={filters.clientId} onChange={handleFilterChange} className="mt-1 block w-full p-2 border rounded-md bg-white">
+                                    <option value="">Todos los Clientes</option>
+                                    {filterOptions.clients.map(client => (
+                                        <option key={client.id} value={client.id}>
+                                            {client.first_name && client.last_name ? `${client.first_name} ${client.last_name}` : client.username}
+                                        </option>
+                                    ))}
+                                </select>
+                            </div>
+                            <div>
+                                <label htmlFor="companyId" className="block text-sm font-medium text-gray-700">Empresa</label>
+                                <select name="companyId" id="companyId" value={filters.companyId} onChange={handleFilterChange} className="mt-1 block w-full p-2 border rounded-md bg-white">
+                                    <option value="">Todas las Empresas</option>
+                                    {filterOptions.companies.map(company => (
+                                        <option key={company.id} value={company.id}>{company.name}</option>
+                                    ))}
+                                </select>
+                            </div>
+                            <div>
+                                <label htmlFor="departmentId" className="block text-sm font-medium text-gray-700">Departamento</label>
+                                <select name="departmentId" id="departmentId" value={filters.departmentId} onChange={handleFilterChange} className="mt-1 block w-full p-2 border rounded-md bg-white">
+                                    <option value="">Todos los Departamentos</option>
+                                    {filterOptions.departments.map(dept => (
+                                        <option key={dept.id} value={dept.id}>{dept.name}</option>
+                                    ))}
+                                </select>
+                            </div>
+                            <div>
+                                <label htmlFor="categoryId" className="block text-sm font-medium text-gray-700">Problemática (Categoría)</label>
+                                <select name="categoryId" id="categoryId" value={filters.categoryId} onChange={handleFilterChange} className="mt-1 block w-full p-2 border rounded-md bg-white">
+                                    <option value="">Todas las Categorías</option>
+                                    {filterOptions.categories.map(cat => (
+                                        <option key={cat.id} value={cat.id}>{cat.name}</option>
+                                    ))}
+                                </select>
+                            </div>
                         </div>
-                        <div>
-                            <label htmlFor="endDate" className="block text-sm font-medium text-gray-700">Hasta</label>
-                            <input type="date" id="endDate" value={endDate} onChange={(e) => setEndDate(e.target.value)} className="mt-1 block w-full p-2 border rounded-md"/>
+                        <div className="flex justify-end">
+                            <button type="submit" disabled={loading} className="bg-blue-600 text-white px-6 py-2 rounded-md hover:bg-blue-700 disabled:bg-gray-400">
+                                {loading ? 'Generando...' : 'Generar Reporte'}
+                            </button>
                         </div>
-                        <button type="submit" disabled={loading} className="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 disabled:bg-gray-400">
-                            {loading ? 'Generando...' : 'Generar Reporte'}
-                        </button>
                     </form>
                 </div>
 
+                {/* Contenedor de Gráficos y Tablas */}
                 <div className="space-y-8">
-                    <div className="bg-white rounded-lg shadow-md overflow-hidden">
-                        <h2 className="text-xl font-semibold p-6 border-b">Tiempo de Resolución por Agente</h2>
-                        <table className="min-w-full divide-y divide-gray-200">
-                            <thead className="bg-gray-50">
-                                <tr>
-                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Agente</th>
-                                    <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase">Tickets Resueltos</th>
-                                    <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase">Tiempo Promedio (Horas)</th>
-                                </tr>
-                            </thead>
-                            <tbody className="bg-white divide-y divide-gray-200">
-                                {reportData.agentResolutionTimes.map(agent => (
-                                    <tr key={agent.agentName} className="hover:bg-gray-50">
-                                        <td className="px-6 py-4 font-medium text-gray-900">{agent.agentName}</td>
-                                        <td className="px-6 py-4 text-center text-gray-700">{agent.resolvedTickets}</td>
-                                        <td className="px-6 py-4 text-center text-gray-700 font-bold">
-                                            {agent.avgResolutionTimeHours !== null ? `${agent.avgResolutionTimeHours} hs` : 'N/A'}
-                                        </td>
-                                    </tr>
-                                ))}
-                            </tbody>
-                        </table>
-                    </div>
-
-                    <div ref={reportContainerRef} className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                
+                    <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
                         <div className="bg-white p-6 rounded-lg shadow-md cursor-pointer">
                             <h2 className="text-xl font-bold text-gray-700 mb-4 text-center">Tickets por Estado</h2>
                             <div className="h-80 flex justify-center">
@@ -329,17 +467,94 @@ const AdminReportsPage: React.FC = () => {
                                 />
                             </div>
                         </div>
-                        <div className="bg-white p-6 rounded-lg shadow-md cursor-pointer">
-                            <h2 className="text-xl font-bold text-gray-700 mb-4 text-center">Tickets por Empresa</h2>
-                            <div className="h-80">
-                                <Bar ref={companyChartRef} data={companyChartData} options={{ maintainAspectRatio: false, plugins: { legend: { display: false } } }} onClick={(e) => handleChartClick(companyChartRef, e, 'company')} />
-                            </div>
-                        </div>
-                        <div className="bg-white p-6 rounded-lg shadow-md">
-                            <h2 className="text-xl font-bold text-gray-700 mb-4 text-center">Rendimiento por Agente</h2>
-                            <div className="h-80"><Bar ref={agentChartRef} data={agentChartData} options={{ maintainAspectRatio: false }} onClick={(e) => handleChartClick(agentChartRef, e, 'agentPerformance')} /></div>
+                    </div>
+
+                    <div className="bg-white p-6 rounded-lg shadow-md">
+                        <h2 className="text-xl font-bold text-gray-700 mb-4 text-center">Tickets por Hora del Día (0-23hs)</h2>
+                        <div className="h-80">
+                            <Line 
+                                ref={hourChartRef}
+                                data={hourChartData}
+                                options={{ maintainAspectRatio: false, plugins: { legend: { display: false } } }}
+                            />
                         </div>
                     </div>
+
+                    <div ref={reportContainerRef} className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                        <div className="bg-white p-6 rounded-lg shadow-md cursor-pointer">
+                            <h2 className="text-xl font-bold text-gray-700 mb-4 text-center">Top 10 Problemáticas</h2>
+                            <div className="h-80">
+                                <Bar 
+                                    ref={categoryChartRef}
+                                    data={categoryChartData}
+                                    options={{ maintainAspectRatio: false, indexAxis: 'y', plugins: { legend: { display: false } } }}
+                                    onClick={(e) => handleChartClick(categoryChartRef, e, 'category')}
+                                />
+                            </div>
+                        </div>
+                        
+                        <div className="bg-white p-6 rounded-lg shadow-md cursor-pointer">
+                            <h2 className="text-xl font-bold text-gray-700 mb-4 text-center">Rendimiento por Agente</h2>
+                            <div className="h-80">
+                                <Bar 
+                                    ref={agentChartRef} 
+                                    data={agentChartData} 
+                                    options={{ maintainAspectRatio: false }} 
+                                    onClick={(e) => handleChartClick(agentChartRef, e, 'agentPerformance')} 
+                                />
+                            </div>
+                        </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                        <div className="bg-white rounded-lg shadow-md overflow-hidden">
+                            <h2 className="text-xl font-semibold p-6 border-b">Tiempo de Resolución por Agente</h2>
+                            <table className="min-w-full divide-y divide-gray-200">
+                                <thead className="bg-gray-50">
+                                    <tr>
+                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Agente</th>
+                                        <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase">Tickets Resueltos</th>
+                                        <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase">Tiempo Promedio (Horas)</th>
+                                    </tr>
+                                </thead>
+                                <tbody className="bg-white divide-y divide-gray-200">
+                                    {reportData.agentResolutionTimes.map(agent => (
+                                        <tr key={agent.agentId} className="hover:bg-gray-50">
+                                            <td className="px-6 py-4 font-medium text-gray-900">{agent.agentName}</td>
+                                            <td className="px-6 py-4 text-center text-gray-700">{agent.resolvedTickets}</td>
+                                            <td className="px-6 py-4 text-center text-gray-700 font-bold">
+                                                {agent.avgResolutionTimeHours !== null ? `${agent.avgResolutionTimeHours.toFixed(2)} hs` : 'N/A'}
+                                            </td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                        </div>
+                        
+                        <div className="bg-white rounded-lg shadow-md overflow-hidden">
+                            <h2 className="text-xl font-semibold p-6 border-b">Top 10 Clientes (por Tickets Creados)</h2>
+                            <table className="min-w-full divide-y divide-gray-200">
+                                <thead className="bg-gray-50">
+                                    <tr>
+                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Cliente</th>
+                                        <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase">Tickets Creados</th>
+                                    </tr>
+                                </thead>
+                                <tbody className="bg-white divide-y divide-gray-200">
+                                    {reportData.topClients.map(client => (
+                                        <tr key={client.clientId} 
+                                            className="hover:bg-gray-50 cursor-pointer" 
+                                            onClick={() => showFilteredTickets(`Tickets de ${client.clientName}`, { clientId: String(client.clientId) })}
+                                        >
+                                            <td className="px-6 py-4 font-medium text-gray-900">{client.clientName}</td>
+                                            <td className="px-6 py-4 text-center text-gray-700 font-bold">{client.count}</td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
                 </div>
             </div>
             
@@ -349,4 +564,3 @@ const AdminReportsPage: React.FC = () => {
 };
 
 export default AdminReportsPage;
-

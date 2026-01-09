@@ -7,6 +7,8 @@ import { ActivityLog, ApiResponseError, TicketData, User } from '../types';
 import { isAxiosErrorTypeGuard } from '../utils/typeGuards';
 import { formatLocalDate } from '../utils/dateFormatter';
 import { toast } from 'react-toastify';
+// ✅ AJUSTAR RUTA DE IMPORTACIÓN SI ES NECESARIO (Widgets vs Dashboard)
+import DepositariosWidget from '../components/Dashboard/DepositariosWidget'; 
 
 const activityTypeTranslations: { [key: string]: string } = {
     user_registered: 'Usuario Registrado',
@@ -180,7 +182,7 @@ const AdminDashboard: React.FC = () => {
                 const response = await api.get(`/api/tickets?${params.toString()}`);
                 items = response.data.data;
                 renderItem = (ticket: TicketData) => (
-                     <li key={ticket.id} className="p-3 hover:bg-gray-50 flex justify-between items-center">
+                      <li key={ticket.id} className="p-3 hover:bg-gray-50 flex justify-between items-center">
                         <div>
                             <span className="font-semibold">#{ticket.id} - {ticket.title}</span>
                             <span className="text-gray-500 ml-2">({ticket.client_name})</span>
@@ -212,7 +214,8 @@ const AdminDashboard: React.FC = () => {
             <div className="container mx-auto p-4 sm:p-6 lg:p-8 space-y-8">
                 <h1 className="text-2xl sm:text-3xl font-bold text-gray-800">Dashboard de Administrador</h1>
 
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                {/* ✅ GRILA DE MÉTRICAS + WIDGET DEPOSITARIOS */}
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
                     <button onClick={() => handleCardClick('total')} className="text-left bg-white p-6 rounded-lg shadow-md hover:shadow-xl transition-shadow cursor-pointer">
                         <h3 className="text-lg font-semibold text-gray-600">Tickets Totales</h3>
                         <p className="text-4xl font-bold text-indigo-600 mt-2">{metrics.totalTickets}</p>
@@ -225,6 +228,9 @@ const AdminDashboard: React.FC = () => {
                         <h3 className="text-lg font-semibold text-gray-600">Usuarios Totales</h3>
                         <p className="text-4xl font-bold text-blue-600 mt-2">{metrics.totalUsers}</p>
                     </button>
+                    
+                    {/* ✅ WIDGET DE DEPOSITARIOS AQUI */}
+                    <DepositariosWidget />
                 </div>
 
                 <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
@@ -298,4 +304,3 @@ const AdminDashboard: React.FC = () => {
 };
 
 export default AdminDashboard;
-

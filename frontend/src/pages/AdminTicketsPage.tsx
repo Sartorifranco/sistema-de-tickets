@@ -1,5 +1,3 @@
-// AdminTicketsPage.tsx
-
 import React, { useState, useEffect, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import { toast } from 'react-toastify';
@@ -7,7 +5,8 @@ import api from '../config/axiosConfig';
 import { useAuth } from '../context/AuthContext';
 import { TicketData, User, Department, Company, TicketStatus } from '../types';
 import TicketFormModal from '../components/Tickets/TicketFormModal';
-import StatusBadge from '../components/Tickets/StatusBadge'; // <-- 1. IMPORTAMOS EL NUEVO COMPONENTE
+import StatusBadge from '../components/Tickets/StatusBadge';
+import { formatLocalDate } from '../utils/dateFormatter'; // Importar formateador de fecha
 
 // Interfaces para los datos de los filtros
 interface FilterData {
@@ -31,6 +30,7 @@ const AdminTicketsPage: React.FC = () => {
         companyId: '',
         agentId: '',
         status: '',
+        priority: '', // ✅ AÑADIDO: Estado para el filtro de prioridad
         startDate: '',
         endDate: '',
     });
@@ -41,7 +41,7 @@ const AdminTicketsPage: React.FC = () => {
             try {
                 const [companiesRes, agentsRes, usersRes, deptsRes] = await Promise.all([
                     api.get('/api/companies'),
-                    api.get('/api/users/agents'),
+                    api.get('/api/users/agents'), // Asumimos que esto devuelve first_name y last_name
                     api.get('/api/users'),
                     api.get('/api/departments')
                 ]);
@@ -58,14 +58,21 @@ const AdminTicketsPage: React.FC = () => {
         fetchInitialData();
     }, []);
 
-    // Carga los tickets y se vuelve a ejecutar cada vez que los filtros cambian
+    // Carga los tickets
     const fetchTickets = useCallback(async () => {
         setLoading(true);
         try {
             const params = new URLSearchParams();
             if (filters.companyId) params.append('companyId', filters.companyId);
-            if (filters.agentId) params.append('agentId', filters.agentId);
+            
+            if (filters.agentId === 'unassigned') {
+                params.append('unassigned', 'true');
+            } else if (filters.agentId) {
+                params.append('agentId', filters.agentId);
+            }
+            
             if (filters.status) params.append('status', filters.status);
+            if (filters.priority) params.append('priority', filters.priority); // ✅ AÑADIDO: Enviar filtro al backend
             if (filters.startDate) params.append('startDate', filters.startDate);
             if (filters.endDate) params.append('endDate', filters.endDate);
 
@@ -87,7 +94,8 @@ const AdminTicketsPage: React.FC = () => {
     };
     
     const clearFilters = () => {
-        setFilters({ companyId: '', agentId: '', status: '', startDate: '', endDate: '' });
+        // ✅ MODIFICACIÓN: Resetear también prioridad
+        setFilters({ companyId: '', agentId: '', status: '', priority: '', startDate: '', endDate: '' });
     };
     
     const handleSaveTicket = async (ticketData: Partial<TicketData>, attachments: File[]) => {
@@ -124,14 +132,20 @@ const AdminTicketsPage: React.FC = () => {
 
                 <div className="bg-white p-4 rounded-lg shadow-md mb-6">
                     <h3 className="font-semibold mb-2">Filtrar Tickets</h3>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4 items-end">
+                    {/* ✅ MODIFICACIÓN: Se cambia lg:grid-cols-6 a lg:grid-cols-7 */}
+                    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-4 items-end">
                         <select name="companyId" value={filters.companyId} onChange={handleFilterChange} className="w-full p-2 border rounded-md text-sm">
                             <option value="">Todas las Empresas</option>
                             {filterData.companies.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
                         </select>
                         <select name="agentId" value={filters.agentId} onChange={handleFilterChange} className="w-full p-2 border rounded-md text-sm">
                             <option value="">Todos los Agentes</option>
-                            {filterData.agents.map(a => <option key={a.id} value={a.id}>{a.username}</option>)}
+                            <option value="unassigned">Sin Asignar</option>
+                            {filterData.agents.map(a => (
+                                <option key={a.id} value={a.id}>
+                                    {a.first_name && a.last_name ? `${a.first_name} ${a.last_name}` : a.username}
+                                </option>
+                            ))}
                         </select>
                         <select name="status" value={filters.status} onChange={handleFilterChange} className="w-full p-2 border rounded-md text-sm">
                             <option value="">Todos los Estados</option>
@@ -139,6 +153,14 @@ const AdminTicketsPage: React.FC = () => {
                             <option value="in-progress">En Progreso</option>
                             <option value="resolved">Resuelto</option>
                             <option value="closed">Cerrado</option>
+                        </select>
+                        {/* ✅ AÑADIDO: Dropdown de Prioridad */}
+                        <select name="priority" value={filters.priority} onChange={handleFilterChange} className="w-full p-2 border rounded-md text-sm">
+                            <option value="">Todas las Prioridades</option>
+                            <option value="low">Baja</option>
+                            <option value="medium">Media</option>
+                            <option value="high">Alta</option>
+                            <option value="urgent">Urgente</option>
                         </select>
                         <input type="date" name="startDate" value={filters.startDate} onChange={handleFilterChange} className="w-full p-2 border rounded-md text-sm" />
                         <input type="date" name="endDate" value={filters.endDate} onChange={handleFilterChange} className="w-full p-2 border rounded-md text-sm" />
@@ -156,9 +178,10 @@ const AdminTicketsPage: React.FC = () => {
                             <thead className="bg-gray-50">
                                 <tr>
                                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">ID</th>
-                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Título</th>
                                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Cliente</th>
+                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Título</th>
                                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Agente Asignado</th>
+                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Fecha Creación</th>
                                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Estado</th>
                                     <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">Acciones</th>
                                 </tr>
@@ -166,15 +189,17 @@ const AdminTicketsPage: React.FC = () => {
                             <tbody className="bg-white divide-y divide-gray-200">
                                 {tickets.map(ticket => (
                                     <tr key={ticket.id} className="hover:bg-gray-50">
-                                        <td className="px-6 py-4">{ticket.id}</td>
+                                        <td className="px-6 py-4 whitespace-nowrap">{ticket.id}</td>
+                                        <td className="px-6 py-4 whitespace-nowrap">{ticket.client_name}</td>
                                         <td className="px-6 py-4 font-medium">{ticket.title}</td>
-                                        <td className="px-6 py-4">{ticket.client_name}</td>
-                                        <td className="px-6 py-4">{ticket.agent_name || 'Sin Asignar'}</td>
-                                        <td className="px-6 py-4">
-                                            {/* <-- 2. USAMOS EL COMPONENTE StatusBadge AQUÍ */}
+                                        <td className="px-6 py-4 whitespace-nowrap">{ticket.agent_name || 'Sin Asignar'}</td>
+                                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                                            {formatLocalDate(ticket.created_at)}
+                                        </td>
+                                        <td className="px-6 py-4 whitespace-nowrap">
                                             <StatusBadge status={ticket.status as TicketStatus} />
                                         </td>
-                                        <td className="px-6 py-4 text-right">
+                                        <td className="px-6 py-4 whitespace-nowrap text-right">
                                             <Link to={`/admin/tickets/${ticket.id}`} className="text-indigo-600 hover:underline font-semibold">Gestionar</Link>
                                         </td>
                                     </tr>

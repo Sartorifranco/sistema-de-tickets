@@ -1,37 +1,40 @@
 const express = require('express');
 const router = express.Router();
-const {
-    createUser,
-    getAllUsers,
-    getUserById,
-    updateUser,
+const { 
+    createUser, 
+    getAllUsers, 
+    getUserById, 
+    updateUser, 
     deleteUser,
-    getAgentStats,
-    changePassword,
+    getAgentStats, 
+    changePassword, 
     adminResetPassword,
     getAgents,
-    getAgentActiveTickets,
+    getAgentActiveTickets
 } = require('../controllers/userController');
 const { authenticateToken, authorize } = require('../middleware/authMiddleware');
 
+// Proteger todas las rutas
 router.use(authenticateToken);
 
-router.get('/agents', authorize(['admin', 'agent']), getAgents);
-router.put('/change-password', changePassword);
-router.put('/:id/reset-password', authorize(['admin']), adminResetPassword);
+// --- RUTAS DE GESTIÓN DE USUARIOS ---
 
 router.route('/')
-    .get(authorize(['admin', 'agent']), getAllUsers)
-    .post(authorize(['admin']), createUser);
+    .get(authorize(['admin', 'agent']), getAllUsers) // ✅ Agentes pueden ver la lista (para asignar)
+    .post(authorize(['admin', 'agent']), createUser); // ✅ CRÍTICO: Agentes pueden crear usuarios (Internos)
+
+router.route('/agents')
+    .get(authorize(['admin', 'agent']), getAgents);
 
 router.route('/:id')
     .get(authorize(['admin', 'agent']), getUserById)
-    .put(authorize(['admin']), updateUser)
-    .delete(authorize(['admin']), deleteUser);
+    .put(authorize(['admin']), updateUser)   // Solo admin edita datos sensibles por ahora
+    .delete(authorize(['admin']), deleteUser); // Solo admin borra
 
-router.route('/:id/stats')
-    .get(authorize(['admin', 'agent']), getAgentStats);
-
-router.get('/:id/active-tickets', authorize(['admin']), getAgentActiveTickets);
+// --- OTRAS RUTAS ---
+router.get('/:id/stats', authorize(['admin', 'agent']), getAgentStats);
+router.put('/change-password', changePassword);
+router.put('/:id/reset-password', authorize(['admin']), adminResetPassword);
+router.get('/:id/active-tickets', authorize(['admin', 'agent']), getAgentActiveTickets);
 
 module.exports = router;

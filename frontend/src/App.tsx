@@ -30,8 +30,9 @@ import ClientTicketDetailPage from './pages/ClientTicketDetailPage';
 import PrivateRoute from './components/Common/PrivateRoute';
 import ReportsPage from './pages/ReportsPage';
 import AdminProblemsPage from './pages/AdminProblemsPage'; 
-// ✅ 1. Importa la nueva página de ubicaciones
 import AdminLocationsPage from './pages/AdminLocationPage';
+// ✅ NUEVO: Importar la página de depositarios
+import DepositariosPage from './pages/DepositariosPage';
 
 
 export type SocketInstance = ReturnType<typeof io>;
@@ -42,8 +43,15 @@ const SocketConnectionManager: React.FC<{ children: React.ReactNode }> = ({ chil
 
     useEffect(() => {
         if (isAuthenticated && token) {
-            const newSocket = io(process.env.REACT_APP_BACKEND_URL || 'http://localhost:5000', {
-                auth: { token }
+            // DETECCION DINÁMICA TAMBIÉN PARA EL SOCKET
+            const currentHost = window.location.hostname;
+            const socketUrl = `http://${currentHost}:5040`;
+            
+            console.log(`[Socket] Intentando conectar a: ${socketUrl}`);
+
+            const newSocket = io(socketUrl, {
+                auth: { token },
+                transports: ['websocket', 'polling'] // Forzar websocket ayuda a veces
             });
             setSocket(newSocket);
 
@@ -54,6 +62,7 @@ const SocketConnectionManager: React.FC<{ children: React.ReactNode }> = ({ chil
     }, [isAuthenticated, token]);
 
     return (
+        // @ts-ignore
         <NotificationProvider socket={socket}>
             {children}
         </NotificationProvider>
@@ -85,14 +94,19 @@ const App: React.FC = () => {
                             <Route path="/admin/tickets/:id" element={<PrivateRoute roles={['admin']}><AdminTicketDetailPage /></PrivateRoute>} />
                             <Route path="/admin/reports" element={<PrivateRoute roles={['admin']}><AdminReportsPage /></PrivateRoute>} />
                             <Route path="/admin/problemas" element={<PrivateRoute roles={['admin']}><AdminProblemsPage /></PrivateRoute>} />
-                            {/* ✅ 2. Añade la nueva ruta para el panel de ubicaciones */}
                             <Route path="/admin/ubicaciones" element={<PrivateRoute roles={['admin']}><AdminLocationsPage /></PrivateRoute>} />
+                            
+                            {/* ✅ NUEVO: Ruta para Depositarios (Admin) */}
+                            <Route path="/admin/depositarios" element={<PrivateRoute roles={['admin']}><DepositariosPage /></PrivateRoute>} />
 
                             {/* Rutas de Agente */}
                             <Route path="/agent" element={<PrivateRoute roles={['agent']}><AgentDashboard /></PrivateRoute>} />
                             <Route path="/agent/tickets" element={<PrivateRoute roles={['agent']}><AgentTicketsPage /></PrivateRoute>} />
                             <Route path="/agent/tickets/:id" element={<PrivateRoute roles={['agent']}><AgentTicketDetailPage /></PrivateRoute>} />
                             <Route path="/reports" element={<PrivateRoute roles={['admin', 'agent']}><ReportsPage /></PrivateRoute>} />
+                            
+                            {/* ✅ NUEVO: Ruta para Depositarios (Agente) - Usamos el mismo componente */}
+                            <Route path="/agent/depositarios" element={<PrivateRoute roles={['agent']}><DepositariosPage /></PrivateRoute>} />
                             
                             {/* Rutas de Cliente */}
                             <Route path="/client" element={<PrivateRoute roles={['client']}><ClientDashboard /></PrivateRoute>} />

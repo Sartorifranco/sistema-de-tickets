@@ -1,17 +1,26 @@
-const pool = require('../config/db');
 const asyncHandler = require('express-async-handler');
+const pool = require('../config/db');
 const bcrypt = require('bcryptjs');
 
 // @desc    Crear nuevo usuario (por Admin)
 const createUser = asyncHandler(async (req, res) => {
-    const { firstName, lastName, email, password, company_id, department_id, role } = req.body;
+    // ✅ RECIBIMOS EL FLAG isInternal
+    const { firstName, lastName, email, password, company_id, department_id, role, isInternal } = req.body;
 
-    if (!firstName || !lastName || !email || !password || !company_id) {
-        res.status(400).json({ message: 'Por favor, complete todos los campos requeridos.' });
+    // Validación básica: Nombre y Empresa siempre requeridos
+    if (!firstName || !lastName || !company_id) {
+        res.status(400).json({ message: 'Nombre, Apellido y Empresa son obligatorios.' });
         return;
     }
 
-    const baseUsername = `${firstName.trim().toLowerCase()}${lastName.trim().charAt(0).toUpperCase() + lastName.trim().slice(1).toLowerCase()}`.replace(/\s+/g, '');
+    // Validación condicional: Si NO es interno, pedimos email y password
+    if (!isInternal && (!email || !password)) {
+        res.status(400).json({ message: 'Email y Contraseña son obligatorios para usuarios regulares.' });
+        return;
+    }
+
+    // Generar username único basado en nombre (ej. juanperez -> juanperez1)
+    const baseUsername = (firstName.trim().charAt(0) + lastName.trim()).toLowerCase().replace(/\s+/g, '');
     let username = baseUsername;
     let counter = 1;
     let [existingUser] = await pool.execute('SELECT id FROM users WHERE username = ?', [username]);
@@ -22,25 +31,32 @@ const createUser = asyncHandler(async (req, res) => {
         [existingUser] = await pool.execute('SELECT id FROM users WHERE username = ?', [username]);
     }
 
-    const [existingEmail] = await pool.execute('SELECT id FROM users WHERE email = ?', [email]);
-    if (existingEmail.length > 0) {
-        res.status(409);
-        throw new Error('El email ya está en uso.');
+    // Validación de email duplicado (Solo si no es interno)
+    if (!isInternal) {
+        const [existingEmail] = await pool.execute('SELECT id FROM users WHERE email = ?', [email]);
+        if (existingEmail.length > 0) {
+            res.status(409);
+            throw new Error('El email ya está en uso.');
+        }
     }
 
+    // Generar datos automáticos para internos (Email falso y password random)
+    const finalEmail = isInternal ? `internal.${Date.now()}@sistema.local` : email;
+    const finalPasswordRaw = isInternal ? Math.random().toString(36).slice(-10) : password;
+
     const salt = await bcrypt.genSalt(10);
-    const hashedPassword = await bcrypt.hash(password, salt);
+    const hashedPassword = await bcrypt.hash(finalPasswordRaw, salt);
     const userRole = role || 'client';
 
     const [result] = await pool.execute(
         'INSERT INTO users (username, email, password, role, department_id, company_id, first_name, last_name) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
-        [username, email, hashedPassword, userRole, department_id || null, company_id, firstName, lastName]
+        [username, finalEmail, hashedPassword, userRole, department_id || null, company_id, firstName, lastName]
     );
 
     res.status(201).json({
         success: true,
         message: 'Usuario creado exitosamente.',
-        data: { id: result.insertId, username, email, role: userRole },
+        data: { id: result.insertId, username, email: finalEmail, role: userRole, first_name: firstName, last_name: lastName },
     });
 });
 
@@ -49,12 +65,13 @@ const getAllUsers = asyncHandler(async (req, res) => {
     const [users] = await pool.execute(
         `SELECT 
             u.id, u.username, u.email, u.role, u.department_id, u.company_id, u.created_at, 
+            u.first_name, u.last_name, 
             c.name AS company_name, 
             d.name AS department_name 
          FROM users u 
          LEFT JOIN companies c ON u.company_id = c.id 
          LEFT JOIN departments d ON u.department_id = d.id 
-         ORDER BY u.username ASC`
+         ORDER BY u.first_name, u.last_name ASC`
     );
     res.status(200).json({
         success: true,
@@ -63,11 +80,13 @@ const getAllUsers = asyncHandler(async (req, res) => {
     });
 });
 
-
 // @desc    Obtener un solo usuario por ID
 const getUserById = asyncHandler(async (req, res) => {
     const { id } = req.params;
-    const [userRows] = await pool.execute('SELECT id, username, email, role, department_id, company_id, created_at FROM users WHERE id = ?', [id]);
+    const [userRows] = await pool.execute(
+        'SELECT id, username, email, role, department_id, company_id, created_at, first_name, last_name FROM users WHERE id = ?', 
+        [id]
+    );
 
     if (userRows.length === 0) {
         res.status(404);
@@ -80,7 +99,7 @@ const getUserById = asyncHandler(async (req, res) => {
 // @desc    Actualizar usuario
 const updateUser = asyncHandler(async (req, res) => {
     const { id } = req.params;
-    const { username, email, role, department_id, company_id, password } = req.body;
+    const { username, email, role, department_id, company_id, password, first_name, last_name } = req.body;
 
     const [user] = await pool.execute('SELECT * FROM users WHERE id = ?', [id]);
     if (user.length === 0) {
@@ -96,6 +115,9 @@ const updateUser = asyncHandler(async (req, res) => {
     if (role) { updateFields.push('role = ?'); updateValues.push(role); }
     if (department_id) { updateFields.push('department_id = ?'); updateValues.push(department_id); }
     if (company_id) { updateFields.push('company_id = ?'); updateValues.push(company_id); }
+    if (first_name) { updateFields.push('first_name = ?'); updateValues.push(first_name); }
+    if (last_name) { updateFields.push('last_name = ?'); updateValues.push(last_name); }
+
     if (password) {
         const salt = await bcrypt.genSalt(10);
         const hashedPassword = await bcrypt.hash(password, salt);
@@ -124,9 +146,16 @@ const deleteUser = asyncHandler(async (req, res) => {
         throw new Error('Usuario no encontrado.');
     }
     
-    await pool.execute('DELETE FROM users WHERE id = ?', [id]);
-
-    res.status(200).json({ success: true, message: 'Usuario eliminado exitosamente.' });
+    try {
+        await pool.execute('DELETE FROM users WHERE id = ?', [id]);
+        res.status(200).json({ success: true, message: 'Usuario eliminado exitosamente.' });
+    } catch (error) {
+        if (error.code === 'ER_ROW_IS_REFERENCED_2') {
+            res.status(409);
+            throw new Error('No se puede eliminar el usuario porque tiene tickets o registros asociados.');
+        }
+        throw error;
+    }
 });
 
 // @desc    Obtener estadísticas de un agente
@@ -136,7 +165,7 @@ const getAgentStats = asyncHandler(async (req, res) => {
 
     if (authenticatedUserRole === 'agent' && parseInt(id, 10) !== authenticatedUserId) {
         res.status(403);
-        throw new Error('No autorizado para ver las estadísticas de otro agente.');
+        throw new Error('No autorizado.');
     }
 
     const [ticketCounts] = await pool.execute(
@@ -163,21 +192,21 @@ const getAgentStats = asyncHandler(async (req, res) => {
     res.status(200).json(stats);
 });
 
-// @desc    Que cualquier usuario cambie su contraseña
+// @desc    Cambiar contraseña propio usuario
 const changePassword = asyncHandler(async (req, res) => {
     const { currentPassword, newPassword, confirmPassword } = req.body;
     const userId = req.user.id;
 
     if (!currentPassword || !newPassword || !confirmPassword) {
-        res.status(400).json({ message: 'Por favor, complete todos los campos.' });
+        res.status(400).json({ message: 'Complete todos los campos.' });
         return;
     }
     if (newPassword !== confirmPassword) {
-        res.status(400).json({ message: 'La nueva contraseña y su confirmación no coinciden.' });
+        res.status(400).json({ message: 'Las contraseñas no coinciden.' });
         return;
     }
     if (newPassword.length < 6) {
-        res.status(400).json({ message: 'La nueva contraseña debe tener al menos 6 caracteres.' });
+        res.status(400).json({ message: 'Mínimo 6 caracteres.' });
         return;
     }
 
@@ -190,7 +219,7 @@ const changePassword = asyncHandler(async (req, res) => {
 
     const isMatch = await bcrypt.compare(currentPassword, user.password);
     if (!isMatch) {
-        res.status(401).json({ message: 'La contraseña actual es incorrecta.' });
+        res.status(401).json({ message: 'Contraseña actual incorrecta.' });
         return;
     }
 
@@ -199,16 +228,16 @@ const changePassword = asyncHandler(async (req, res) => {
 
     await pool.execute('UPDATE users SET password = ? WHERE id = ?', [hashedNewPassword, userId]);
 
-    res.status(200).json({ success: true, message: 'Contraseña actualizada exitosamente.' });
+    res.status(200).json({ success: true, message: 'Contraseña actualizada.' });
 });
 
-// @desc    Que el admin resetee contraseñas de otros
+// @desc    Admin resetea password
 const adminResetPassword = asyncHandler(async (req, res) => {
     const { id: userId } = req.params;
     const { newPassword } = req.body;
 
     if (!newPassword || newPassword.length < 6) {
-        res.status(400).json({ message: 'La nueva contraseña es requerida y debe tener al menos 6 caracteres.' });
+        res.status(400).json({ message: 'Mínimo 6 caracteres.' });
         return;
     }
 
@@ -223,18 +252,21 @@ const adminResetPassword = asyncHandler(async (req, res) => {
 
     await pool.execute('UPDATE users SET password = ? WHERE id = ?', [hashedNewPassword, userId]);
 
-    res.status(200).json({ success: true, message: 'Contraseña del usuario actualizada exitosamente.' });
+    res.status(200).json({ success: true, message: 'Contraseña actualizada.' });
 });
 
-// @desc    Obtener todos los agentes y administradores
+// @desc    Obtener agentes
 const getAgents = asyncHandler(async (req, res) => {
     const [agents] = await pool.execute(
-        "SELECT id, username FROM users WHERE role IN ('agent', 'admin') ORDER BY username ASC"
+        `SELECT id, username, first_name, last_name 
+         FROM users 
+         WHERE role IN ('agent', 'admin') 
+         ORDER BY first_name, last_name ASC`
     );
     res.status(200).json({ success: true, data: agents });
 });
 
-// @desc    Obtener tickets activos de un agente específico
+// @desc    Tickets activos de agente
 const getAgentActiveTickets = asyncHandler(async (req, res) => {
     const { id: agentId } = req.params;
     
