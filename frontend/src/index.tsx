@@ -1,6 +1,6 @@
 import React from 'react';
 import ReactDOM from 'react-dom/client';
-// REMOVED: import './index.css'; // This line is no longer needed as all custom CSS is migrated to Tailwind
+import 'leaflet/dist/leaflet.css'; 
 import App from './App';
 
 const root = ReactDOM.createRoot(

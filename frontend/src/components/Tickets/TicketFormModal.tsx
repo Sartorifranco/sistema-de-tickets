@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { toast } from 'react-toastify';
 import { Department, User, TicketData, UserRole, TicketCategory, PredefinedProblem } from '../../types';
 import api from '../../config/axiosConfig';
@@ -39,15 +39,18 @@ const TicketFormModal: React.FC<TicketFormModalProps> = ({ isOpen, onClose, onSa
     const [formData, setFormData] = useState<FormDataType>(initialFormData);
     const [attachments, setAttachments] = useState<File[]>([]);
     const [loading, setLoading] = useState(false);
+    
+    // Estados de IA
+    const [isAnalyzing, setIsAnalyzing] = useState(false);
+    const analysisTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+
     const [categories, setCategories] = useState<TicketCategory[]>([]);
     const [predefinedProblems, setPredefinedProblems] = useState<PredefinedProblem[]>([]);
     const [isOther, setIsOther] = useState(false);
     const [locations, setLocations] = useState<Location[]>([]);
     const [isCustomCategory, setIsCustomCategory] = useState(false);
-    
 
     const targetCompanyId = useMemo(() => {
-        // ✅ CORRECCIÓN: Se incluye 'agent' en la lógica para determinar el companyId
         if ((currentUserRole === 'admin' || currentUserRole === 'agent') && formData.user_id) {
             return users.find(u => u.id === formData.user_id)?.company_id;
         }
@@ -59,10 +62,9 @@ const TicketFormModal: React.FC<TicketFormModalProps> = ({ isOpen, onClose, onSa
             const fetchModalData = async () => {
                 try {
                     let locationsUrl;
-                    // ✅ CORRECCIÓN: Se incluye 'agent' en la lógica para obtener las ubicaciones
                     if (currentUserRole === 'client') {
                         locationsUrl = '/api/locations'; 
-                    } else { // admin o agent
+                    } else { 
                         locationsUrl = `/api/locations/${targetCompanyId}`;
                     }
 
@@ -85,6 +87,7 @@ const TicketFormModal: React.FC<TicketFormModalProps> = ({ isOpen, onClose, onSa
             setPredefinedProblems([]);
             setIsCustomCategory(false);
             setIsOther(false);
+            setIsAnalyzing(false);
         }
     }, [isOpen, targetCompanyId, currentUserRole]);
     
@@ -93,7 +96,21 @@ const TicketFormModal: React.FC<TicketFormModalProps> = ({ isOpen, onClose, onSa
             const fetchProblems = async () => {
                 try {
                     const res = await api.get(`/api/problems/predefined/${formData.category_id}`);
-                    setPredefinedProblems(res.data.data || []);
+                    const dbProblems = res.data.data || [];
+
+                    // --- MODIFICACIÓN: INYECTAR OPCIÓN "OTRO..." ---
+                    // Agregamos manualmente la opción al final de la lista
+                    const otherOption = {
+                        id: -999, // ID negativo para no chocar con la base de datos
+                        title: 'Otro...',
+                        description: '', // Descripción vacía para que escriban
+                        department_id: undefined // Sin departamento fijo, para forzar elección manual si es necesario
+                    };
+                    
+                    // Unimos los problemas de la DB con nuestra opción manual
+                    setPredefinedProblems([...dbProblems, otherOption] as PredefinedProblem[]);
+                    // -----------------------------------------------
+
                 } catch (error) { toast.error("No se pudieron cargar los problemas específicos."); }
             };
             fetchProblems();
@@ -101,11 +118,80 @@ const TicketFormModal: React.FC<TicketFormModalProps> = ({ isOpen, onClose, onSa
             setPredefinedProblems([]);
         }
     }, [formData.category_id, isCustomCategory]);
+
+    // --- LÓGICA DE IA: DETECCIÓN AUTOMÁTICA ---
+    useEffect(() => {
+        // Solo analizamos si hay descripción, si no está editando un problema predefinido y si el modal está abierto
+        if (!isOpen || !formData.description || formData.description.length < 10 || formData.predefined_problem_id) return;
+
+        // Limpiar timeout anterior (debounce)
+        if (analysisTimeoutRef.current) clearTimeout(analysisTimeoutRef.current);
+
+        // Esperar 1.2 segundos después de que deje de escribir para analizar
+        analysisTimeoutRef.current = setTimeout(async () => {
+            setIsAnalyzing(true);
+            try {
+                const res = await api.post('/api/ai/predict', { text: formData.description });
+                const { suggestedCategory, suggestedPriority } = res.data.data;
+
+                // 1. Mapear Prioridad
+                const priorityMap: Record<string, string> = {
+                    'Crítica': 'urgent',
+                    'Alta': 'high',
+                    'Media': 'medium',
+                    'Baja': 'low'
+                };
+                
+                if (suggestedPriority && priorityMap[suggestedPriority]) {
+                    setFormData(prev => ({ ...prev, priority: priorityMap[suggestedPriority] as any }));
+                }
+
+                // 2. Mapear Categoría (Buscamos la categoría por nombre)
+                if (suggestedCategory) {
+                    // Buscamos una categoría que contenga la palabra clave (ej: "Hardware" dentro de "Soporte Hardware")
+                    const foundCat = categories.find(c => 
+                        c.name.toLowerCase().includes(suggestedCategory.toLowerCase())
+                    );
+
+                    if (foundCat) {
+                        setFormData(prev => {
+                            const newData = { ...prev };
+
+                            // Solo cambiamos la categoría si no ha seleccionado una manualmente todavía
+                            if (!prev.category_id) {
+                                // Verificar si es categoría especial para activar flags
+                                const isSpecial = foundCat.name.includes('Area de Implementaciones') || foundCat.name.includes('Area de Mantenimiento');
+                                setIsCustomCategory(!!isSpecial);
+                                newData.category_id = foundCat.id;
+                            }
+
+                            // --- NUEVO: Autocompletar Título automáticamente ---
+                            if (!prev.title) {
+                                newData.title = formData.description!.length > 50 
+                                    ? formData.description!.substring(0, 50) + '...' 
+                                    : formData.description;
+                            }
+                            return newData;
+                        });
+                    }
+                }
+
+            } catch (error) {
+                console.error("Error IA:", error);
+            } finally {
+                setIsAnalyzing(false);
+            }
+        }, 1200); 
+
+        return () => {
+            if (analysisTimeoutRef.current) clearTimeout(analysisTimeoutRef.current);
+        };
+    }, [formData.description, categories, isOpen]);
+
     
     const filteredDepartments = useMemo(() => {
         if (!departments || !loggedInUser) return [];
         let targetUserForFiltering;
-        // ✅ CORRECCIÓN: Se incluye 'agent' en la lógica de filtrado
         if ((currentUserRole === 'admin' || currentUserRole === 'agent') && formData.user_id) {
             targetUserForFiltering = users.find(u => u.id === formData.user_id);
         } else {
@@ -141,14 +227,20 @@ const TicketFormModal: React.FC<TicketFormModalProps> = ({ isOpen, onClose, onSa
         if (name === 'predefined_problem') {
             const problem = predefinedProblems.find(p => p.id === numValue) as (PredefinedProblem & { department_id?: number }) | undefined;
             if (problem) {
+                // Detectar si es "Otro..." (nuestro ID negativo o por título)
+                const isOptionOther = problem.title === 'Otro...' || problem.id === -999;
+
                 setFormData(prev => ({ 
                     ...prev, 
                     predefined_problem_id: numValue || undefined,
-                    title: problem.title, 
-                    description: problem.title === 'Otro...' ? '' : `${problem.description}\n\n--- (Por favor, añada más detalles aquí si es necesario) ---\n`,
+                    // Si es "Otro...", habilitamos edición de título. Si no, ponemos el título fijo.
+                    title: isOptionOther ? '' : problem.title, 
+                    // Si es "Otro...", limpiamos la descripción para que escriba.
+                    description: isOptionOther ? '' : `${problem.description}\n\n--- (Por favor, añada más detalles aquí si es necesario) ---\n`,
+                    // Si es "Otro...", el departamento queda undefined para que el usuario elija.
                     department_id: problem.department_id 
                 }));
-                setIsOther(problem.title === 'Otro...');
+                setIsOther(isOptionOther);
             } else {
                 setFormData(prev => ({...prev, predefined_problem_id: undefined}));
             }
@@ -165,7 +257,6 @@ const TicketFormModal: React.FC<TicketFormModalProps> = ({ isOpen, onClose, onSa
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
-        // ✅ CORRECCIÓN: Se incluye 'agent' en la validación
         if ((currentUserRole === 'admin' || currentUserRole === 'agent') && !formData.user_id) {
             toast.warn("Por favor, selecciona el cliente para quien es este ticket.");
             return;
@@ -188,10 +279,17 @@ const TicketFormModal: React.FC<TicketFormModalProps> = ({ isOpen, onClose, onSa
     return (
         <div className="fixed inset-0 bg-black bg-opacity-60 flex justify-center items-center z-50 p-4">
             <div className="bg-white p-6 rounded-lg shadow-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
-                <h2 className="text-2xl font-bold mb-4 border-b pb-2">Crear Nuevo Ticket</h2>
+                <div className="flex justify-between items-center mb-4 border-b pb-2">
+                    <h2 className="text-2xl font-bold">Crear Nuevo Ticket</h2>
+                    {isAnalyzing && (
+                        <span className="text-sm font-bold text-blue-600 animate-pulse bg-blue-50 px-3 py-1 rounded-full border border-blue-200">
+                            🤖 IA Analizando...
+                        </span>
+                    )}
+                </div>
+                
                 <form onSubmit={handleSubmit} className="space-y-4">
                     
-                    {/* ✅ CORRECCIÓN: Se muestra el selector de clientes para 'admin' y 'agent' */}
                     {(currentUserRole === 'admin' || currentUserRole === 'agent') && (
                         <div>
                             <label className="block text-gray-700 font-medium">Crear Ticket para (Cliente):</label>
@@ -214,36 +312,60 @@ const TicketFormModal: React.FC<TicketFormModalProps> = ({ isOpen, onClose, onSa
                         </div>
                     )}
 
-                    <div>
-                        <label className="block text-gray-700 font-medium">Categoría del Problema:</label>
-                        <select name="category_id" value={formData.category_id || ''} onChange={handleChange} className="w-full p-2 border rounded mt-1" required>
-                            <option value="">-- Seleccione una categoría --</option>
-                            {categories.map(cat => {
-                                const isSpecial = cat.name.includes('Area de');
-                                return (
-                                    <option key={cat.id} value={cat.id} className={isSpecial ? 'font-bold bg-gray-100' : ''}>
-                                        {isSpecial ? `--- ${cat.name.toUpperCase()} ---` : cat.name}
-                                    </option>
-                                );
-                            })}
-                        </select>
+                    {/* --- DESCRIPCIÓN PRIMERO --- */}
+                    <div className="bg-gray-50 p-3 rounded border">
+                        <label className="block text-gray-700 font-bold mb-1">
+                            ¿Qué está sucediendo? <span className="text-xs font-normal text-gray-500">(La IA completará los detalles por ti)</span>
+                        </label>
+                        <textarea 
+                            name="description" 
+                            value={formData.description || ''} 
+                            onChange={handleChange} 
+                            placeholder="Ej: La impresora no enciende y sale humo..." 
+                            rows={4} 
+                            className="w-full p-2 border rounded mt-1 focus:ring-2 focus:ring-blue-400 focus:border-transparent outline-none transition-all" 
+                            required 
+                        />
                     </div>
-                    
-                    {!isCustomCategory && formData.category_id && (
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div>
-                            <label className="block text-gray-700 font-medium">Problema Específico:</label>
+                            <label className="block text-gray-700 font-medium">Categoría del Problema:</label>
                             <select 
-                                name="predefined_problem" 
-                                value={formData.predefined_problem_id || ''}
+                                name="category_id" 
+                                value={formData.category_id || ''} 
                                 onChange={handleChange} 
-                                className="w-full p-2 border rounded mt-1" 
-                                required={!isCustomCategory}
+                                className={`w-full p-2 border rounded mt-1 transition-all ${isAnalyzing ? 'opacity-50' : 'opacity-100'} ${formData.category_id && !isAnalyzing ? 'bg-blue-50 border-blue-300' : ''}`}
+                                required
                             >
-                                <option value="">-- Seleccione un problema --</option>
-                                {predefinedProblems.map(prob => <option key={prob.id} value={prob.id}>{prob.title}</option>)}
+                                <option value="">-- Seleccione una categoría --</option>
+                                {categories.map(cat => {
+                                    const isSpecial = cat.name.includes('Area de');
+                                    return (
+                                        <option key={cat.id} value={cat.id} className={isSpecial ? 'font-bold bg-gray-100' : ''}>
+                                            {isSpecial ? `--- ${cat.name.toUpperCase()} ---` : cat.name}
+                                        </option>
+                                    );
+                                })}
                             </select>
                         </div>
-                    )}
+
+                        {!isCustomCategory && formData.category_id && (
+                            <div>
+                                <label className="block text-gray-700 font-medium">Problema Específico:</label>
+                                <select 
+                                    name="predefined_problem" 
+                                    value={formData.predefined_problem_id || ''}
+                                    onChange={handleChange} 
+                                    className="w-full p-2 border rounded mt-1" 
+                                    required={!isCustomCategory}
+                                >
+                                    <option value="">-- Seleccione un problema --</option>
+                                    {predefinedProblems.map(prob => <option key={prob.id} value={prob.id}>{prob.title}</option>)}
+                                </select>
+                            </div>
+                        )}
+                    </div>
 
                     <input 
                         type="text" 
@@ -253,22 +375,20 @@ const TicketFormModal: React.FC<TicketFormModalProps> = ({ isOpen, onClose, onSa
                         placeholder="Título del ticket" 
                         className="w-full p-2 border rounded mt-1" 
                         required 
-                        disabled={!isOther && !isCustomCategory} 
-                    />
-                    <textarea 
-                        name="description" 
-                        value={formData.description || ''} 
-                        onChange={handleChange} 
-                        placeholder="Descripción del problema" 
-                        rows={5} 
-                        className="w-full p-2 border rounded mt-1" 
-                        required 
+                        // Habilitar título si es "Otro...", o si no hay problema predefinido seleccionado
+                        disabled={!isOther && !isCustomCategory && !!formData.predefined_problem_id} 
                     />
                     
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div>
                             <label className="block text-gray-700 font-medium">Prioridad:</label>
-                            <select name="priority" value={formData.priority || 'medium'} onChange={handleChange} className="w-full p-2 border rounded mt-1" required>
+                            <select 
+                                name="priority" 
+                                value={formData.priority || 'medium'} 
+                                onChange={handleChange} 
+                                className={`w-full p-2 border rounded mt-1 transition-all ${formData.priority === 'urgent' || formData.priority === 'high' ? 'text-red-600 font-bold bg-red-50' : ''}`}
+                                required
+                            >
                                 <option value="low">Baja</option>
                                 <option value="medium">Media</option>
                                 <option value="high">Alta</option>
@@ -276,7 +396,7 @@ const TicketFormModal: React.FC<TicketFormModalProps> = ({ isOpen, onClose, onSa
                             </select>
                         </div>
                         <div>
-                            <label className="block text-gray-700 font-medium">Departamento (a quien se dirige):</label>
+                            <label className="block text-gray-700 font-medium">Departamento:</label>
                             <select name="department_id" value={formData.department_id || ''} onChange={handleChange} className="w-full p-2 border rounded mt-1" required>
                                 <option value="">Seleccione un departamento</option>
                                 {filteredDepartments.map(dept => <option key={dept.id} value={dept.id}>{dept.name}</option>)}
@@ -302,4 +422,3 @@ const TicketFormModal: React.FC<TicketFormModalProps> = ({ isOpen, onClose, onSa
 };
 
 export default TicketFormModal;
-

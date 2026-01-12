@@ -8,20 +8,32 @@ const {
     deleteDepositario,
     addMaintenance,
     getMaintenanceHistory,
-    getDepositarioMetrics
+    getDepositarioMetrics,
+    getMapData,
+    saveRoute,
+    getRouteHistory // <--- NUEVA IMPORTACIÓN
 } = require('../controllers/depositarioController');
 
 router.use(authenticateToken);
 
+// Rutas Generales
 router.route('/')
     .get(getDepositarios)
     .post(authorize(['admin', 'agent']), createDepositario);
 
-router.route('/:id')
-    .put(authorize(['admin']), updateDepositario) // Solo admin edita
-    .delete(authorize(['admin']), deleteDepositario); // Solo admin borra
-
+// Métricas y Mapa (ANTES de los ID)
 router.get('/metrics', getDepositarioMetrics);
+router.get('/map-data', authorize(['admin', 'agent']), getMapData);
+
+// Rutas de Hoja de Ruta
+router.route('/route')
+    .post(authorize(['admin', 'agent']), saveRoute)      // Guardar nueva ruta
+    .get(authorize(['admin', 'agent']), getRouteHistory); // Ver historial
+
+// Rutas Específicas por ID
+router.route('/:id')
+    .put(authorize(['admin']), updateDepositario)
+    .delete(authorize(['admin']), deleteDepositario);
 
 router.route('/:id/maintenance')
     .get(getMaintenanceHistory)

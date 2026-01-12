@@ -251,6 +251,9 @@ export interface Depositario {
     km_from_base: string;
     duration_trip: string;
     last_maintenance?: string; // Fecha
+    lat?: number | string | null;
+    lng?: number | string | null;
+    maintenance_freq?: number | string;
 }
 
 export interface MaintenanceTask {

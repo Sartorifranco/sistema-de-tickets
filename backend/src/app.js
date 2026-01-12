@@ -77,6 +77,7 @@ const categoryRoutes = require('./routes/categoryRoutes');
 const locationRoutes = require('./routes/locationRoutes');
 const { startCronJobs } = require('./services/cronJobs');
 const depositarioRoutes = require('./routes/depositarioRoutes');
+const aiRoutes = require('./routes/aiRoutes');
 
 // Las rutas de la API AHORA VAN ANTES de servir el frontend.
 app.use('/api/auth', authRoutes);
@@ -97,6 +98,7 @@ app.use('/api/categories', categoryRoutes);
 app.use('/api/locations', locationRoutes);
 app.use('/api/admin', require('./routes/problemAdminRoutes'));
 app.use('/api/depositarios', depositarioRoutes);
+app.use('/api/ai', aiRoutes); // <--- USAR
 
 
 // --- Lógica de Socket.IO ---

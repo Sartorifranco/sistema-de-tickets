@@ -1,9 +1,13 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
+import axios from 'axios';
 import api from '../config/axiosConfig';
 import { useAuth } from '../context/AuthContext';
 import { Depositario, MaintenanceTask, MaintenanceRecord, Company } from '../types';
 import { toast } from 'react-toastify';
 import { formatLocalDate } from '../utils/dateFormatter';
+import DepositaryMap from '../components/Depositarios/DepositaryMap';
+import RouteGeneratorModal from '../components/Depositarios/RouteGeneratorModal';
+import RouteHistoryModal from './RouteHistoryModal'; // <--- INTEGRADO
 
 // --- HELPERS ---
 const getCompanyBadgeClass = (companyName: string = '') => {
@@ -25,6 +29,11 @@ const DepositarioModal: React.FC<{
     onSave: () => void;
 }> = ({ companies, initialData, onClose, onSave }) => {
     const [loading, setLoading] = useState(false);
+    const [suggestions, setSuggestions] = useState<any[]>([]);
+    const [showSuggestions, setShowSuggestions] = useState(false);
+    const [isSearching, setIsSearching] = useState(false);
+    const searchTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+
     const [formData, setFormData] = useState({
         alias: initialData?.alias || '',
         company_id: initialData?.company_id || '',
@@ -32,11 +41,52 @@ const DepositarioModal: React.FC<{
         address: initialData?.address || '',
         location_description: initialData?.location_description || '',
         km_from_base: initialData?.km_from_base || '',
-        duration_trip: initialData?.duration_trip || ''
+        duration_trip: initialData?.duration_trip || '',
+        lat: initialData?.lat || '',
+        lng: initialData?.lng || '',
+        maintenance_freq: initialData?.maintenance_freq || '30'
     });
 
     const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
         setFormData({ ...formData, [e.target.name]: e.target.value });
+    };
+
+    const handleAddressChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const value = e.target.value;
+        setFormData({ ...formData, address: value });
+        if (searchTimeoutRef.current) clearTimeout(searchTimeoutRef.current);
+        if (value.length < 3) {
+            setSuggestions([]);
+            setShowSuggestions(false);
+            return;
+        }
+        searchTimeoutRef.current = setTimeout(async () => {
+            setIsSearching(true);
+            try {
+                const viewbox = '-66.0,-29.0,-61.0,-35.0';
+                const url = `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(value)}&addressdetails=1&limit=8&countrycodes=ar&viewbox=${viewbox}`;
+                const res = await axios.get(url);
+                setSuggestions(res.data);
+                setShowSuggestions(true);
+            } catch (error) {
+                console.error("Error buscando dirección:", error);
+            } finally {
+                setIsSearching(false);
+            }
+        }, 600);
+    };
+
+    const handleSelectSuggestion = (place: any) => {
+        const shortAddress = place.display_name.split(',').slice(0, 3).join(','); 
+        setFormData(prev => ({
+            ...prev,
+            address: shortAddress, 
+            lat: place.lat,
+            lng: place.lon
+        }));
+        setSuggestions([]);
+        setShowSuggestions(false);
+        toast.success("Ubicación seleccionada");
     };
 
     const handleSubmit = async (e: React.FormEvent) => {
@@ -61,7 +111,7 @@ const DepositarioModal: React.FC<{
 
     return (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center z-50 p-4">
-            <div className="bg-white rounded-lg shadow-xl w-full max-w-lg">
+            <div className="bg-white rounded-lg shadow-xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
                 <div className="p-6 border-b">
                     <h2 className="text-xl font-bold text-gray-800">{initialData ? 'Editar Depositario' : 'Nuevo Depositario'}</h2>
                 </div>
@@ -77,14 +127,41 @@ const DepositarioModal: React.FC<{
                             {companies.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
                         </select>
                     </div>
+                    <div className="bg-blue-50 p-4 rounded border border-blue-100 relative">
+                        <h3 className="text-xs font-bold text-blue-800 uppercase mb-3">Geolocalización</h3>
+                        <div className="mb-3 relative">
+                            <label className="block text-xs font-medium text-gray-700 mb-1">Buscar Dirección</label>
+                            <input name="address" value={formData.address} onChange={handleAddressChange} autoComplete="off" className="w-full p-2 border rounded text-sm focus:ring-2 focus:ring-blue-400 outline-none" placeholder="Ej: Av. Colón 5000..." />
+                            {isSearching && <span className="absolute right-3 top-8 text-xs text-gray-500 animate-pulse">Buscando...</span>}
+                            {showSuggestions && suggestions.length > 0 && (
+                                <ul className="absolute z-10 w-full bg-white border border-gray-300 rounded-md shadow-lg mt-1 max-h-48 overflow-y-auto">
+                                    {suggestions.map((place, idx) => (
+                                        <li key={idx} onClick={() => handleSelectSuggestion(place)} className="px-3 py-2 text-sm text-gray-700 hover:bg-blue-100 cursor-pointer border-b last:border-b-0 flex items-start gap-2">
+                                            <span className="mt-1">📍</span><span>{place.display_name}</span>
+                                        </li>
+                                    ))}
+                                </ul>
+                            )}
+                        </div>
+                        <div className="grid grid-cols-2 gap-4">
+                            <div>
+                                <label className="block text-xs font-medium text-gray-700">Latitud</label>
+                                <input name="lat" value={formData.lat} onChange={handleChange} className="w-full p-2 border rounded text-sm bg-white outline-none" placeholder="-31.xxxxxx" />
+                            </div>
+                            <div>
+                                <label className="block text-xs font-medium text-gray-700">Longitud</label>
+                                <input name="lng" value={formData.lng} onChange={handleChange} className="w-full p-2 border rounded text-sm bg-white outline-none" placeholder="-64.xxxxxx" />
+                            </div>
+                        </div>
+                    </div>
                     <div className="grid grid-cols-2 gap-4">
                         <div>
                             <label className="block text-sm font-medium text-gray-700">Nro. Serie</label>
                             <input name="serial_number" value={formData.serial_number} onChange={handleChange} className="w-full p-2 border rounded" />
                         </div>
                         <div>
-                            <label className="block text-sm font-medium text-gray-700">Dirección</label>
-                            <input name="address" value={formData.address} onChange={handleChange} className="w-full p-2 border rounded" />
+                            <label className="block text-sm font-medium text-gray-700">Frec. Mantenimiento (Días)</label>
+                            <input type="number" name="maintenance_freq" value={formData.maintenance_freq} onChange={handleChange} className="w-full p-2 border rounded" placeholder="30" />
                         </div>
                     </div>
                     <div>
@@ -103,7 +180,7 @@ const DepositarioModal: React.FC<{
                     </div>
                     <div className="flex justify-end gap-3 pt-4">
                         <button type="button" onClick={onClose} className="px-4 py-2 bg-gray-200 rounded hover:bg-gray-300">Cancelar</button>
-                        <button type="submit" disabled={loading} className="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700">{initialData ? 'Actualizar' : 'Guardar'}</button>
+                        <button type="submit" disabled={loading} className="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700 font-medium shadow">{initialData ? 'Actualizar' : 'Guardar'}</button>
                     </div>
                 </form>
             </div>
@@ -161,7 +238,7 @@ const MaintenanceModal: React.FC<{
     };
 
     return (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center z-50 p-4">
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center z-[1100] p-4">
             <div className="bg-white rounded-lg shadow-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
                 <div className="p-6">
                     <div className="flex justify-between items-center mb-6 border-b pb-4">
@@ -222,12 +299,17 @@ const DepositariosPage: React.FC = () => {
     // Filtros
     const [searchTerm, setSearchTerm] = useState('');
     const [filterCompany, setFilterCompany] = useState('');
+
+    // Estado de VISTA (Lista vs Mapa)
+    const [viewMode, setViewMode] = useState<'list' | 'map'>('list'); 
     
     // Estados Modales
     const [selectedDepositario, setSelectedDepositario] = useState<Depositario | null>(null);
     const [editingDepositario, setEditingDepositario] = useState<Depositario | null>(null);
     const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
     const [showHistory, setShowHistory] = useState(false);
+    const [isRouteModalOpen, setIsRouteModalOpen] = useState(false); 
+    const [isRouteHistoryOpen, setIsRouteHistoryOpen] = useState(false); // <--- NUEVO ESTADO PARA HISTORIAL RUTAS
     const [historyData, setHistoryData] = useState<MaintenanceRecord[]>([]);
 
     const fetchData = useCallback(async () => {
@@ -275,112 +357,171 @@ const DepositariosPage: React.FC = () => {
         }
     };
 
+    // Función que llama la Hoja de Ruta al tocar "Realizar"
+    const handleMaintenanceFromRoute = (dep: Depositario) => {
+        setSelectedDepositario(dep); // Abre el modal de mantenimiento
+        // No cerramos la hoja de ruta para no perder el contexto
+    };
+
+    // Función que se ejecuta al guardar el mantenimiento
+    const handleMaintenanceSave = () => {
+        fetchData(); // Recarga los datos (el depositario tendrá fecha HOY)
+        // La Hoja de Ruta detectará el cambio y pondrá el check verde
+    };
+
     return (
         <div className="container mx-auto p-4 sm:p-6 lg:p-8 bg-gray-50 min-h-screen">
-            <div className="flex flex-col sm:flex-row justify-between items-center mb-8 gap-4">
+            {/* CABECERA Y CONTROLES */}
+            <div className="flex flex-col md:flex-row justify-between items-center mb-8 gap-4">
                 <h1 className="text-3xl font-bold text-gray-800">Gestión de Depositarios</h1>
-                {['admin', 'agent'].includes(user?.role || '') && (
-                    <button 
-                        onClick={() => setIsCreateModalOpen(true)}
-                        className="bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-6 rounded-lg shadow-md transition-colors flex items-center gap-2"
+                
+                <div className="flex gap-4 items-center flex-wrap justify-end">
+                    {/* TOGGLE DE VISTAS */}
+                    <div className="bg-gray-200 p-1 rounded-lg flex shadow-inner">
+                        <button
+                            onClick={() => setViewMode('list')}
+                            className={`px-4 py-2 rounded-md text-sm font-medium transition-all ${
+                                viewMode === 'list' 
+                                ? 'bg-white text-blue-600 shadow' 
+                                : 'text-gray-600 hover:text-gray-800'
+                            }`}
+                        >
+                            📋 Lista
+                        </button>
+                        <button
+                            onClick={() => setViewMode('map')}
+                            className={`px-4 py-2 rounded-md text-sm font-medium transition-all ${
+                                viewMode === 'map' 
+                                ? 'bg-white text-blue-600 shadow' 
+                                : 'text-gray-600 hover:text-gray-800'
+                            }`}
+                        >
+                            🗺️ Mapa Inteligente
+                        </button>
+                    </div>
+
+                    {/* BOTÓN HISTORIAL RUTAS (NUEVO) */}
+                    <button
+                        onClick={() => setIsRouteHistoryOpen(true)}
+                        className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 px-4 rounded-lg shadow-md transition-colors flex items-center gap-2"
                     >
-                        <span>+</span> Nuevo Depositario
+                        📂 Historial
                     </button>
-                )}
-            </div>
 
-            {/* Filtros */}
-            <div className="bg-white p-4 rounded-lg shadow-md mb-8 flex flex-col sm:flex-row gap-4 items-center">
-                <div className="flex-grow w-full">
-                    <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Buscar</label>
-                    <input 
-                        type="text" 
-                        placeholder="Alias, Nro Serie o Dirección..." 
-                        className="w-full p-2 border rounded focus:ring-2 focus:ring-blue-500 outline-none"
-                        value={searchTerm}
-                        onChange={e => setSearchTerm(e.target.value)}
-                    />
-                </div>
-                <div className="w-full sm:w-64">
-                    <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Empresa</label>
-                    <select 
-                        className="w-full p-2 border rounded focus:ring-2 focus:ring-blue-500 outline-none bg-white"
-                        value={filterCompany}
-                        onChange={e => setFilterCompany(e.target.value)}
+                    {/* BOTÓN RUTA INTELIGENTE */}
+                    <button
+                        onClick={() => setIsRouteModalOpen(true)}
+                        className="bg-purple-600 hover:bg-purple-700 text-white font-bold py-2 px-4 rounded-lg shadow-md transition-colors flex items-center gap-2"
                     >
-                        <option value="">Todas las Empresas</option>
-                        {companies.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
-                    </select>
+                        🚚 Hoja de Ruta
+                    </button>
+
+                    {['admin', 'agent'].includes(user?.role || '') && (
+                        <button 
+                            onClick={() => setIsCreateModalOpen(true)}
+                            className="bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-6 rounded-lg shadow-md transition-colors flex items-center gap-2"
+                        >
+                            <span>+</span> Nuevo
+                        </button>
+                    )}
                 </div>
             </div>
 
-            {/* Listado */}
-            {loading ? (
-                <p className="text-center py-10 text-gray-500">Cargando depositarios...</p>
-            ) : depositarios.length === 0 ? (
-                <p className="text-center py-10 text-gray-500">No se encontraron depositarios.</p>
-            ) : (
-                <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
-                    {depositarios.map(dep => (
-                        <div key={dep.id} className="bg-white rounded-lg shadow-md hover:shadow-xl transition-all duration-300 border-t-4 border-gray-300 flex flex-col relative group">
-                            
-                            {user?.role === 'admin' && (
-                                <div className="absolute top-2 right-2 flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                                    <button onClick={() => setEditingDepositario(dep)} className="bg-white p-1 rounded-full shadow hover:bg-blue-50 text-blue-600" title="Editar">✏️</button>
-                                    <button onClick={() => handleDelete(dep.id)} className="bg-white p-1 rounded-full shadow hover:bg-red-50 text-red-600" title="Eliminar">🗑️</button>
-                                </div>
-                            )}
+            {/* CONTENIDO PRINCIPAL */}
+            {viewMode === 'list' ? (
+                <>
+                    {/* Filtros */}
+                    <div className="bg-white p-4 rounded-lg shadow-md mb-8 flex flex-col sm:flex-row gap-4 items-center animate-fade-in">
+                        <div className="flex-grow w-full">
+                            <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Buscar</label>
+                            <input type="text" placeholder="Alias, Nro Serie o Dirección..." className="w-full p-2 border rounded focus:ring-2 focus:ring-blue-500 outline-none" value={searchTerm} onChange={e => setSearchTerm(e.target.value)} />
+                        </div>
+                        <div className="w-full sm:w-64">
+                            <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Empresa</label>
+                            <select className="w-full p-2 border rounded focus:ring-2 focus:ring-blue-500 outline-none bg-white" value={filterCompany} onChange={e => setFilterCompany(e.target.value)}>
+                                <option value="">Todas las Empresas</option>
+                                {companies.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                            </select>
+                        </div>
+                    </div>
 
-                            <div className="p-5 flex-grow">
-                                <div className="flex justify-between items-start mb-3 pr-14">
-                                    <h3 className="font-bold text-xl text-gray-800 truncate" title={dep.alias}>{dep.alias}</h3>
-                                </div>
-                                <div className="mb-4">
-                                    <span className={`text-xs px-2 py-1 rounded-full font-bold border ${getCompanyBadgeClass(dep.company_name)}`}>
-                                        {dep.company_name}
-                                    </span>
-                                </div>
-                                
-                                <div className="space-y-2 text-sm text-gray-600">
-                                    <p><span className="font-semibold text-gray-900">Serie:</span> {dep.serial_number || 'N/A'}</p>
-                                    <p><span className="font-semibold text-gray-900">Ubicación:</span> {dep.address}</p>
-                                    <div className="flex items-center gap-4 mt-2">
-                                        <span className="bg-gray-100 px-2 py-1 rounded text-xs">🚗 {dep.km_from_base} km</span>
-                                        <span className="bg-gray-100 px-2 py-1 rounded text-xs">⏱ {dep.duration_trip}</span>
+                    {/* Listado */}
+                    {loading ? (
+                        <p className="text-center py-10 text-gray-500">Cargando depositarios...</p>
+                    ) : depositarios.length === 0 ? (
+                        <p className="text-center py-10 text-gray-500">No se encontraron depositarios.</p>
+                    ) : (
+                        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6 animate-fade-in">
+                            {depositarios.map(dep => (
+                                <div key={dep.id} className="bg-white rounded-lg shadow-md hover:shadow-xl transition-all duration-300 border-t-4 border-gray-300 flex flex-col relative group">
+                                    {user?.role === 'admin' && (
+                                        <div className="absolute top-2 right-2 flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                                            <button onClick={() => setEditingDepositario(dep)} className="bg-white p-1 rounded-full shadow hover:bg-blue-50 text-blue-600">✏️</button>
+                                            <button onClick={() => handleDelete(dep.id)} className="bg-white p-1 rounded-full shadow hover:bg-red-50 text-red-600">🗑️</button>
+                                        </div>
+                                    )}
+                                    <div className="p-5 flex-grow">
+                                        <div className="flex justify-between items-start mb-3 pr-14">
+                                            <h3 className="font-bold text-xl text-gray-800 truncate" title={dep.alias}>{dep.alias}</h3>
+                                        </div>
+                                        <div className="mb-4">
+                                            <span className={`text-xs px-2 py-1 rounded-full font-bold border ${getCompanyBadgeClass(dep.company_name)}`}>{dep.company_name}</span>
+                                        </div>
+                                        <div className="space-y-2 text-sm text-gray-600">
+                                            <p><span className="font-semibold text-gray-900">Serie:</span> {dep.serial_number || 'N/A'}</p>
+                                            <p><span className="font-semibold text-gray-900">Ubicación:</span> {dep.address}</p>
+                                            <div className="flex items-center gap-4 mt-2">
+                                                <span className="bg-gray-100 px-2 py-1 rounded text-xs">🚗 {dep.km_from_base} km</span>
+                                                <span className="bg-gray-100 px-2 py-1 rounded text-xs">⏱ {dep.duration_trip}</span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div className="bg-gray-50 px-5 py-3 border-t border-gray-100">
+                                        <div className="text-xs text-gray-500 mb-3 flex justify-between">
+                                            <span>Último mantenimiento:</span>
+                                            <span className={`font-semibold ${dep.last_maintenance ? 'text-green-600' : 'text-red-500'}`}>
+                                                {dep.last_maintenance ? formatLocalDate(dep.last_maintenance) : 'Nunca'}
+                                            </span>
+                                        </div>
+                                        <div className="flex gap-2">
+                                            <button onClick={() => handleViewHistory(dep)} className="flex-1 bg-white border border-gray-300 text-gray-700 py-2 rounded hover:bg-gray-50 text-sm font-medium">Historial</button>
+                                            <button onClick={() => setSelectedDepositario(dep)} className="flex-1 bg-blue-600 text-white py-2 rounded hover:bg-blue-700 text-sm font-medium shadow">Mantenimiento</button>
+                                        </div>
                                     </div>
                                 </div>
-                            </div>
-                            
-                            <div className="bg-gray-50 px-5 py-3 border-t border-gray-100">
-                                <div className="text-xs text-gray-500 mb-3 flex justify-between">
-                                    <span>Último mantenimiento:</span>
-                                    <span className={`font-semibold ${dep.last_maintenance ? 'text-green-600' : 'text-red-500'}`}>
-                                        {dep.last_maintenance ? formatLocalDate(dep.last_maintenance) : 'Nunca'}
-                                    </span>
-                                </div>
-                                <div className="flex gap-2">
-                                    <button 
-                                        onClick={() => handleViewHistory(dep)}
-                                        className="flex-1 bg-white border border-gray-300 text-gray-700 py-2 rounded hover:bg-gray-50 text-sm font-medium transition-colors"
-                                    >
-                                        Historial
-                                    </button>
-                                    <button 
-                                        onClick={() => setSelectedDepositario(dep)}
-                                        className="flex-1 bg-blue-600 text-white py-2 rounded hover:bg-blue-700 text-sm font-medium shadow transition-colors"
-                                    >
-                                        Mantenimiento
-                                    </button>
-                                </div>
-                            </div>
+                            ))}
                         </div>
-                    ))}
+                    )}
+                </>
+            ) : (
+                <div className="bg-white p-1 rounded-lg shadow-lg h-[700px] animate-fade-in border border-gray-200 relative z-0">
+                    <DepositaryMap />
                 </div>
             )}
 
-            {/* Modales */}
+            {/* MODALES */}
+            
+            {/* 1. Modal de Mantenimiento */}
             {selectedDepositario && (
-                <MaintenanceModal depositario={selectedDepositario} onClose={() => setSelectedDepositario(null)} onSave={fetchData} />
+                <MaintenanceModal 
+                    depositario={selectedDepositario} 
+                    onClose={() => setSelectedDepositario(null)} 
+                    onSave={handleMaintenanceSave} 
+                />
+            )}
+
+            {/* 2. Modal de Generar Ruta */}
+            {isRouteModalOpen && (
+                <RouteGeneratorModal 
+                    depositarios={depositarios} 
+                    onClose={() => setIsRouteModalOpen(false)} 
+                    onMaintenanceOpen={handleMaintenanceFromRoute}
+                />
+            )}
+
+            {/* 3. Modal de Historial de Rutas (NUEVO) */}
+            {isRouteHistoryOpen && (
+                <RouteHistoryModal onClose={() => setIsRouteHistoryOpen(false)} />
             )}
 
             {(isCreateModalOpen || editingDepositario) && (
@@ -392,7 +533,7 @@ const DepositariosPage: React.FC = () => {
                 />
             )}
 
-            {/* ✅ MODAL DE HISTORIAL MEJORADO */}
+            {/* Historial de Mantenimientos Individual (de cada depositario) */}
             {showHistory && (
                 <div className="fixed inset-0 bg-black bg-opacity-60 flex justify-center items-center z-50 p-4">
                     <div className="bg-white rounded-lg shadow-2xl w-full max-w-4xl max-h-[85vh] flex flex-col">
@@ -400,72 +541,20 @@ const DepositariosPage: React.FC = () => {
                             <h2 className="text-2xl font-bold text-gray-800">Historial de Mantenimiento</h2>
                             <button onClick={() => setShowHistory(false)} className="text-gray-500 hover:text-red-600 font-bold text-xl">✕</button>
                         </div>
-                        
                         <div className="p-6 overflow-y-auto flex-grow bg-gray-100 space-y-4">
-                            {historyData.length === 0 ? (
-                                <div className="text-center py-10 text-gray-500">No hay registros de mantenimiento para este equipo.</div>
-                            ) : (
-                                historyData.map(log => (
-                                    <div key={log.id} className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
-                                        {/* Encabezado de la tarjeta */}
-                                        <div className="bg-blue-50 px-4 py-3 border-b border-blue-100 flex flex-col sm:flex-row justify-between items-start sm:items-center">
-                                            <div className="flex items-center gap-3">
-                                                <div className="bg-blue-500 text-white rounded-full w-8 h-8 flex items-center justify-center font-bold text-sm">
-                                                    {(log.first_name || log.username).charAt(0).toUpperCase()}
-                                                </div>
-                                                <div>
-                                                    <p className="font-bold text-gray-800 text-sm">
-                                                        {log.first_name ? `${log.first_name} ${log.last_name}` : log.username}
-                                                    </p>
-                                                    {log.companion_name && (
-                                                        <p className="text-xs text-gray-500">Acompañante: {log.companion_name}</p>
-                                                    )}
-                                                </div>
-                                            </div>
-                                            <div className="text-right mt-2 sm:mt-0">
-                                                <span className="text-xs font-semibold text-blue-700 bg-blue-100 px-2 py-1 rounded">
-                                                    {formatLocalDate(log.maintenance_date)}
-                                                </span>
-                                            </div>
+                            {historyData.length === 0 ? <div className="text-center py-10 text-gray-500">No hay registros.</div> : historyData.map(log => (
+                                <div key={log.id} className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
+                                    <div className="bg-blue-50 px-4 py-3 border-b border-blue-100 flex justify-between items-center">
+                                        <div className="flex items-center gap-3">
+                                            <div className="bg-blue-500 text-white rounded-full w-8 h-8 flex items-center justify-center font-bold text-sm">{(log.first_name || log.username).charAt(0).toUpperCase()}</div>
+                                            <div><p className="font-bold text-gray-800 text-sm">{log.first_name ? `${log.first_name} ${log.last_name}` : log.username}</p></div>
                                         </div>
-
-                                        {/* Cuerpo de la tarjeta */}
-                                        <div className="p-4 grid grid-cols-1 md:grid-cols-2 gap-4">
-                                            {/* Columna Izquierda: Tareas */}
-                                            <div>
-                                                <h4 className="text-xs font-bold text-gray-400 uppercase mb-2 border-b pb-1">Checklist</h4>
-                                                <ul className="space-y-2">
-                                                    {(typeof log.tasks_log === 'string' ? JSON.parse(log.tasks_log) : log.tasks_log).map((t: MaintenanceTask, i: number) => (
-                                                        t.done && (
-                                                            <li key={i} className="text-sm flex items-start gap-2">
-                                                                <span className="text-green-500">✔</span>
-                                                                <span className="text-gray-700">
-                                                                    <strong>{t.name}</strong>
-                                                                    {t.comment && <span className="text-gray-500 text-xs block italic ml-4">↳ {t.comment}</span>}
-                                                                </span>
-                                                            </li>
-                                                        )
-                                                    ))}
-                                                </ul>
-                                            </div>
-
-                                            {/* Columna Derecha: Observaciones */}
-                                            <div>
-                                                <h4 className="text-xs font-bold text-gray-400 uppercase mb-2 border-b pb-1">Observaciones Generales</h4>
-                                                {log.observations ? (
-                                                    <p className="text-sm text-gray-600 italic bg-gray-50 p-3 rounded">
-                                                        "{log.observations}"
-                                                    </p>
-                                                ) : (
-                                                    <p className="text-xs text-gray-400">Sin observaciones adicionales.</p>
-                                                )}
-                                            </div>
-                                        </div>
+                                        <span className="text-xs font-semibold text-blue-700 bg-blue-100 px-2 py-1 rounded">{formatLocalDate(log.maintenance_date)}</span>
                                     </div>
-                                ))
-                            )}
+                                    <div className="p-4"><p className="text-sm text-gray-600 italic">"{log.observations || 'Sin observaciones'}"</p></div>
+                                </div>
+                            ))}
                         </div>
-                        
                         <div className="p-4 border-t bg-gray-50 rounded-b-lg flex justify-end">
                             <button onClick={() => setShowHistory(false)} className="px-6 py-2 bg-gray-300 hover:bg-gray-400 text-gray-800 font-bold rounded shadow">Cerrar</button>
                         </div>
