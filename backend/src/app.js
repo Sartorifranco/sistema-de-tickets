@@ -1,4 +1,4 @@
-console.log('--- app.js: Iniciando carga del archivo ---');
+console.log('--- app.js: Iniciando carga del sistema ---');
 
 const express = require('express');
 const dotenv = require('dotenv');
@@ -8,139 +8,131 @@ const http = require('http');
 const { Server } = require('socket.io');
 const jwt = require('jsonwebtoken');
 
+// 1. Cargar variables de entorno
 dotenv.config();
 
 const app = express();
 const server = http.createServer(app);
 
-// --- CONFIGURACIÓN DE CORS ---
+// --- 2. CONFIGURACIÓN ROBUSTA DE CORS ---
+// Lista blanca de orígenes permitidos (Frontend)
 const allowedOrigins = [
-  process.env.FRONTEND_URL,
-  'http://bacarsa.dyndns.org:8001',
-  'http://localhost:3020',
-  'http://192.168.0.9:5040',
+  process.env.FRONTEND_URL,          // Del .env
+  'http://bacarsa.dyndns.org:8001',  // Producción externa Frontend
+  'http://192.168.0.9:8001',         // Producción interna Frontend
+  'http://localhost:3020',           // Desarrollo local React
+  'http://localhost:8001',           
+  // AGREGADOS PARA SOPORTAR FRONTEND SERVIDO POR BACKEND:
+  'http://192.168.0.9:5040',         
+  'http://localhost:5040',           // Acceso local al backend
+  'http://bacarsa.dyndns.org:5040'   // Acceso externo directo al backend
 ];
 
 const corsOptions = {
   origin: function (origin, callback) {
-    console.log('[CORS] Petición recibida del origen:', origin);
-    if (!origin || allowedOrigins.includes(origin)) {
+    // Permitir solicitudes sin origen (como Postman, mobile apps o scripts de servidor)
+    if (!origin) return callback(null, true);
+    
+    if (allowedOrigins.indexOf(origin) !== -1 || origin.includes('bacarsa.dyndns.org')) {
       callback(null, true);
     } else {
-      console.error(`[CORS] Origen RECHAZADO: ${origin}. No está en la lista de permitidos.`);
-      callback(new Error('No permitido por la política de CORS'));
+      console.log(`[CORS] Bloqueado: ${origin}`); // Log para depurar
+      callback(new Error('No permitido por CORS'));
     }
   },
-  methods: "GET,HEAD,PUT,PATCH,POST,DELETE",
-  allowedHeaders: "Origin, X-Requested-With, Content-Type, Accept, Authorization"
+  methods: ["GET", "HEAD", "PUT", "PATCH", "POST", "DELETE"],
+  credentials: true, 
+  allowedHeaders: ["Content-Type", "Authorization", "X-Requested-With", "Accept"]
 };
 
+// Aplicar CORS a Express
 app.use(cors(corsOptions));
-app.options('*', cors(corsOptions));
 app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
 
+// Servir archivos estáticos
 app.use('/uploads', express.static(path.join(__dirname, '../uploads')));
 
-// ✅ SOLUCIÓN: Middleware para corregir la duplicación de /api/ en la URL
-app.use((req, res, next) => {
-  if (req.url.startsWith('/api/api/')) {
-    req.url = req.url.replace('/api/api/', '/api/');
-  }
-  next();
-});
-
+// --- 3. CONFIGURACIÓN SOCKET.IO ---
 const io = new Server(server, {
-  cors: corsOptions
+  cors: corsOptions, // Usamos la misma configuración CORS
+  transports: ['websocket', 'polling']
 });
 
+// Middleware para inyectar 'io'
 app.use((req, res, next) => {
   req.io = io;
   next();
 });
 
-// --- Importar Rutas ---
+// --- 4. IMPORTACIÓN DE RUTAS ---
 const authRoutes = require('./routes/authRoutes');
 const userRoutes = require('./routes/userRoutes');
 const ticketRoutes = require('./routes/ticketRoutes');
 const departmentRoutes = require('./routes/departmentRoutes');
 const notificationRoutes = require('./routes/notificationRoutes');
-const activityLogRoutes = require('./routes/activityLogRoutes');
 const dashboardRoutes = require('./routes/dashboardRoutes');
 const reportRoutes = require('./routes/reportRoutes');
-const feedbackRoutes = require('./routes/feedbackRoutes');
-const bacarKeyRoutes = require('./routes/bacarKeyRoutes');
 const companyRoutes = require('./routes/companyRoutes');
-const publicRoutes = require('./routes/publicRoutes');
-const noteRoutes = require('./routes/noteRoutes');
-const problemRoutes = require('./routes/problemRoutes');
-const categoryRoutes = require('./routes/categoryRoutes');
-const locationRoutes = require('./routes/locationRoutes');
-const { startCronJobs } = require('./services/cronJobs');
 const depositarioRoutes = require('./routes/depositarioRoutes');
 const aiRoutes = require('./routes/aiRoutes');
+const { startCronJobs } = require('./services/cronJobs');
 
-// Las rutas de la API AHORA VAN ANTES de servir el frontend.
+// --- 5. DEFINICIÓN DE ENDPOINTS (API) ---
 app.use('/api/auth', authRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/tickets', ticketRoutes);
 app.use('/api/departments', departmentRoutes);
 app.use('/api/notifications', notificationRoutes);
-app.use('/api/activity-logs', activityLogRoutes);
 app.use('/api/dashboard', dashboardRoutes);
 app.use('/api/reports', reportRoutes);
-app.use('/api/feedback', feedbackRoutes);
-app.use('/api/bacar-keys', bacarKeyRoutes);
 app.use('/api/companies', companyRoutes);
-app.use('/api/public', publicRoutes);
-app.use('/api/notes', noteRoutes);
-app.use('/api/problems', problemRoutes);
-app.use('/api/categories', categoryRoutes);
-app.use('/api/locations', locationRoutes);
-app.use('/api/admin', require('./routes/problemAdminRoutes'));
 app.use('/api/depositarios', depositarioRoutes);
-app.use('/api/ai', aiRoutes); // <--- USAR
+app.use('/api/ai', aiRoutes);
 
+// ✅ RUTAS DE ADMINISTRACIÓN (Problemáticas y Ubicaciones)
+app.use('/api/admin', require('./routes/problemAdminRoutes'));
 
-// --- Lógica de Socket.IO ---
+// ✅ RUTAS DE DATOS GENERALES (Para solucionar los 404 en el perfil de Cliente)
+// Esto habilita: /api/locations/:id y /api/problems/categories/:id
+app.use('/api', require('./routes/dataRoutes'));
+
+// --- 6. SOCKET.IO EVENTOS ---
 io.on('connection', (socket) => {
-  console.log(`[Socket.IO Server] Usuario conectado: ${socket.id}`);
-  
   const token = socket.handshake.auth.token;
   if (token) {
       try {
           const decoded = jwt.verify(token, process.env.JWT_SECRET);
-          socket.user = decoded;
-          console.log(`[Socket.IO Server] Socket ${socket.id} autenticado como usuario ${decoded.id} (${decoded.role})`);
           socket.join(`user-${decoded.id}`);
-          console.log(`[Socket.IO Server] Socket ${socket.id} se unió a la sala 'user-${decoded.id}'.`);
+          console.log(`✅ Socket conectado: ${decoded.username} (${socket.id})`);
+          
           if (decoded.role) {
               socket.join(decoded.role);
-              console.log(`[Socket.IO Server] Socket ${socket.id} se unió a la sala de rol '${decoded.role}'.`);
           }
       } catch (error) {
-          console.error('[Socket.IO Server] Error de autenticación de token:', error.message);
-          socket.disconnect(true);
+          // Token inválido o expirado
+          // console.error('Socket Auth:', error.message);
       }
-  } else {
-      console.warn(`[Socket.IO Server] Conexión de Socket ${socket.id} sin token de autenticación.`);
   }
-
-  socket.on('disconnect', (reason) => {
-      console.log(`[Socket.IO Server] Usuario desconectado: ${socket.id}. Razón: ${reason}`);
+  
+  socket.on('disconnect', () => {
+      // console.log('Socket desconectado');
   });
 });
 
-// --- SERVIR EL FRONTEND Y MANEJAR RUTAS DE REACT (Catch-all) ---
-// Esto ahora va DESPUÉS de las rutas de la API.
+// --- 7. SERVIR FRONTEND (PRODUCCIÓN) ---
+// Sirve la app de React desde el puerto del backend
 app.use(express.static(path.join(__dirname, '../../frontend/build')));
 app.get('*', (req, res) => {
+  if (req.url.startsWith('/api')) {
+      return res.status(404).json({ success: false, message: 'API Endpoint no encontrado' });
+  }
   res.sendFile(path.resolve(__dirname, '../../frontend/build', 'index.html'));
 });
 
-
+// --- 8. INICIO DEL SERVIDOR ---
 const PORT = process.env.PORT || 5040;
 server.listen(PORT, '0.0.0.0', () => {
-  console.log(`Servidor iniciado en http://0.0.0.0:${PORT}`);
+  console.log(`🚀 Servidor corriendo en puerto ${PORT}`);
   startCronJobs();
 });
-

@@ -1,50 +1,45 @@
 const express = require('express');
 const router = express.Router();
+
+// 1. IMPORTAR MIDDLEWARES DE SEGURIDAD
+const { authenticateToken, authorize } = require('../middleware/authMiddleware');
+
+// 2. IMPORTAR CONTROLADORES (Nombres deben coincidir con problemAdminController.js)
 const {
-    getAllProblemsAndCategories,
+    getAllProblemsAdmin,
     createCategory,
     updateCategory,
     deleteCategory,
     createProblem,
     updateProblem,
     deleteProblem,
-    // ✅ Se importan las nuevas funciones
-    getAllLocations,
+    getAllLocationsAdmin,
     createLocation,
     updateLocation,
     deleteLocation
-} = require('../controllers/adminController');
+} = require('../controllers/problemAdminController');
 
-const { authenticateToken, authorize } = require('../middleware/authMiddleware'); 
+// 3. APLICAR SEGURIDAD
 router.use(authenticateToken);
 router.use(authorize('admin'));
 
-// Rutas para Categorías
-router.route('/categories')
-    .post(createCategory);
+// --- RUTAS DE CATEGORÍAS Y PROBLEMAS ---
+router.get('/problems-all', getAllProblemsAdmin);
 
-router.route('/categories/:id')
-    .put(updateCategory)
-    .delete(deleteCategory);
+// Categorías
+router.post('/categories', createCategory);
+router.put('/categories/:id', updateCategory);
+router.delete('/categories/:id', deleteCategory);
 
-// Rutas para Problemas Predefinidos
-router.route('/problems')
-    .post(createProblem);
+// Problemas
+router.post('/problems', createProblem);
+router.put('/problems/:id', updateProblem);
+router.delete('/problems/:id', deleteProblem);
 
-router.route('/problems/:id')
-    .put(updateProblem)
-    .delete(deleteProblem);
-    
-router.route('/problems-all')
-    .get(getAllProblemsAndCategories);
-
-// ✅ --- NUEVAS RUTAS PARA UBICACIONES ---
-router.route('/locations')
-    .get(getAllLocations)
-    .post(createLocation);
-
-router.route('/locations/:id')
-    .put(updateLocation)
-    .delete(deleteLocation);
+// --- RUTAS DE UBICACIONES ---
+router.get('/locations', getAllLocationsAdmin);
+router.post('/locations', createLocation);
+router.put('/locations/:id', updateLocation);
+router.delete('/locations/:id', deleteLocation);
 
 module.exports = router;

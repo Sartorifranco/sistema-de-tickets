@@ -7,7 +7,8 @@ import { toast } from 'react-toastify';
 import { formatLocalDate } from '../utils/dateFormatter';
 import DepositaryMap from '../components/Depositarios/DepositaryMap';
 import RouteGeneratorModal from '../components/Depositarios/RouteGeneratorModal';
-import RouteHistoryModal from './RouteHistoryModal'; // <--- INTEGRADO
+import RouteHistoryModal from '../components/Depositarios/RouteHistoryModal';
+import DepositaryReportModal from '../components/Depositarios/DepositaryReportModal';
 
 // --- HELPERS ---
 const getCompanyBadgeClass = (companyName: string = '') => {
@@ -202,6 +203,7 @@ const MaintenanceModal: React.FC<{
     now.setMinutes(now.getMinutes() - now.getTimezoneOffset());
     const [date, setDate] = useState(now.toISOString().slice(0, 16));
     const [observations, setObservations] = useState('');
+    const [billCounter, setBillCounter] = useState('');
     
     const [tasks, setTasks] = useState<MaintenanceTask[]>([
         { name: 'Limpieza', done: false, comment: '' },
@@ -225,7 +227,8 @@ const MaintenanceModal: React.FC<{
                 companion_name: companion,
                 date: date,
                 observations: observations,
-                tasks: tasks
+                tasks: tasks,
+                bill_counter: billCounter
             });
             toast.success('Mantenimiento registrado con éxito');
             onSave();
@@ -256,6 +259,23 @@ const MaintenanceModal: React.FC<{
                                 <input type="datetime-local" value={date} onChange={e => setDate(e.target.value)} className="w-full p-2 border rounded focus:ring-blue-500 focus:border-blue-500" required/>
                             </div>
                         </div>
+
+                        {/* INPUT DE CONTADOR DE BILLETES */}
+                        <div className="mb-4 bg-yellow-50 p-4 rounded border border-yellow-200">
+                            <label className="block text-sm font-bold text-gray-800 mb-1">📟 Contador del Cabezal (Billetes)</label>
+                            <div className="flex items-center gap-2">
+                                <input 
+                                    type="number" 
+                                    value={billCounter} 
+                                    onChange={e => setBillCounter(e.target.value)} 
+                                    className="w-full p-2 border rounded font-mono text-lg text-blue-900 font-bold" 
+                                    placeholder="Ej: 54320" 
+                                />
+                                <span className="text-gray-500 text-sm">unidades</span>
+                            </div>
+                            <p className="text-xs text-gray-500 mt-1">Ingrese el valor total que muestra el display.</p>
+                        </div>
+
                         <div>
                             <label className="block text-sm font-semibold text-gray-700 mb-1">Acompañante (Opcional)</label>
                             <input type="text" value={companion} onChange={e => setCompanion(e.target.value)} className="w-full p-2 border rounded focus:ring-blue-500 focus:border-blue-500" placeholder="Nombre del acompañante"/>
@@ -309,7 +329,8 @@ const DepositariosPage: React.FC = () => {
     const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
     const [showHistory, setShowHistory] = useState(false);
     const [isRouteModalOpen, setIsRouteModalOpen] = useState(false); 
-    const [isRouteHistoryOpen, setIsRouteHistoryOpen] = useState(false); // <--- NUEVO ESTADO PARA HISTORIAL RUTAS
+    const [isRouteHistoryOpen, setIsRouteHistoryOpen] = useState(false); 
+    const [isReportModalOpen, setIsReportModalOpen] = useState(false);
     const [historyData, setHistoryData] = useState<MaintenanceRecord[]>([]);
 
     const fetchData = useCallback(async () => {
@@ -369,6 +390,42 @@ const DepositariosPage: React.FC = () => {
         // La Hoja de Ruta detectará el cambio y pondrá el check verde
     };
 
+    // --- HELPER PARA RENDERIZAR TAREAS DEL CHECKLIST ---
+    const renderTasks = (tasksJson: any) => {
+        let tasks = [];
+        try {
+            // A veces viene como string desde MySQL, a veces ya como objeto
+            tasks = typeof tasksJson === 'string' ? JSON.parse(tasksJson) : tasksJson;
+        } catch (e) {
+            return <span className="text-gray-400 italic">Error leyendo tareas</span>;
+        }
+
+        if (!Array.isArray(tasks) || tasks.length === 0) return <span className="text-gray-400 italic">Sin tareas registradas</span>;
+
+        // Filtramos para mostrar solo las hechas, o todas si quieres ver las pendientes también
+        const completedTasks = tasks.filter((t: any) => t.done);
+
+        if (completedTasks.length === 0) return <span className="text-gray-400 italic">No se marcaron tareas específicas.</span>;
+
+        return (
+            <div className="grid grid-cols-1 gap-2 mt-2">
+                {completedTasks.map((t: any, idx: number) => (
+                    <div key={idx} className="flex items-start gap-2 text-sm bg-green-50 p-2 rounded border border-green-100">
+                        <span className="text-green-600 font-bold">✓</span>
+                        <div className="flex-grow">
+                            <span className="font-medium text-gray-800">{t.name}</span>
+                            {t.comment && (
+                                <div className="text-xs text-gray-600 italic border-l-2 border-green-200 pl-2 mt-1">
+                                    "{t.comment}"
+                                </div>
+                            )}
+                        </div>
+                    </div>
+                ))}
+            </div>
+        );
+    };
+
     return (
         <div className="container mx-auto p-4 sm:p-6 lg:p-8 bg-gray-50 min-h-screen">
             {/* CABECERA Y CONTROLES */}
@@ -400,7 +457,15 @@ const DepositariosPage: React.FC = () => {
                         </button>
                     </div>
 
-                    {/* BOTÓN HISTORIAL RUTAS (NUEVO) */}
+                    {/* BOTÓN REPORTES (NUEVO) */}
+                    <button
+                        onClick={() => setIsReportModalOpen(true)}
+                        className="bg-orange-600 hover:bg-orange-700 text-white font-bold py-2 px-4 rounded-lg shadow-md transition-colors flex items-center gap-2"
+                    >
+                        📊 Reportes
+                    </button>
+
+                    {/* BOTÓN HISTORIAL RUTAS */}
                     <button
                         onClick={() => setIsRouteHistoryOpen(true)}
                         className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 px-4 rounded-lg shadow-md transition-colors flex items-center gap-2"
@@ -519,9 +584,14 @@ const DepositariosPage: React.FC = () => {
                 />
             )}
 
-            {/* 3. Modal de Historial de Rutas (NUEVO) */}
+            {/* 3. Modal de Historial de Rutas */}
             {isRouteHistoryOpen && (
                 <RouteHistoryModal onClose={() => setIsRouteHistoryOpen(false)} />
+            )}
+
+            {/* 4. Modal de Reportes (NUEVO) */}
+            {isReportModalOpen && (
+                <DepositaryReportModal onClose={() => setIsReportModalOpen(false)} />
             )}
 
             {(isCreateModalOpen || editingDepositario) && (
@@ -533,30 +603,95 @@ const DepositariosPage: React.FC = () => {
                 />
             )}
 
-            {/* Historial de Mantenimientos Individual (de cada depositario) */}
+            {/* =========================================================================== */}
+            {/* MODAL DE HISTORIAL DE MANTENIMIENTO MEJORADO */}
+            {/* =========================================================================== */}
             {showHistory && (
-                <div className="fixed inset-0 bg-black bg-opacity-60 flex justify-center items-center z-50 p-4">
-                    <div className="bg-white rounded-lg shadow-2xl w-full max-w-4xl max-h-[85vh] flex flex-col">
-                        <div className="p-6 border-b flex justify-between items-center bg-gray-50 rounded-t-lg">
-                            <h2 className="text-2xl font-bold text-gray-800">Historial de Mantenimiento</h2>
-                            <button onClick={() => setShowHistory(false)} className="text-gray-500 hover:text-red-600 font-bold text-xl">✕</button>
+                <div className="fixed inset-0 bg-black bg-opacity-60 flex justify-center items-center z-50 p-4 backdrop-blur-sm">
+                    <div className="bg-white rounded-xl shadow-2xl w-full max-w-4xl max-h-[85vh] flex flex-col">
+                        <div className="p-6 border-b flex justify-between items-center bg-gray-50 rounded-t-xl">
+                            <h2 className="text-2xl font-bold text-gray-800">📋 Historial de Mantenimiento</h2>
+                            <button onClick={() => setShowHistory(false)} className="text-gray-400 hover:text-red-600 font-bold text-2xl transition-colors">✕</button>
                         </div>
-                        <div className="p-6 overflow-y-auto flex-grow bg-gray-100 space-y-4">
-                            {historyData.length === 0 ? <div className="text-center py-10 text-gray-500">No hay registros.</div> : historyData.map(log => (
-                                <div key={log.id} className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
-                                    <div className="bg-blue-50 px-4 py-3 border-b border-blue-100 flex justify-between items-center">
-                                        <div className="flex items-center gap-3">
-                                            <div className="bg-blue-500 text-white rounded-full w-8 h-8 flex items-center justify-center font-bold text-sm">{(log.first_name || log.username).charAt(0).toUpperCase()}</div>
-                                            <div><p className="font-bold text-gray-800 text-sm">{log.first_name ? `${log.first_name} ${log.last_name}` : log.username}</p></div>
-                                        </div>
-                                        <span className="text-xs font-semibold text-blue-700 bg-blue-100 px-2 py-1 rounded">{formatLocalDate(log.maintenance_date)}</span>
-                                    </div>
-                                    <div className="p-4"><p className="text-sm text-gray-600 italic">"{log.observations || 'Sin observaciones'}"</p></div>
+                        
+                        <div className="p-6 overflow-y-auto flex-grow bg-gray-100 space-y-6">
+                            {historyData.length === 0 ? (
+                                <div className="flex flex-col items-center justify-center py-20 text-gray-400">
+                                    <span className="text-6xl mb-4">📭</span>
+                                    <p className="text-lg">No hay registros de mantenimiento aún.</p>
                                 </div>
-                            ))}
+                            ) : (
+                                historyData.map(log => (
+                                    <div key={log.id} className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
+                                        
+                                        {/* HEADER DEL REGISTRO */}
+                                        <div className="bg-gradient-to-r from-blue-50 to-white px-6 py-4 border-b border-gray-100 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+                                            <div className="flex items-center gap-4">
+                                                <div className="bg-blue-600 text-white rounded-full w-12 h-12 flex items-center justify-center font-bold text-lg shadow-md">
+                                                    {(log.first_name || log.username || 'U').charAt(0).toUpperCase()}
+                                                </div>
+                                                <div>
+                                                    <p className="font-bold text-gray-900 text-lg">{log.first_name ? `${log.first_name} ${log.last_name}` : log.username}</p>
+                                                    <p className="text-xs text-gray-500 uppercase tracking-wide">Técnico Responsable</p>
+                                                </div>
+                                            </div>
+                                            <div className="text-right">
+                                                <p className="text-sm font-bold text-blue-900 bg-blue-100 px-3 py-1 rounded-full inline-block">
+                                                    📅 {formatLocalDate(log.maintenance_date)}
+                                                </p>
+                                                {(log as any).companion_name && (
+                                                    <p className="text-xs text-gray-500 mt-1">
+                                                        <span className="font-bold">Acompañante:</span> {(log as any).companion_name}
+                                                    </p>
+                                                )}
+                                            </div>
+                                        </div>
+
+                                        {/* CUERPO DEL REGISTRO */}
+                                        <div className="p-6">
+                                            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                                                {/* COLUMNA IZQUIERDA: DATOS */}
+                                                <div>
+                                                    {/* Contador */}
+                                                    <div className="bg-gray-50 p-4 rounded-lg border border-gray-200 mb-4">
+                                                        <div className="flex justify-between items-center">
+                                                            <span className="text-sm text-gray-500 font-bold uppercase">Contador Cabezal</span>
+                                                            <span className="font-mono text-2xl text-blue-700 font-bold">
+                                                                {(log as any).bill_counter ? (log as any).bill_counter.toLocaleString() : 'N/A'}
+                                                            </span>
+                                                        </div>
+                                                        {(log as any).usage_delta > 0 && (
+                                                            <div className="text-right mt-1">
+                                                                <span className="text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded font-bold border border-green-200">
+                                                                    ▲ +{(log as any).usage_delta.toLocaleString()} desde el último
+                                                                </span>
+                                                            </div>
+                                                        )}
+                                                    </div>
+
+                                                    {/* Observaciones */}
+                                                    <div>
+                                                        <h4 className="text-xs font-bold text-gray-400 uppercase mb-2">Observaciones</h4>
+                                                        <p className="text-sm text-gray-700 italic bg-yellow-50 p-3 rounded border border-yellow-100">
+                                                            "{log.observations || 'Sin observaciones adicionales.'}"
+                                                        </p>
+                                                    </div>
+                                                </div>
+
+                                                {/* COLUMNA DERECHA: TAREAS (CHECKLIST) */}
+                                                <div>
+                                                    <h4 className="text-xs font-bold text-gray-400 uppercase mb-3 pb-1 border-b">Tareas Realizadas</h4>
+                                                    {renderTasks((log as any).tasks_log)}
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                ))
+                            )}
                         </div>
-                        <div className="p-4 border-t bg-gray-50 rounded-b-lg flex justify-end">
-                            <button onClick={() => setShowHistory(false)} className="px-6 py-2 bg-gray-300 hover:bg-gray-400 text-gray-800 font-bold rounded shadow">Cerrar</button>
+                        
+                        <div className="p-4 border-t bg-gray-50 rounded-b-xl flex justify-end">
+                            <button onClick={() => setShowHistory(false)} className="px-6 py-2 bg-gray-300 hover:bg-gray-400 text-gray-800 font-bold rounded shadow transition-colors">Cerrar</button>
                         </div>
                     </div>
                 </div>

@@ -24,7 +24,7 @@
     "mysql2": "^3.14.3",
     "natural": "^8.1.0",
     "node-cron": "^4.2.1",
-    "nodemailer": "^7.0.5",
+    "nodemailer": "^7.0.13",
     "sequelize": "^6.37.3",
     "sequelize-cli": "^6.6.2",
     "socket.io": "^4.8.1",

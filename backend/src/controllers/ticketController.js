@@ -4,8 +4,10 @@ const pool = require('../config/db');
 // @desc    Crear un nuevo ticket y notificar a los admins/agentes
 // @route   POST /api/tickets
 // @access  Private
+// @desc    Crear un nuevo ticket y notificar
 const createTicket = asyncHandler(async (req, res) => {
-    const { title, description, priority, category_id, department_id, user_id: clientUserId, location_id } = req.body;
+    // 1. Agregamos depositario_id a la desestructuración
+    const { title, description, priority, category_id, department_id, user_id: clientUserId, location_id, depositario_id } = req.body;
     const loggedInUser = req.user;
 
     let finalUserId;
@@ -20,22 +22,23 @@ const createTicket = asyncHandler(async (req, res) => {
         throw new Error('Por favor, completa todos los campos requeridos.');
     }
 
-    if (!finalUserId) {
-        res.status(400);
-        throw new Error('No se pudo determinar el usuario para el cual se crea el ticket.');
-    }
-
     const creatorName = (loggedInUser.first_name && loggedInUser.last_name) 
         ? `${loggedInUser.first_name} ${loggedInUser.last_name}` 
         : loggedInUser.username;
 
+    // 2. Modificamos el INSERT para incluir depositario_id
+    // Nota: Convertimos a null si viene vacío o undefined
+    const finalDepositarioId = depositario_id ? parseInt(depositario_id) : null;
+    const finalLocationId = location_id ? parseInt(location_id) : null;
 
     const [result] = await pool.execute(
-        'INSERT INTO tickets (user_id, title, description, priority, category_id, department_id, status, location_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
-        [finalUserId, title, description, priority, category_id, department_id, 'open', location_id || null]
+        'INSERT INTO tickets (user_id, title, description, priority, category_id, department_id, status, location_id, depositario_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
+        [finalUserId, title, description, priority, category_id, department_id, 'open', finalLocationId, finalDepositarioId]
     );
+    
     const newTicketId = result.insertId;
 
+    // ... (El resto de la lógica de adjuntos y notificaciones se mantiene IGUAL) ...
     if (req.files && req.files.length > 0) {
         const attachmentPromises = req.files.map(file => {
             const query = 'INSERT INTO ticket_attachments (ticket_id, file_path, file_name, file_type) VALUES (?, ?, ?, ?)';
@@ -50,10 +53,7 @@ const createTicket = asyncHandler(async (req, res) => {
     const [adminsAndAgents] = await pool.execute("SELECT id FROM users WHERE role IN ('admin', 'agent')");
 
     for (const user of adminsAndAgents) {
-        if (user.id === loggedInUser.id) {
-            continue;
-        }
-
+        if (user.id === loggedInUser.id) continue;
         const [notificationResult] = await pool.execute(
             'INSERT INTO notifications (user_id, message, type, related_id, related_type) VALUES (?, ?, ?, ?, ?)',
             [user.id, message, 'ticket_created', newTicketId, 'ticket']

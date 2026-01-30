@@ -11,7 +11,10 @@ const {
     getDepositarioMetrics,
     getMapData,
     saveRoute,
-    getRouteHistory // <--- NUEVA IMPORTACIÓN
+    getRouteHistory,
+    getDepositaryReports,
+    getDepositaryAnalysis,
+    finalizeRoute // <--- 1. IMPORTANTE: Que esté importado aquí
 } = require('../controllers/depositarioController');
 
 router.use(authenticateToken);
@@ -21,14 +24,21 @@ router.route('/')
     .get(getDepositarios)
     .post(authorize(['admin', 'agent']), createDepositario);
 
-// Métricas y Mapa (ANTES de los ID)
+// Métricas, Mapa y REPORTES
 router.get('/metrics', getDepositarioMetrics);
 router.get('/map-data', authorize(['admin', 'agent']), getMapData);
+router.get('/reports', authorize(['admin', 'agent']), getDepositaryReports); 
+
+// Análisis IA Individual
+router.get('/:id/analysis', authorize(['admin', 'agent']), getDepositaryAnalysis);
 
 // Rutas de Hoja de Ruta
 router.route('/route')
-    .post(authorize(['admin', 'agent']), saveRoute)      // Guardar nueva ruta
-    .get(authorize(['admin', 'agent']), getRouteHistory); // Ver historial
+    .post(authorize(['admin', 'agent']), saveRoute)
+    .get(authorize(['admin', 'agent']), getRouteHistory);
+
+// NUEVA RUTA PARA FINALIZAR Y ENVIAR MAIL (Esta es la que te falta o no se cargó)
+router.post('/route/finalize', authorize(['admin', 'agent']), finalizeRoute); 
 
 // Rutas Específicas por ID
 router.route('/:id')
