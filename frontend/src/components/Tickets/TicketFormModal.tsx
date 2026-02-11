@@ -4,10 +4,10 @@ import api from '../../config/axiosConfig';
 import { useAuth } from '../../context/AuthContext';
 import { Department, User, TicketData, UserRole } from '../../types';
 
-// --- INTERFACES LOCALES PARA GARANTIZAR COMPATIBILIDAD ---
+// --- INTERFACES LOCALES ---
 interface Location {
     id: number;
-    alias: string;        // Mapeado a 'alias' de la DB
+    alias: string;        // ✅ CORREGIDO: Mapeado a 'alias' de la DB
     serial_number?: string;
     name?: string;        // Fallback
     type?: string;
@@ -82,25 +82,40 @@ const TicketFormModal: React.FC<TicketFormModalProps> = ({ isOpen, onClose, onSa
     };
 
     const targetCompanyId = useMemo(() => {
+        // Lógica para Admin/Agente
         if ((currentUserRole === 'admin' || currentUserRole === 'agent') && formData.user_id) {
             return users.find(u => u.id === formData.user_id)?.company_id;
         }
-        return loggedInUser?.company_id;
+        // Lógica para Cliente (con fallback seguro)
+        return loggedInUser?.company_id || '0'; 
     }, [currentUserRole, formData.user_id, users, loggedInUser]);
 
-    // 1. CARGA INICIAL DE DATOS (Categorías y Ubicaciones)
+    // 1. CARGA INICIAL DE DATOS
     useEffect(() => {
-        if (isOpen && targetCompanyId) {
+        if (isOpen) {
             const fetchModalData = async () => {
                 try {
-                    let locationsUrl = currentUserRole === 'client' 
-                        ? '/api/locations' 
-                        : `/api/locations/${targetCompanyId}`;
+                    // Determinar URL de ubicaciones
+                    // Si es cliente, usamos la ruta general, si es admin, la específica por ID
+                    let locationsUrl;
+                    if (currentUserRole === 'client') {
+                        locationsUrl = '/api/locations/0'; // El backend ahora maneja esto leyendo el usuario del token o validando
+                        // Nota: Para clientes, lo ideal es que el backend saque el ID del token, 
+                        // pero aquí pasamos el targetCompanyId calculado.
+                        if(targetCompanyId && targetCompanyId !== '0') {
+                             locationsUrl = `/api/locations/${targetCompanyId}`;
+                        }
+                    } else { 
+                        locationsUrl = `/api/locations/${targetCompanyId}`;
+                    }
+
+                    // Definimos ID seguro para categorías (evita enviar 'undefined')
+                    const safeCompanyId = targetCompanyId || '0';
 
                     const [catRes, locRes, depRes] = await Promise.all([
-                        api.get(`/api/problems/categories/${targetCompanyId}`),
+                        api.get(`/api/problems/categories/${safeCompanyId}`),
                         api.get(locationsUrl),
-                        api.get(`/api/depositarios?companyId=${targetCompanyId}`)
+                        api.get(`/api/depositarios?companyId=${safeCompanyId}`)
                     ]);
 
                     setCategories(catRes.data.data || []);
@@ -127,27 +142,21 @@ const TicketFormModal: React.FC<TicketFormModalProps> = ({ isOpen, onClose, onSa
     
     // 2. CARGA DINÁMICA DE PROBLEMAS ESPECÍFICOS
     useEffect(() => {
-        // Opción de respaldo "Otro..." siempre disponible
         const otherOption: PredefinedProblemLocal = { id: -999, title: 'Otro...', description: '', department_id: undefined };
 
         if (formData.category_id && !isCustomCategory) {
             const fetchProblems = async () => {
                 try {
-                    console.log(`Buscando problemas para categoría ID: ${formData.category_id}`);
                     const res = await api.get(`/api/problems/predefined/${formData.category_id}`);
                     const dbProblems = res.data.data || [];
-                    
-                    // Combinamos los de la DB + la opción "Otro"
                     setPredefinedProblems([...dbProblems, otherOption]);
                 } catch (error) { 
-                    console.error("Error cargando problemas específicos:", error);
-                    // Si falla la API, al menos mostramos "Otro"
+                    console.error("Error cargando problemas:", error);
                     setPredefinedProblems([otherOption]); 
                 }
             };
             fetchProblems();
         } else {
-            // Si no hay categoría seleccionada, lista vacía
             setPredefinedProblems([]);
         }
     }, [formData.category_id, isCustomCategory]);
@@ -317,6 +326,7 @@ const TicketFormModal: React.FC<TicketFormModalProps> = ({ isOpen, onClose, onSa
                                     required
                                 >
                                     <option value="" style={hardStyle}>-- Seleccione ubicación --</option>
+                                    {/* ✅ CORRECCIÓN CLAVE: Usamos loc.alias en lugar de loc.name */}
                                     {locations.map(loc => (
                                         <option key={loc.id} value={loc.id} style={hardStyle}>
                                             {loc.alias || loc.name} {loc.serial_number ? `(S/N: ${loc.serial_number})` : ''}
@@ -388,7 +398,7 @@ const TicketFormModal: React.FC<TicketFormModalProps> = ({ isOpen, onClose, onSa
                             </select>
                         </div>
 
-                        {/* LISTADO DE PROBLEMAS ESPECÍFICOS - SOLUCIONADO */}
+                        {/* LISTADO DE PROBLEMAS ESPECÍFICOS */}
                         {!isCustomCategory && formData.category_id && (
                             <div>
                                 <label className="block text-gray-700 font-medium">Problema Específico:</label>

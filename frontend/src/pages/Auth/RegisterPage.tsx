@@ -1,9 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { toast } from 'react-toastify';
-
-// ✅ RUTAS CORREGIDAS: Se usan rutas relativas validadas.
-// Esta ruta asume que tu archivo está en 'src/pages/Auth/RegisterPage.tsx'.
 import api from '../../config/axiosConfig';
 import { Company, Department, ApiResponseError } from '../../types';
 import { isAxiosErrorTypeGuard } from '../../utils/typeGuards';
@@ -27,6 +24,7 @@ const RegisterPage: React.FC = () => {
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
 
+    // Cargar empresas públicas
     useEffect(() => {
         const fetchCompanies = async () => {
             try {
@@ -39,14 +37,17 @@ const RegisterPage: React.FC = () => {
         fetchCompanies();
     }, []);
 
+    // Cargar departamentos públicos (filtrados por empresa si es necesario)
     useEffect(() => {
         const fetchDepartments = async () => {
+            // Si quieres que dependa de la empresa seleccionada:
             if (!formData.company_id) {
                 setDepartments([]);
                 setFormData(prev => ({ ...prev, department_id: '' }));
                 return;
             }
             try {
+                // Enviamos company_id como query param
                 const response = await api.get(`/api/public/departments?company_id=${formData.company_id}`);
                 setDepartments(response.data.data || []);
             } catch (err) {
@@ -194,4 +195,3 @@ const RegisterPage: React.FC = () => {
 };
 
 export default RegisterPage;
-

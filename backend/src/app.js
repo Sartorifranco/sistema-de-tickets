@@ -15,14 +15,12 @@ const app = express();
 const server = http.createServer(app);
 
 // --- 2. CONFIGURACIÓN ROBUSTA DE CORS ---
-// Lista blanca de orígenes permitidos (Frontend)
 const allowedOrigins = [
   process.env.FRONTEND_URL,          // Del .env
   'http://bacarsa.dyndns.org:8001',  // Producción externa Frontend
   'http://192.168.0.9:8001',         // Producción interna Frontend
   'http://localhost:3020',           // Desarrollo local React
   'http://localhost:8001',           
-  // AGREGADOS PARA SOPORTAR FRONTEND SERVIDO POR BACKEND:
   'http://192.168.0.9:5040',         
   'http://localhost:5040',           // Acceso local al backend
   'http://bacarsa.dyndns.org:5040'   // Acceso externo directo al backend
@@ -30,13 +28,11 @@ const allowedOrigins = [
 
 const corsOptions = {
   origin: function (origin, callback) {
-    // Permitir solicitudes sin origen (como Postman, mobile apps o scripts de servidor)
     if (!origin) return callback(null, true);
-    
     if (allowedOrigins.indexOf(origin) !== -1 || origin.includes('bacarsa.dyndns.org')) {
       callback(null, true);
     } else {
-      console.log(`[CORS] Bloqueado: ${origin}`); // Log para depurar
+      console.log(`[CORS] Bloqueado: ${origin}`);
       callback(new Error('No permitido por CORS'));
     }
   },
@@ -45,7 +41,6 @@ const corsOptions = {
   allowedHeaders: ["Content-Type", "Authorization", "X-Requested-With", "Accept"]
 };
 
-// Aplicar CORS a Express
 app.use(cors(corsOptions));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
@@ -55,11 +50,10 @@ app.use('/uploads', express.static(path.join(__dirname, '../uploads')));
 
 // --- 3. CONFIGURACIÓN SOCKET.IO ---
 const io = new Server(server, {
-  cors: corsOptions, // Usamos la misma configuración CORS
+  cors: corsOptions,
   transports: ['websocket', 'polling']
 });
 
-// Middleware para inyectar 'io'
 app.use((req, res, next) => {
   req.io = io;
   next();
@@ -90,11 +84,13 @@ app.use('/api/companies', companyRoutes);
 app.use('/api/depositarios', depositarioRoutes);
 app.use('/api/ai', aiRoutes);
 
+// ✅ RUTAS PÚBLICAS (Para registro sin token)
+app.use('/api/public', require('./routes/publicDataRoutes'));
+
 // ✅ RUTAS DE ADMINISTRACIÓN (Problemáticas y Ubicaciones)
 app.use('/api/admin', require('./routes/problemAdminRoutes'));
 
-// ✅ RUTAS DE DATOS GENERALES (Para solucionar los 404 en el perfil de Cliente)
-// Esto habilita: /api/locations/:id y /api/problems/categories/:id
+// ✅ RUTAS DE DATOS GENERALES (Para tickets y perfiles)
 app.use('/api', require('./routes/dataRoutes'));
 
 // --- 6. SOCKET.IO EVENTOS ---
@@ -111,7 +107,6 @@ io.on('connection', (socket) => {
           }
       } catch (error) {
           // Token inválido o expirado
-          // console.error('Socket Auth:', error.message);
       }
   }
   
@@ -121,7 +116,6 @@ io.on('connection', (socket) => {
 });
 
 // --- 7. SERVIR FRONTEND (PRODUCCIÓN) ---
-// Sirve la app de React desde el puerto del backend
 app.use(express.static(path.join(__dirname, '../../frontend/build')));
 app.get('*', (req, res) => {
   if (req.url.startsWith('/api')) {
