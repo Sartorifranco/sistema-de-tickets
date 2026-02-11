@@ -207,10 +207,24 @@ const TicketFormModal: React.FC<TicketFormModalProps> = ({ isOpen, onClose, onSa
             targetUserForFiltering = loggedInUser;
         }
         const bacarDepartments = ['Mantenimiento', 'Implementaciones', 'SOPORTE - IT'];
+        let filtered;
         if (targetUserForFiltering?.company_id === 1) {
-            return departments.filter(d => bacarDepartments.includes(d.name));
+            filtered = departments.filter(d => bacarDepartments.includes(d.name));
+        } else {
+            filtered = departments.filter(d => d.name === 'SOPORTE - IT');
         }
-        return departments.filter(d => d.name === 'SOPORTE - IT');
+        // Deduplicar por nombre: si hay varios "SOPORTE - IT" etc., mostrar solo uno (priorizar el de la empresa del usuario)
+        const targetCompanyId = targetUserForFiltering?.company_id;
+        const byName = new Map<string, Department>();
+        for (const d of filtered) {
+            const existing = byName.get(d.name);
+            const dMatchesCompany = d.company_id === targetCompanyId;
+            const existingMatchesCompany = existing?.company_id === targetCompanyId;
+            if (!existing || (dMatchesCompany && !existingMatchesCompany)) {
+                byName.set(d.name, d);
+            }
+        }
+        return Array.from(byName.values()).sort((a, b) => (a.name || '').localeCompare(b.name || ''));
     }, [departments, loggedInUser, formData.user_id, users, currentUserRole]);
 
     const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {

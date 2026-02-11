@@ -34,7 +34,8 @@ interface NotificationContextType {
 
 const NotificationContext = createContext<NotificationContextType | undefined>(undefined);
 
-const SOCKET_SERVER_URL = 'http://bacarsa.dyndns.org:5040';
+const apiPort = process.env.REACT_APP_API_PORT || '5040';
+const SOCKET_SERVER_URL = process.env.REACT_APP_BACKEND_URL || `http://${typeof window !== 'undefined' ? window.location.hostname : 'localhost'}:${apiPort}`;
 
 // 2. COMPONENTE PROVIDER
 export const NotificationProvider: React.FC<{ children: ReactNode }> = ({ children }) => {

@@ -31,6 +31,7 @@ const Layout: React.FC = () => {
                         
                         {/* ✅ NUEVO: Enlace a Gestión de Depositarios */}
                         <li><NavLink to="/admin/depositarios" className={getLinkClassName}>🏧 Gestión de Depositarios</NavLink></li>
+                        <li><NavLink to="/admin/equipos" className={getLinkClassName}>🖥️ Monitoreo Equipos</NavLink></li>
 
                         <li><NavLink to="/admin/ubicaciones" className={getLinkClassName}>Ubicaciones</NavLink></li>
                         <li><NavLink to="/admin/problemas" className={getLinkClassName}>Problemáticas</NavLink></li>
@@ -48,6 +49,7 @@ const Layout: React.FC = () => {
                         
                         {/* ✅ NUEVO: Enlace a Mantenimiento para Agentes */}
                         <li><NavLink to="/agent/depositarios" className={getLinkClassName}>🏧 Mantenimiento Equipos</NavLink></li>
+                        <li><NavLink to="/agent/equipos" className={getLinkClassName}>🖥️ Monitoreo Equipos</NavLink></li>
                     </>
                 );
             case 'client':

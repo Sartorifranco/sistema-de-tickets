@@ -33,6 +33,7 @@ import AdminProblemsPage from './pages/AdminProblemsPage';
 import AdminLocationsPage from './pages/AdminLocationPage';
 // ✅ NUEVO: Importar la página de depositarios
 import DepositariosPage from './pages/DepositariosPage';
+import EquipmentMonitoringPage from './pages/EquipmentMonitoringPage';
 
 
 export type SocketInstance = ReturnType<typeof io>;
@@ -43,9 +44,11 @@ const SocketConnectionManager: React.FC<{ children: React.ReactNode }> = ({ chil
 
     useEffect(() => {
         if (isAuthenticated && token) {
-            // DETECCION DINÁMICA TAMBIÉN PARA EL SOCKET
+            // Mismo puerto/URL que el API (REACT_APP_API_PORT o REACT_APP_BACKEND_URL en .env local)
+            const apiPort = process.env.REACT_APP_API_PORT || '5040';
+            const explicitUrl = process.env.REACT_APP_BACKEND_URL;
             const currentHost = window.location.hostname;
-            const socketUrl = `http://${currentHost}:5040`;
+            const socketUrl = explicitUrl || `http://${currentHost}:${apiPort}`;
             
             console.log(`[Socket] Intentando conectar a: ${socketUrl}`);
 
@@ -98,6 +101,7 @@ const App: React.FC = () => {
                             
                             {/* ✅ NUEVO: Ruta para Depositarios (Admin) */}
                             <Route path="/admin/depositarios" element={<PrivateRoute roles={['admin']}><DepositariosPage /></PrivateRoute>} />
+                            <Route path="/admin/equipos" element={<PrivateRoute roles={['admin']}><EquipmentMonitoringPage /></PrivateRoute>} />
 
                             {/* Rutas de Agente */}
                             <Route path="/agent" element={<PrivateRoute roles={['agent']}><AgentDashboard /></PrivateRoute>} />
@@ -107,6 +111,7 @@ const App: React.FC = () => {
                             
                             {/* ✅ NUEVO: Ruta para Depositarios (Agente) - Usamos el mismo componente */}
                             <Route path="/agent/depositarios" element={<PrivateRoute roles={['agent']}><DepositariosPage /></PrivateRoute>} />
+                            <Route path="/agent/equipos" element={<PrivateRoute roles={['agent']}><EquipmentMonitoringPage /></PrivateRoute>} />
                             
                             {/* Rutas de Cliente */}
                             <Route path="/client" element={<PrivateRoute roles={['client']}><ClientDashboard /></PrivateRoute>} />

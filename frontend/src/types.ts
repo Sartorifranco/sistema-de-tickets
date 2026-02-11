@@ -270,6 +270,7 @@ export interface MaintenanceRecord {
     first_name?: string;
     last_name?: string;
     companion_name?: string;
+    performed_by?: 'permaquim' | 'bacar'; // Quién realizó el mantenimiento
     maintenance_date: string;
     tasks_log: MaintenanceTask[]; // JSON parseado
     observations: string;

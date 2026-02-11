@@ -11,6 +11,18 @@ import RouteHistoryModal from '../components/Depositarios/RouteHistoryModal';
 import DepositaryReportModal from '../components/Depositarios/DepositaryReportModal';
 
 // --- HELPERS ---
+const getMaintenanceCardClass = (lastMaintenance: string | null | undefined): string => {
+    if (!lastMaintenance) return 'border-t-4 border-red-500 bg-red-50';
+    const last = new Date(lastMaintenance);
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    last.setHours(0, 0, 0, 0);
+    const daysSince = Math.floor((today.getTime() - last.getTime()) / (1000 * 60 * 60 * 24));
+    if (daysSince <= 15) return 'border-t-4 border-green-500 bg-green-50';
+    if (daysSince <= 30) return 'border-t-4 border-yellow-500 bg-yellow-50';
+    return 'border-t-4 border-red-500 bg-red-50';
+};
+
 const getCompanyBadgeClass = (companyName: string = '') => {
     const name = companyName.toUpperCase();
     if (name.includes('COCA')) return 'bg-red-100 text-red-800 border-red-200';
@@ -198,6 +210,7 @@ const MaintenanceModal: React.FC<{
     const { user } = useAuth();
     const [loading, setLoading] = useState(false);
     
+    const [performedBy, setPerformedBy] = useState<'permaquim' | 'bacar'>('bacar');
     const [companion, setCompanion] = useState('');
     const now = new Date();
     now.setMinutes(now.getMinutes() - now.getTimezoneOffset());
@@ -225,6 +238,7 @@ const MaintenanceModal: React.FC<{
         try {
             await api.post(`/api/depositarios/${depositario.id}/maintenance`, {
                 companion_name: companion,
+                performed_by: performedBy,
                 date: date,
                 observations: observations,
                 tasks: tasks,
@@ -249,7 +263,7 @@ const MaintenanceModal: React.FC<{
                         <button onClick={onClose} className="text-gray-500 hover:text-gray-700 font-bold text-xl">✕</button>
                     </div>
                     <form onSubmit={handleSubmit} className="space-y-6">
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                             <div>
                                 <label className="block text-sm font-semibold text-gray-700 mb-1">Técnico Responsable</label>
                                 <input type="text" value={user?.username} disabled className="w-full p-2 border bg-gray-100 rounded text-gray-600"/>
@@ -257,6 +271,13 @@ const MaintenanceModal: React.FC<{
                             <div>
                                 <label className="block text-sm font-semibold text-gray-700 mb-1">Fecha y Hora</label>
                                 <input type="datetime-local" value={date} onChange={e => setDate(e.target.value)} className="w-full p-2 border rounded focus:ring-blue-500 focus:border-blue-500" required/>
+                            </div>
+                            <div>
+                                <label className="block text-sm font-semibold text-gray-700 mb-1">Realizado por *</label>
+                                <select value={performedBy} onChange={e => setPerformedBy(e.target.value as 'permaquim' | 'bacar')} className="w-full p-2 border rounded focus:ring-blue-500 focus:border-blue-500 bg-white" required>
+                                    <option value="bacar">Bacar</option>
+                                    <option value="permaquim">Permaquim</option>
+                                </select>
                             </div>
                         </div>
 
@@ -518,7 +539,7 @@ const DepositariosPage: React.FC = () => {
                     ) : (
                         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6 animate-fade-in">
                             {depositarios.map(dep => (
-                                <div key={dep.id} className="bg-white rounded-lg shadow-md hover:shadow-xl transition-all duration-300 border-t-4 border-gray-300 flex flex-col relative group">
+                                <div key={dep.id} className={`rounded-lg shadow-md hover:shadow-xl transition-all duration-300 flex flex-col relative group ${getMaintenanceCardClass(dep.last_maintenance)}`}>
                                     {user?.role === 'admin' && (
                                         <div className="absolute top-2 right-2 flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
                                             <button onClick={() => setEditingDepositario(dep)} className="bg-white p-1 rounded-full shadow hover:bg-blue-50 text-blue-600">✏️</button>
@@ -639,6 +660,11 @@ const DepositariosPage: React.FC = () => {
                                                 <p className="text-sm font-bold text-blue-900 bg-blue-100 px-3 py-1 rounded-full inline-block">
                                                     📅 {formatLocalDate(log.maintenance_date)}
                                                 </p>
+                                                {((log as any).performed_by) && (
+                                                    <p className="text-xs text-gray-600 mt-1 font-semibold">
+                                                        🏢 {(log as any).performed_by === 'permaquim' ? 'Permaquim' : 'Bacar'}
+                                                    </p>
+                                                )}
                                                 {(log as any).companion_name && (
                                                     <p className="text-xs text-gray-500 mt-1">
                                                         <span className="font-bold">Acompañante:</span> {(log as any).companion_name}

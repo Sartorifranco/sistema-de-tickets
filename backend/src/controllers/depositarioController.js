@@ -307,11 +307,14 @@ const deleteDepositario = asyncHandler(async (req, res) => {
 });
 
 const addMaintenance = asyncHandler(async (req, res) => {
-    const { id } = req.params; const { companion_name, tasks, observations, date, bill_counter } = req.body;
+    const { id } = req.params; const { companion_name, tasks, observations, date, bill_counter, performed_by } = req.body;
+    if (!performed_by || !['permaquim', 'bacar'].includes(performed_by)) {
+        res.status(400); throw new Error('Debe indicar si el mantenimiento fue realizado por Permaquim o Bacar');
+    }
     const current = parseInt(bill_counter) || 0; let delta = 0;
     const [last] = await pool.execute('SELECT bill_counter FROM mantenimientos WHERE depositario_id = ? ORDER BY maintenance_date DESC LIMIT 1', [id]);
     if (last.length > 0 && current > 0) { const prev = last[0].bill_counter || 0; delta = current >= prev ? current - prev : current; }
-    await pool.execute('INSERT INTO mantenimientos (depositario_id, user_id, companion_name, maintenance_date, tasks_log, observations, bill_counter, usage_delta) VALUES (?, ?, ?, ?, ?, ?, ?, ?)', [id, req.user.id, companion_name, date || new Date(), JSON.stringify(tasks||[]), observations, current, delta]);
+    await pool.execute('INSERT INTO mantenimientos (depositario_id, user_id, companion_name, performed_by, maintenance_date, tasks_log, observations, bill_counter, usage_delta) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)', [id, req.user.id, companion_name, performed_by, date || new Date(), JSON.stringify(tasks||[]), observations, current, delta]);
     res.status(201).json({ success: true, message: 'Registrado.', deltaInfo: delta > 0 ? `+${delta}` : '' });
 });
 

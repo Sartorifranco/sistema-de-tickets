@@ -1,14 +1,11 @@
 import axios, { InternalAxiosRequestConfig } from 'axios';
 
-// 1. Detección Inteligente del Host
-// Si estás en 'bacarsa.dyndns.org:8001', el host es 'bacarsa.dyndns.org'
-// Si estás en '192.168.0.9:8001', el host es '192.168.0.9'
+// 1. URL del backend: variable de entorno (local) o según host actual (producción)
+// En local: crea frontend/.env con REACT_APP_API_PORT=5042 (o la URL completa en REACT_APP_BACKEND_URL)
+const apiPort = process.env.REACT_APP_API_PORT || '5040';
+const explicitUrl = process.env.REACT_APP_BACKEND_URL;
 const currentHost = window.location.hostname;
-
-// 2. Construcción de la URL Base
-// IMPORTANTE: El puerto del backend es 5040.
-// NO agregamos '/api' aquí para evitar confusiones. Axios apuntará a la raíz del servidor.
-const API_BASE_URL = `http://${currentHost}:5040`;
+const API_BASE_URL = explicitUrl || `http://${currentHost}:${apiPort}`;
 
 console.log(`[Axios] Configurado apuntando a: ${API_BASE_URL}`);
 
@@ -37,7 +34,7 @@ api.interceptors.response.use(
     (response) => response,
     (error) => {
         if (error.code === "ERR_NETWORK") {
-            console.error("❌ Error de Red: No se puede conectar al Backend en puerto 5040.");
+            console.error("❌ Error de Red: No se puede conectar al Backend en", API_BASE_URL);
         }
         if (error.response && error.response.status === 401) {
             console.warn("⚠️ Sesión expirada.");
