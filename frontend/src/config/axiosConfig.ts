@@ -8,6 +8,7 @@ const currentHost = window.location.hostname;
 const API_BASE_URL = explicitUrl || `http://${currentHost}:${apiPort}`;
 
 console.log(`[Axios] Configurado apuntando a: ${API_BASE_URL}`);
+export { API_BASE_URL };
 
 const api = axios.create({
     baseURL: API_BASE_URL,
@@ -36,9 +37,9 @@ api.interceptors.response.use(
         if (error.code === "ERR_NETWORK") {
             console.error("❌ Error de Red: No se puede conectar al Backend en", API_BASE_URL);
         }
-        if (error.response && error.response.status === 401) {
+        // Solo "sesión expirada" cuando teníamos token y nos rechazaron (no en login)
+        if (error.response?.status === 401 && error.config?.headers?.Authorization && !error.config?.url?.includes('/login')) {
             console.warn("⚠️ Sesión expirada.");
-            // Opcional: localStorage.removeItem('token'); window.location.href = '/login';
         }
         return Promise.reject(error);
     }

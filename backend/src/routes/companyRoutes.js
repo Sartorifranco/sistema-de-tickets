@@ -20,9 +20,8 @@ router.route('/')
 
 // Rutas para /api/companies/:id (Detalle de UNA empresa)
 router.route('/:id')
-    // ✅ CAMBIO AQUÍ: Agregamos 'client'.
-    // El cliente necesita permiso para consultar los datos de SU propia empresa en el Perfil.
-    .get(authorize(['admin', 'agent', 'client']), getCompanyById)
+    // Todos los roles con perfil (cliente, jefe, compras, proveedor) necesitan ver su empresa.
+    .get(authorize(['admin', 'agent', 'client', 'boss', 'purchasing', 'supplier']), getCompanyById)
     .put(authorize(['admin']), updateCompany)
     .delete(authorize(['admin']), deleteCompany);
 

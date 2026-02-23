@@ -16,7 +16,7 @@ router.get('/admin', authorize('admin'), getAdminDashboardMetrics);
 // Ruta específica para AGENTE, protegida para el rol 'agent'
 router.get('/agent', authorize('agent'), getAgentDashboardMetrics);
 
-// Ruta específica para CLIENTE, protegida para el rol 'client'
-router.get('/client', authorize('client'), getClientDashboardMetrics);
+// Ruta específica para CLIENTE, JEFE y COMPRAS (acceso a tickets como cliente)
+router.get('/client', authorize(['client', 'boss', 'purchasing']), getClientDashboardMetrics);
 
 module.exports = router;

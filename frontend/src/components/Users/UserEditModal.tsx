@@ -66,9 +66,10 @@ const UserEditModal: React.FC<UserEditModalProps> = ({
             return;
         }
 
-        // Validación de departamento para agentes y administradores
-        if (role !== 'client' && departmentId === null) {
-            addNotification('Los agentes y administradores deben tener un departamento asignado.', 'warning');
+        // Validación de departamento para roles que lo requieren (todos excepto client y supplier)
+        const rolesRequiringDept = ['agent', 'admin', 'boss', 'purchasing'];
+        if (rolesRequiringDept.includes(role) && departmentId === null) {
+            addNotification('Este rol requiere un departamento asignado.', 'warning');
             setLoading(false);
             return;
         }
@@ -84,7 +85,7 @@ const UserEditModal: React.FC<UserEditModalProps> = ({
                 username: username.trim(),
                 email: email.trim(),
                 role,
-                department_id: role === 'client' ? null : departmentId, // Enviar null si es cliente
+                department_id: (role === 'client' || role === 'supplier') ? null : departmentId,
             };
 
             if (password.trim()) { // Solo añadir la contraseña si no está vacía
@@ -165,6 +166,9 @@ const UserEditModal: React.FC<UserEditModalProps> = ({
                         <option value="client">Cliente</option>
                         <option value="agent">Agente</option>
                         <option value="admin">Administrador</option>
+                        <option value="boss">Jefe (aprueba compras)</option>
+                        <option value="purchasing">Encargado de Compras</option>
+                        <option value="supplier">Proveedor</option>
                     </select>
                 </div>
 
@@ -175,15 +179,15 @@ const UserEditModal: React.FC<UserEditModalProps> = ({
                         className="shadow appearance-none border rounded-md w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                         value={departmentId || ''} // Usar '' para la opción "Seleccionar Departamento"
                         onChange={(e) => setDepartmentId(e.target.value ? parseInt(e.target.value) : null)}
-                        disabled={loading || role === 'client'} // Deshabilitar si es cliente
+                        disabled={loading || role === 'client' || role === 'supplier'}
                     >
                         <option value="">Seleccionar Departamento</option>
                         {departments.map((dept) => (
                             <option key={dept.id} value={dept.id}>{dept.name}</option>
                         ))}
                     </select>
-                    {role === 'client' && (
-                        <p className="text-sm text-gray-500 mt-1">Los clientes no necesitan un departamento asignado.</p>
+                    {(role === 'client' || role === 'supplier') && (
+                        <p className="text-sm text-gray-500 mt-1">Este rol no requiere departamento asignado.</p>
                     )}
                 </div>
 

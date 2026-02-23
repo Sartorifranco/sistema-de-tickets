@@ -2,7 +2,7 @@ import React, { createContext, useContext, useState, useEffect, useCallback, Rea
 import { toast } from 'react-toastify';
 // 🛑 Importamos 'io' y el namespace completo para los tipos
 import io, * as SocketIOClient from 'socket.io-client'; 
-import api from '../config/axiosConfig'; 
+import api, { API_BASE_URL } from '../config/axiosConfig'; 
 import { useAuth } from './AuthContext'; 
 
 // 1. DEFINICIÓN DE TIPOS CLAVE
@@ -34,11 +34,10 @@ interface NotificationContextType {
 
 const NotificationContext = createContext<NotificationContextType | undefined>(undefined);
 
-const apiPort = process.env.REACT_APP_API_PORT || '5040';
-const SOCKET_SERVER_URL = process.env.REACT_APP_BACKEND_URL || `http://${typeof window !== 'undefined' ? window.location.hostname : 'localhost'}:${apiPort}`;
+const SOCKET_SERVER_URL = API_BASE_URL;
 
 // 2. COMPONENTE PROVIDER
-export const NotificationProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
+export const NotificationProvider: React.FC<{ children: ReactNode; socket?: SocketIOClient.Socket | null }> = ({ children, socket: externalSocket }) => {
     const [notifications, setNotifications] = useState<Notification[]>([]); 
     const [unreadCount, setUnreadCount] = useState<number>(0);
     // ✅ Usamos el tipo Socket explícitamente
@@ -66,16 +65,19 @@ export const NotificationProvider: React.FC<{ children: ReactNode }> = ({ childr
         }
     }, [isAuthenticated]);
 
-    // --- Lógica de Conexión de Socket.IO ---
+    // --- Lógica de Conexión de Socket.IO (usa socket externo si existe, sino crea uno) ---
     useEffect(() => {
+        if (externalSocket) {
+            setSocket(externalSocket);
+            return () => {
+                setSocket(null);
+            };
+        }
         if (isAuthenticated && user) {
             const token = localStorage.getItem('token'); 
             
-            // ✅ Conexión al socket
             const newSocket: SocketIOClient.Socket = io(SOCKET_SERVER_URL, { 
-                auth: {
-                    token: token, 
-                },
+                auth: { token: token || undefined }, 
                 transports: ['websocket', 'polling']
             });
 
@@ -93,17 +95,11 @@ export const NotificationProvider: React.FC<{ children: ReactNode }> = ({ childr
             return () => {
                 newSocket.disconnect();
                 setSocket(null);
-                console.log(`[Frontend Socket] Desconectado.`);
             };
         } else {
-            // Si se desloguea, desconectar
-            if (socket) {
-                socket.disconnect();
-                setSocket(null);
-            }
+            setSocket(null);
         }
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [isAuthenticated, user]); // Quitamos 'socket' de dependencias para evitar bucles, usamos cleanup function
+    }, [isAuthenticated, user, externalSocket]);
 
     // --- Lógica de Escucha de Eventos (Real-time) ---
     useEffect(() => {
@@ -116,18 +112,26 @@ export const NotificationProvider: React.FC<{ children: ReactNode }> = ({ childr
             };
 
             const handleDashboardUpdate = (data: { message: string }) => {
-                console.log("Evento dashboard_update recibido:", data.message);
+                toast.info(`🔔 ${data?.message || 'Actualización'}`);
+                fetchNotifications();
+            };
+
+            const handleLegacyNotification = (payload?: { message?: string }) => {
+                if (payload?.message) toast.info(`🔔 ${payload.message}`);
+                fetchNotifications();
             };
 
             socket.on('new_notification', handleNewNotification);
+            socket.on('newNotification', handleLegacyNotification);
             socket.on('dashboard_update', handleDashboardUpdate); 
 
             return () => {
                 socket.off('new_notification', handleNewNotification);
+                socket.off('newNotification', handleLegacyNotification);
                 socket.off('dashboard_update', handleDashboardUpdate);
             };
         }
-    }, [socket]); 
+    }, [socket, fetchNotifications]); 
 
     // --- Polling y Carga Inicial ---
     useEffect(() => {
@@ -135,10 +139,7 @@ export const NotificationProvider: React.FC<{ children: ReactNode }> = ({ childr
 
         fetchNotifications();
 
-        const intervalId = setInterval(() => {
-            console.log("Auto-actualizando notificaciones (polling de respaldo)...");
-            fetchNotifications();
-        }, 120000); 
+        const intervalId = setInterval(fetchNotifications, 120000); 
 
         return () => clearInterval(intervalId);
     }, [isAuthenticated, fetchNotifications]);

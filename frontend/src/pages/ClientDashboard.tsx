@@ -68,7 +68,7 @@ const ClientDashboard: React.FC = () => {
     }, []);
 
     useEffect(() => {
-        if (user?.role === 'client') {
+        if (['client', 'boss', 'purchasing'].includes(user?.role || '')) {
             fetchMetrics();
         }
     }, [user, fetchMetrics]);

@@ -105,8 +105,8 @@ const getTickets = asyncHandler(async (req, res) => {
     const whereClauses = [];
 
     // --- Lógica de permisos por rol y filtros de Cliente/Agente ---
-    if (role === 'client') {
-        // Un cliente solo ve sus tickets
+    if (['client', 'boss', 'purchasing'].includes(role)) {
+        // Cliente, Jefe y Compras solo ven sus propios tickets
         whereClauses.push('t.user_id = ?');
         params.push(currentUserId);
     } 
@@ -211,14 +211,14 @@ const getTicketById = asyncHandler(async (req, res) => {
     if (tickets.length === 0) { res.status(404); throw new Error('Ticket no encontrado'); }
     
     const ticket = tickets[0];
-    if (role === 'client' && ticket.user_id !== userId) { res.status(403); throw new Error('No tienes permiso para ver este ticket.'); }
+    if (['client', 'boss', 'purchasing'].includes(role) && ticket.user_id !== userId) { res.status(403); throw new Error('No tienes permiso para ver este ticket.'); }
     
     let commentsQuery = `
         SELECT c.*, COALESCE(CONCAT(u.first_name, ' ', u.last_name), u.username, 'Usuario Eliminado') as username
         FROM comments c
         LEFT JOIN users u ON c.user_id = u.id
         WHERE c.ticket_id = ?
-        ${role === 'client' ? ' AND c.is_internal = false' : ''}
+        ${['client', 'boss', 'purchasing'].includes(role) ? ' AND c.is_internal = false' : ''}
         ORDER BY c.created_at ASC`;
         
     const [comments] = await pool.execute(commentsQuery, [ticketId]);
@@ -287,7 +287,7 @@ const updateTicketStatus = asyncHandler(async (req, res) => {
     }
     const ticket = tickets[0];
 
-    if (userRole === 'client') {
+    if (['client', 'boss', 'purchasing'].includes(userRole)) {
         const canReopen = ticket.status === 'resolved' && newStatus === 'open';
         const canClose = ticket.status === 'resolved' && newStatus === 'closed';
         if (!canReopen && !canClose) {
@@ -302,9 +302,11 @@ const updateTicketStatus = asyncHandler(async (req, res) => {
     }
     await pool.execute(updateQuery, [newStatus, ticketId]);
 
-    if (newStatus === 'resolved' && currentUserId !== ticket.user_id) {
-        const message = `Tu ticket #${ticketId}: "${ticket.title}" ha sido marcado como resuelto.`;
-        const [notificationResult] = await pool.execute('INSERT INTO notifications (user_id, message, type, related_id, related_type) VALUES (?, ?, ?, ?, ?)', [ticket.user_id, message, 'ticket_resolved', ticketId, 'ticket']);
+    if (ticket.user_id && currentUserId !== ticket.user_id) {
+        const statusLabels = { open: 'abierto', 'in-progress': 'en progreso', resolved: 'resuelto', closed: 'cerrado', reopened: 'reabierto' };
+        const statusLabel = statusLabels[newStatus] || newStatus;
+        const message = `Tu ticket #${ticketId}: "${ticket.title}" cambió de estado a "${statusLabel}".`;
+        const [notificationResult] = await pool.execute('INSERT INTO notifications (user_id, message, type, related_id, related_type) VALUES (?, ?, ?, ?, ?)', [ticket.user_id, message, 'ticket_status_changed', ticketId, 'ticket']);
         const [[newNotification]] = await pool.execute('SELECT * FROM notifications WHERE id = ?', [notificationResult.insertId]);
         if (newNotification) {
             req.io.to(`user-${ticket.user_id}`).emit('new_notification', newNotification);
@@ -346,7 +348,8 @@ const reassignTicket = asyncHandler(async (req, res) => {
 
     if (!newAgentId) { res.status(400); throw new Error('No se especificó el ID del nuevo agente.'); }
     const [users] = await pool.execute('SELECT role, username, first_name, last_name FROM users WHERE id = ?', [newAgentId]);
-    if (users.length === 0 || !['agent', 'admin'].includes(users[0].role)) { res.status(400); throw new Error('El usuario especificado no es un agente o administrador válido.'); }
+    const assignableRoles = ['agent', 'admin', 'boss', 'purchasing'];
+    if (users.length === 0 || !assignableRoles.includes(users[0].role)) { res.status(400); throw new Error('El usuario especificado no puede recibir tickets. Solo agentes, admin, jefes y encargados de compras.'); }
     
     await pool.execute('UPDATE tickets SET assigned_to_user_id = ? WHERE id = ?', [newAgentId, ticketId]);
 
@@ -379,7 +382,7 @@ const addCommentToTicket = asyncHandler(async (req, res) => {
 
     if (!comment_text || comment_text.trim() === '') { res.status(400); throw new Error('El comentario no puede estar vacío.'); }
 
-    const finalIsInternal = commenterRole !== 'client' && (is_internal === true || is_internal === 'true' || is_internal === 1);
+    const finalIsInternal = !['client', 'boss', 'purchasing'].includes(commenterRole) && (is_internal === true || is_internal === 'true' || is_internal === 1);
 
     await pool.execute('INSERT INTO comments (ticket_id, user_id, comment_text, is_internal) VALUES (?, ?, ?, ?)', [ticketId, commenterId, comment_text, finalIsInternal]);
 
@@ -388,10 +391,10 @@ const addCommentToTicket = asyncHandler(async (req, res) => {
         const ticket = ticketRows[0];
         let targetUserId, message;
 
-        if (commenterRole === 'client' && ticket.assigned_to_user_id) {
+        if (['client', 'boss', 'purchasing'].includes(commenterRole) && ticket.assigned_to_user_id) {
             targetUserId = ticket.assigned_to_user_id;
             message = `Nuevo comentario del cliente en el ticket #${ticketId}: "${ticket.title}"`;
-        } else if (commenterRole !== 'client' && ticket.user_id !== commenterId) {
+        } else if (!['client', 'boss', 'purchasing'].includes(commenterRole) && ticket.user_id !== commenterId) {
             targetUserId = ticket.user_id;
             message = `Un agente ha respondido a tu ticket #${ticketId}: "${ticket.title}"`;
         }
@@ -414,14 +417,14 @@ const getTicketComments = asyncHandler(async (req, res) => {
     const { role, id: userId } = req.user;
     const [ticket] = await pool.execute('SELECT user_id FROM tickets WHERE id = ?', [ticketId]);
     if (ticket.length === 0) { res.status(404); throw new Error('Ticket no encontrado'); }
-    if (role === 'client' && ticket[0].user_id !== userId) { res.status(403); throw new Error('No tienes permiso para ver los comentarios de este ticket.'); }
+    if (['client', 'boss', 'purchasing'].includes(role) && ticket[0].user_id !== userId) { res.status(403); throw new Error('No tienes permiso para ver los comentarios de este ticket.'); }
     
     let query = `SELECT c.*, COALESCE(CONCAT(u.first_name, ' ', u.last_name), u.username, 'Usuario Eliminado') as username 
                   FROM comments c 
                   LEFT JOIN users u ON c.user_id = u.id 
                   WHERE c.ticket_id = ?`;
 
-    if (role === 'client') { query += ' AND c.is_internal = false'; }
+    if (['client', 'boss', 'purchasing'].includes(role)) { query += ' AND c.is_internal = false'; }
     query += ' ORDER BY c.created_at ASC';
     const [comments] = await pool.execute(query, [ticketId]);
     res.status(200).json({ success: true, count: comments.length, data: comments });

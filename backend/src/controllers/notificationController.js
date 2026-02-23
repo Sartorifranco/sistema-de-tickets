@@ -1,8 +1,93 @@
 const asyncHandler = require('express-async-handler');
 const pool = require('../config/db');
-// --- ¡CORRECCIÓN CLAVE AQUÍ! ---
-// La ruta correcta para los servicios es '../services/activityLogService'
 const { logActivity } = require('../services/activityLogService');
+const { getNotificationConfigStatus, sendTestWhatsApp, sendTestEmail, getUserNotificationPrefs } = require('../services/notificationService');
+
+// @desc    Enviar mensaje de prueba por WhatsApp al número del usuario
+// @route   POST /api/notifications/test-whatsapp
+// @access  Private (cualquier usuario con preferencias de notificación)
+const testWhatsApp = asyncHandler(async (req, res) => {
+    if (!req.user) {
+        res.status(401);
+        throw new Error('No autorizado');
+    }
+    const prefs = await getUserNotificationPrefs(req.user.id);
+    const numero = prefs?.whatsapp_number || req.body?.phoneNumber;
+    if (!numero) {
+        res.status(400).json({
+            success: false,
+            message: 'Debe configurar su número de WhatsApp en preferencias de notificación y guardar primero.',
+        });
+        return;
+    }
+    const result = await sendTestWhatsApp(numero);
+    if (result.ok) {
+        res.status(200).json({
+            success: true,
+            message: 'Mensaje de prueba enviado. Revíselo en su WhatsApp.',
+        });
+    } else {
+        res.status(400).json({
+            success: false,
+            message: result.error || 'Error al enviar mensaje de prueba.',
+        });
+    }
+});
+
+// @desc    Enviar email de prueba
+// @route   POST /api/notifications/test-email
+// @access  Private (usuarios con preferencias de notificación)
+const testEmail = asyncHandler(async (req, res) => {
+    if (!req.user) {
+        res.status(401);
+        throw new Error('No autorizado');
+    }
+    const prefs = await getUserNotificationPrefs(req.user.id);
+    const email = prefs?.email || req.body?.email || req.user.email;
+    if (!email) {
+        res.status(400).json({
+            success: false,
+            message: 'Configure un email en preferencias de notificación o use el de su cuenta.',
+        });
+        return;
+    }
+    const result = await sendTestEmail(email);
+    if (result.ok) {
+        res.status(200).json({
+            success: true,
+            message: 'Email de prueba enviado. Revíselo en su bandeja (incluya spam).',
+        });
+    } else {
+        res.status(400).json({
+            success: false,
+            message: result.error || 'Error al enviar email de prueba.',
+        });
+    }
+});
+
+// @desc    Instrucciones para unirse al sandbox de WhatsApp (para usuarios que configuran notificaciones)
+// @route   GET /api/notifications/whatsapp-help
+// @access  Private (admin, purchasing, supplier, boss)
+const getWhatsAppHelp = asyncHandler(async (req, res) => {
+    const status = await getNotificationConfigStatus();
+    const wa = status.whatsapp || {};
+    res.status(200).json({
+        success: true,
+        data: {
+            sandboxNumber: wa.sandboxNumber || '+1 415 523 8886',
+            sandboxJoinCode: wa.sandboxJoinCode || null,
+            configured: wa.configured,
+        },
+    });
+});
+
+// @desc    Verificar estado de configuración de notificaciones (Email, Push, WhatsApp)
+// @route   GET /api/notifications/config-status
+// @access  Private (admin, purchasing)
+const getConfigStatus = asyncHandler(async (req, res) => {
+    const status = await getNotificationConfigStatus();
+    res.status(200).json({ success: true, data: status });
+});
 
 // @desc    Obtener todas las notificaciones para el usuario autenticado
 // @route   GET /api/notifications
@@ -201,6 +286,10 @@ const deleteAllNotifications = asyncHandler(async (req, res) => {
 module.exports = {
     getNotifications,
     getUnreadNotificationCount,
+    getConfigStatus,
+    getWhatsAppHelp,
+    testWhatsApp,
+    testEmail,
     markNotificationAsRead,
     deleteNotification,
     markAllNotificationsAsRead,

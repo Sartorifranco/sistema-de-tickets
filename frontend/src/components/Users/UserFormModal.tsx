@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import api from '../../config/axiosConfig';
-import { User, Department, Company, NewUser, UpdateUser } from '../../types';
+import { User, Department, Company, NewUser, UpdateUser, UserRole } from '../../types';
 import { toast } from 'react-toastify';
 
 interface UserFormModalProps {
@@ -20,7 +20,7 @@ const UserFormModal: React.FC<UserFormModalProps> = ({ isOpen, onClose, onSave, 
         email: initialData?.email || '',
         password: '',
         confirmPassword: '',
-        role: initialData?.role || 'client' as 'admin' | 'agent' | 'client',
+        role: (initialData?.role || 'client') as UserRole,
         department_id: initialData?.department_id || null as number | null,
         company_id: initialData?.company_id || null as number | null,
     });
@@ -38,10 +38,13 @@ const UserFormModal: React.FC<UserFormModalProps> = ({ isOpen, onClose, onSave, 
 
     const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
         const { name, value } = e.target;
-        setFormData(prev => ({
-            ...prev,
-            [name]: ['department_id', 'company_id'].includes(name) && value ? parseInt(value) : value
-        }));
+        let parsed: string | number | null = value;
+        if (['department_id', 'company_id'].includes(name)) {
+            parsed = value ? parseInt(value, 10) : null;
+        } else if (name === 'role') {
+            parsed = value as UserRole;
+        }
+        setFormData(prev => ({ ...prev, [name]: parsed }));
     };
 
     const handleSubmit = async (e: React.FormEvent) => {
@@ -189,6 +192,9 @@ const UserFormModal: React.FC<UserFormModalProps> = ({ isOpen, onClose, onSave, 
                             <option value="client">Cliente</option>
                             <option value="agent">Agente</option>
                             <option value="admin">Administrador</option>
+                            <option value="boss">Jefe (aprueba compras)</option>
+                            <option value="purchasing">Encargado de Compras</option>
+                            <option value="supplier">Proveedor</option>
                         </select>
                     </div>
 

@@ -14,7 +14,7 @@ const getAllDepartments = asyncHandler(async (req, res) => {
 // @desc    Get single department by ID with authorization logic
 const getDepartmentById = asyncHandler(async (req, res) => {
     const { id } = req.params;
-    const { role, company_id } = req.user;
+    const { role, company_id, department_id } = req.user;
 
     const [rows] = await pool.execute('SELECT * FROM departments WHERE id = ?', [id]);
     if (rows.length === 0) {
@@ -23,7 +23,10 @@ const getDepartmentById = asyncHandler(async (req, res) => {
     }
     const department = rows[0];
 
-    if (role !== 'admin' && department.company_id !== company_id) {
+    const canAccess = role === 'admin' || 
+        ((role === 'boss' || role === 'purchasing' || role === 'supplier') && Number(id) === department_id) ||
+        (company_id && department.company_id === company_id);
+    if (!canAccess) {
         res.status(403);
         throw new Error('No tienes permiso para ver la información de este departamento.');
     }

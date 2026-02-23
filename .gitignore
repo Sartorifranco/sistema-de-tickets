@@ -16,3 +16,16 @@ yarn-error.log*
 
 # Archivos de entorno
 .env
+.env.e2e
+e2e-tests/.env.e2e
+
+firebase-service-account.json
+backend/firebase-service-account.json
+
+# Playwright
+node_modules/
+/test-results/
+/playwright-report/
+/blob-report/
+/playwright/.cache/
+/playwright/.auth/

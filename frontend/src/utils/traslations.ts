@@ -24,5 +24,8 @@ export const userRoleTranslations: Record<UserRole, string> = {
     client: 'Cliente',
     agent: 'Agente',
     admin: 'Administrador',
+    boss: 'Jefe',
+    purchasing: 'Encargado de Compras',
+    supplier: 'Proveedor',
 };
 

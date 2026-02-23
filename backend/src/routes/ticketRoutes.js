@@ -23,14 +23,13 @@ const upload = require('../middleware/uploadMiddleware');
 router.use(authenticateToken);
 
 // Rutas para que el formulario pueda obtener las categorías y departamentos.
-router.get('/categories', authorize(['admin', 'agent', 'client']), getCategories);
-router.get('/departments', authorize(['admin', 'agent', 'client']), getDepartments);
+router.get('/categories', authorize(['admin', 'agent', 'client', 'boss', 'purchasing']), getCategories);
+router.get('/departments', authorize(['admin', 'agent', 'client', 'boss', 'purchasing']), getDepartments);
 
 // Rutas para la colección de tickets
 router.route('/')
-    .get(authorize(['admin', 'agent', 'client']), getTickets)
-    // ✅ CORRECCIÓN CLAVE: Se añade el rol 'agent' a la lista de roles autorizados para crear tickets.
-    .post(upload.array('attachments'), authorize(['client', 'admin', 'agent']), createTicket);
+    .get(authorize(['admin', 'agent', 'client', 'boss', 'purchasing']), getTickets)
+    .post(upload.array('attachments'), authorize(['client', 'admin', 'agent', 'boss', 'purchasing']), createTicket);
 
 // Rutas para acciones específicas sobre un ticket
 router.route('/:id/assign')
@@ -40,18 +39,18 @@ router.route('/:id/reassign')
     .put(authorize(['admin', 'agent']), reassignTicket);
 
 router.route('/:id/status')
-    .put(authorize(['admin', 'agent', 'client']), updateTicketStatus);
+    .put(authorize(['admin', 'agent', 'client', 'boss', 'purchasing']), updateTicketStatus);
 
 // Rutas para un ticket individual (por ID)
 router.route('/:id')
-    .get(authorize(['admin', 'agent', 'client']), getTicketById)
+    .get(authorize(['admin', 'agent', 'client', 'boss', 'purchasing']), getTicketById)
     .put(authorize(['admin', 'agent']), updateTicket)
     .delete(authorize(['admin']), deleteTicket);
 
 // Rutas para los comentarios de un ticket
 router.route('/:id/comments')
-    .get(authorize(['admin', 'agent', 'client']), getTicketComments)
-    .post(authorize(['admin', 'agent', 'client']), addCommentToTicket);
+    .get(authorize(['admin', 'agent', 'client', 'boss', 'purchasing']), getTicketComments)
+    .post(authorize(['admin', 'agent', 'client', 'boss', 'purchasing']), addCommentToTicket);
 
 module.exports = router;
 

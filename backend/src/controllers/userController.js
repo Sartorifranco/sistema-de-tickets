@@ -255,13 +255,72 @@ const adminResetPassword = asyncHandler(async (req, res) => {
     res.status(200).json({ success: true, message: 'Contraseña actualizada.' });
 });
 
-// @desc    Obtener agentes
+// @desc    Obtener mis preferencias de notificación
+const getMyNotificationPreferences = asyncHandler(async (req, res) => {
+    const userId = req.user.id;
+    const [rows] = await pool.execute(
+        'SELECT notification_email, whatsapp_number, push_enabled FROM users WHERE id = ?',
+        [userId]
+    );
+    if (rows.length === 0) {
+        res.status(404);
+        throw new Error('Usuario no encontrado.');
+    }
+    const u = rows[0];
+    res.status(200).json({
+        success: true,
+        data: {
+            notification_email: u.notification_email || null,
+            whatsapp_number: u.whatsapp_number || null,
+            push_enabled: Boolean(u.push_enabled),
+        }
+    });
+});
+
+// @desc    Actualizar mis preferencias de notificación
+const updateMyNotificationPreferences = asyncHandler(async (req, res) => {
+    const userId = req.user.id;
+    const { notification_email, whatsapp_number, push_enabled } = req.body;
+
+    const updates = [];
+    const values = [];
+
+    if (notification_email !== undefined) {
+        updates.push('notification_email = ?');
+        values.push(notification_email && String(notification_email).trim() ? String(notification_email).trim() : null);
+    }
+    if (whatsapp_number !== undefined) {
+        updates.push('whatsapp_number = ?');
+        values.push(whatsapp_number && String(whatsapp_number).trim() ? String(whatsapp_number).trim() : null);
+    }
+    if (push_enabled !== undefined) {
+        updates.push('push_enabled = ?');
+        values.push(Boolean(push_enabled) ? 1 : 0);
+    }
+
+    if (updates.length === 0) {
+        return res.status(400).json({ success: false, message: 'No se proporcionaron campos para actualizar.' });
+    }
+
+    values.push(userId);
+    await pool.execute(
+        `UPDATE users SET ${updates.join(', ')} WHERE id = ?`,
+        values
+    );
+
+    res.status(200).json({
+        success: true,
+        message: 'Preferencias de notificación actualizadas.',
+    });
+});
+
+// @desc    Obtener usuarios asignables a tickets (agentes, admin, boss, purchasing)
 const getAgents = asyncHandler(async (req, res) => {
     const [agents] = await pool.execute(
-        `SELECT id, username, first_name, last_name 
+        `SELECT id, username, first_name, last_name, role
          FROM users 
-         WHERE role IN ('agent', 'admin') 
-         ORDER BY first_name, last_name ASC`
+         WHERE role IN ('agent', 'admin', 'boss', 'purchasing') 
+         ORDER BY role, first_name, last_name ASC`
     );
     res.status(200).json({ success: true, data: agents });
 });
@@ -291,5 +350,7 @@ module.exports = {
     changePassword,
     adminResetPassword,
     getAgents,
-    getAgentActiveTickets
+    getAgentActiveTickets,
+    getMyNotificationPreferences,
+    updateMyNotificationPreferences
 };

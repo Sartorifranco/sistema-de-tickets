@@ -12,7 +12,7 @@ const firebaseConfig = {
   measurementId: process.env.REACT_APP_FIREBASE_MEASUREMENT_ID || "G-C5LLHPJYXP",
 };
 
-const app: FirebaseApp = initializeApp(firebaseConfig);
+export const app: FirebaseApp = initializeApp(firebaseConfig);
 export const db: Firestore = getFirestore(app);
 
 // Nombre de la colección donde HWAgente escribe los datos (computadoras)

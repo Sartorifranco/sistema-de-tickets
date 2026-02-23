@@ -2,7 +2,7 @@
 const express = require('express');
 const router = express.Router();
 // Importa las funciones del controlador de autenticación desde el archivo correcto
-const { registerUser, loginUser, getMe, activateAccount } = require('../controllers/authController');
+const { registerUser, loginUser, getMe, activateAccount, validateInvitationToken, setPasswordFromInvitation, saveFcmToken } = require('../controllers/authController');
 // Importa el middleware de protección de rutas, ahora como 'authenticateToken'
 const { authenticateToken } = require('../middleware/authMiddleware'); // <-- ¡CAMBIO AQUÍ!
 
@@ -13,13 +13,15 @@ router.post('/register', registerUser);
 router.post('/login', loginUser);
 
 router.post('/activate', activateAccount);
+router.get('/validate-invitation/:token', validateInvitationToken);
+router.post('/supplier-set-password', setPasswordFromInvitation);
+router.post('/set-password/:token', setPasswordFromInvitation);
 
 // Ruta de perfil del usuario logueado (protegida)
 // GET a /api/auth/me para obtener los datos del usuario autenticado
 // Esta ruta requiere que el usuario esté autenticado, por eso usa el middleware 'authenticateToken'
-router.get('/me', authenticateToken, getMe); // <-- ¡CAMBIO AQUÍ!
-
 router.get('/me', authenticateToken, getMe);
+router.put('/me/fcm-token', authenticateToken, saveFcmToken);
 
 // Exporta el router para que pueda ser utilizado en app.js
 module.exports = router;

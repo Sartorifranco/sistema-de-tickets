@@ -11,7 +11,8 @@ const authenticateToken = asyncHandler(async (req, res, next) => {
             const decoded = jwt.verify(token, process.env.JWT_SECRET);
             
             const [rows] = await pool.execute(
-                'SELECT id, username, email, role, department_id, company_id FROM users WHERE id = ?', 
+                `SELECT u.id, u.username, u.email, u.role, u.department_id, u.company_id, c.name as company_name 
+                 FROM users u LEFT JOIN companies c ON u.company_id = c.id WHERE u.id = ?`, 
                 [decoded.id]
             );
             

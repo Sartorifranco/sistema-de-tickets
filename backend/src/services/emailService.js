@@ -72,7 +72,35 @@ const sendWelcomeEmail = async (to, username) => {
     }
 };
 
+const sendSupplierInvitationEmail = async (to, companyName, invitationUrl) => {
+    const mailOptions = {
+        from: `"Compras - Grupo Bacar" <${process.env.EMAIL_USER}>`,
+        to: to,
+        subject: 'Invitación como Proveedor - Portal de Compras BACAR',
+        html: `
+            <div style="font-family: Arial, sans-serif; color: #333;">
+                <h2>Invitación al Portal de Proveedores</h2>
+                <p>Estimado proveedor${companyName ? ` de ${companyName}` : ''},</p>
+                <p>Ha sido registrado como proveedor en el Sistema de Compras de Grupo Bacar.</p>
+                <p>Haga clic en el siguiente enlace para establecer su contraseña y acceder al portal:</p>
+                <a href="${invitationUrl}" style="background-color: #DC2626; color: white; padding: 12px 25px; text-align: center; text-decoration: none; display: inline-block; border-radius: 8px; font-weight: bold;">
+                    Establecer contraseña
+                </a>
+                <p style="margin-top: 20px;">Este enlace expirará en 72 horas.</p>
+                <p>Si no esperaba este correo, ignórelo.</p>
+            </div>
+        `,
+    };
+    try {
+        await transporter.sendMail(mailOptions);
+        console.log(`[EmailService] Invitación enviada a proveedor ${to}`);
+    } catch (error) {
+        console.error('[EmailService] Error al enviar invitación:', error);
+    }
+};
+
 module.exports = {
     sendActivationEmail,
     sendWelcomeEmail,
+    sendSupplierInvitationEmail,
 };

@@ -12,6 +12,7 @@ import Layout from './components/Layout/Layout';
 import LoginPage from './pages/LoginPage';
 import RegisterPage from './pages/Auth/RegisterPage';
 import ActivateAccountPage from './pages/ActivateAccountPage';
+import SetPasswordPage from './pages/SetPasswordPage';
 import NotFoundPage from './pages/NotFoundPage';
 import ProfilePage from './pages/ProfilePage';
 import AdminDashboard from './pages/AdminDashboard';
@@ -34,6 +35,14 @@ import AdminLocationsPage from './pages/AdminLocationPage';
 // ✅ NUEVO: Importar la página de depositarios
 import DepositariosPage from './pages/DepositariosPage';
 import EquipmentMonitoringPage from './pages/EquipmentMonitoringPage';
+import MyPurchasesPage from './pages/MyPurchasesPage';
+import PurchaseRequestPage from './pages/PurchaseRequestPage';
+import BossApprovalPage from './pages/BossApprovalPage';
+import PurchasingAgentPage from './pages/PurchasingAgentPage';
+import PurchasingMetricsPage from './pages/PurchasingMetricsPage';
+import PurchaseDetailPage from './pages/PurchaseDetailPage';
+import InvoicesPage from './pages/InvoicesPage';
+import SuccessApprovalPage from './pages/SuccessApprovalPage';
 
 
 export type SocketInstance = ReturnType<typeof io>;
@@ -44,23 +53,23 @@ const SocketConnectionManager: React.FC<{ children: React.ReactNode }> = ({ chil
 
     useEffect(() => {
         if (isAuthenticated && token) {
-            // Mismo puerto/URL que el API (REACT_APP_API_PORT o REACT_APP_BACKEND_URL en .env local)
             const apiPort = process.env.REACT_APP_API_PORT || '5040';
             const explicitUrl = process.env.REACT_APP_BACKEND_URL;
             const currentHost = window.location.hostname;
             const socketUrl = explicitUrl || `http://${currentHost}:${apiPort}`;
-            
-            console.log(`[Socket] Intentando conectar a: ${socketUrl}`);
 
             const newSocket = io(socketUrl, {
                 auth: { token },
-                transports: ['websocket', 'polling'] // Forzar websocket ayuda a veces
+                transports: ['websocket', 'polling']
             });
             setSocket(newSocket);
 
             return () => {
                 newSocket.disconnect();
+                setSocket(null);
             };
+        } else {
+            setSocket(null);
         }
     }, [isAuthenticated, token]);
 
@@ -82,6 +91,8 @@ const App: React.FC = () => {
                         <Route path="/login" element={<LoginPage />} />
                         <Route path="/register" element={<RegisterPage />} />
                         <Route path="/activate-account" element={<ActivateAccountPage />} />
+                        <Route path="/set-password/:token" element={<SetPasswordPage />} />
+                        <Route path="/success-approval" element={<SuccessApprovalPage />} />
 
                         {/* Rutas privadas que usan el Layout */}
                         <Route element={<Layout />}>
@@ -113,10 +124,19 @@ const App: React.FC = () => {
                             <Route path="/agent/depositarios" element={<PrivateRoute roles={['agent']}><DepositariosPage /></PrivateRoute>} />
                             <Route path="/agent/equipos" element={<PrivateRoute roles={['agent']}><EquipmentMonitoringPage /></PrivateRoute>} />
                             
-                            {/* Rutas de Cliente */}
-                            <Route path="/client" element={<PrivateRoute roles={['client']}><ClientDashboard /></PrivateRoute>} />
-                            <Route path="/client/tickets" element={<PrivateRoute roles={['client']}><ClientTicketsPage /></PrivateRoute>} />
-                            <Route path="/client/tickets/:id" element={<PrivateRoute roles={['client']}><ClientTicketDetailPage /></PrivateRoute>} />
+                            {/* Rutas de Cliente (también para Jefe y Compras - empleados Bacar) */}
+                            <Route path="/client" element={<PrivateRoute roles={['client', 'boss', 'purchasing']}><ClientDashboard /></PrivateRoute>} />
+                            <Route path="/client/tickets" element={<PrivateRoute roles={['client', 'boss', 'purchasing']}><ClientTicketsPage /></PrivateRoute>} />
+                            <Route path="/client/tickets/:id" element={<PrivateRoute roles={['client', 'boss', 'purchasing']}><ClientTicketDetailPage /></PrivateRoute>} />
+
+                            {/* Módulo de Compras - disponible para todos los roles */}
+                            <Route path="/purchases" element={<PrivateRoute><MyPurchasesPage /></PrivateRoute>} />
+                            <Route path="/purchases/new" element={<PrivateRoute><PurchaseRequestPage /></PrivateRoute>} />
+                            <Route path="/purchases/approvals" element={<PrivateRoute roles={['boss']}><BossApprovalPage /></PrivateRoute>} />
+                            <Route path="/purchases/management" element={<PrivateRoute roles={['purchasing']}><PurchasingAgentPage /></PrivateRoute>} />
+                            <Route path="/purchases/metrics" element={<PrivateRoute roles={['purchasing', 'admin']}><PurchasingMetricsPage /></PrivateRoute>} />
+                            <Route path="/purchases/management/:purchaseId" element={<PrivateRoute roles={['purchasing']}><PurchaseDetailPage /></PrivateRoute>} />
+                            <Route path="/purchases/invoices" element={<PrivateRoute roles={['purchasing', 'admin']}><InvoicesPage /></PrivateRoute>} />
                         </Route>
 
                         <Route path="*" element={<NotFoundPage />} />

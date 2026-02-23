@@ -90,9 +90,17 @@ const loginUser = asyncHandler(async (req, res) => {
         res.status(401);
         throw new Error('Credenciales inválidas.');
     }
-    if (user.role === 'client' && !user.is_active) {
+    if (!user.is_active) {
+        if (user.role === 'client') {
+            res.status(401);
+            throw new Error('Tu cuenta no ha sido activada. Por favor, revisa tu correo electrónico.');
+        }
+        if (user.role === 'supplier') {
+            res.status(401);
+            throw new Error('Debe establecer su contraseña usando el link de invitación enviado por email.');
+        }
         res.status(401);
-        throw new Error('Tu cuenta no ha sido activada. Por favor, revisa tu correo electrónico.');
+        throw new Error('Cuenta inactiva.');
     }
     const token = jwt.sign({ 
         id: user.id, 
@@ -100,6 +108,11 @@ const loginUser = asyncHandler(async (req, res) => {
         company_id: user.company_id,
         department_id: user.department_id 
     }, process.env.JWT_SECRET, { expiresIn: '7d' });
+    const [companyRow] = user.company_id
+        ? await pool.execute('SELECT name FROM companies WHERE id = ?', [user.company_id])
+        : [[{ name: null }]];
+    const company_name = companyRow[0]?.name || null;
+
     res.status(200).json({
         success: true,
         message: 'Inicio de sesión exitoso',
@@ -111,6 +124,7 @@ const loginUser = asyncHandler(async (req, res) => {
             role: user.role,
             company_id: user.company_id,
             department_id: user.department_id,
+            company_name,
         },
     });
 });
@@ -129,7 +143,77 @@ const getMe = asyncHandler(async (req, res) => {
             role: user.role,
             company_id: user.company_id,
             department_id: user.department_id,
+            company_name: user.company_name || null,
         },
+    });
+});
+
+// --- validateInvitationToken (Proveedores - Público) ---
+const validateInvitationToken = asyncHandler(async (req, res) => {
+    const { token } = req.params;
+    if (!token) {
+        res.status(400).json({ success: false, valid: false, message: 'Token requerido.' });
+        return;
+    }
+    const [users] = await pool.execute(
+        'SELECT id, email FROM users WHERE supplier_invitation_token = ? AND supplier_invitation_expires > NOW() AND role = ?',
+        [token, 'supplier']
+    );
+    if (users.length === 0) {
+        res.status(200).json({ success: true, valid: false, message: 'El link es inválido o ha expirado.' });
+        return;
+    }
+    res.status(200).json({
+        success: true,
+        valid: true,
+        email: users[0].email,
+    });
+});
+
+// --- setPasswordFromInvitation (Proveedores - Público) ---
+const setPasswordFromInvitation = asyncHandler(async (req, res) => {
+    const token = req.body.token || req.params.token;
+    const { password } = req.body;
+    if (!token || !password || password.length < 6) {
+        res.status(400);
+        throw new Error('Token y contraseña (mínimo 6 caracteres) son requeridos.');
+    }
+    const [users] = await pool.execute(
+        'SELECT id, email, username FROM users WHERE supplier_invitation_token = ? AND supplier_invitation_expires > NOW() AND role = ?',
+        [token, 'supplier']
+    );
+    if (users.length === 0) {
+        res.status(400);
+        throw new Error('El link de invitación es inválido o ha expirado.');
+    }
+    const user = users[0];
+    const salt = await bcrypt.genSalt(10);
+    const hashedPassword = await bcrypt.hash(password, salt);
+    await pool.execute(
+        'UPDATE users SET password = ?, is_active = 1, supplier_invitation_token = NULL, supplier_invitation_expires = NULL WHERE id = ?',
+        [hashedPassword, user.id]
+    );
+    res.status(200).json({
+        success: true,
+        message: 'Contraseña establecida. Ya puede iniciar sesión.',
+        data: { email: user.email }
+    });
+});
+
+// --- saveFcmToken (Push Notifications) ---
+const saveFcmToken = asyncHandler(async (req, res) => {
+    const { fcm_token } = req.body;
+    if (!fcm_token || typeof fcm_token !== 'string') {
+        res.status(400);
+        throw new Error('Se requiere fcm_token.');
+    }
+    await pool.execute(
+        'UPDATE users SET fcm_token = ? WHERE id = ?',
+        [fcm_token.trim(), req.user.id]
+    );
+    res.status(200).json({
+        success: true,
+        message: 'Token de notificaciones guardado.',
     });
 });
 
@@ -138,4 +222,7 @@ module.exports = {
     loginUser,
     getMe,
     activateAccount,
+    validateInvitationToken,
+    setPasswordFromInvitation,
+    saveFcmToken,
 };

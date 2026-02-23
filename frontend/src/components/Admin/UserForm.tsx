@@ -5,7 +5,7 @@ import axios from 'axios'; // Asegúrate de que esto es 'axios' y no tu instanci
 import { useAuth } from '../../context/AuthContext';
 import { useNotification } from '../../context/NotificationContext';
 import { isAxiosErrorTypeGuard, ApiResponseError } from '../../utils/typeGuards';
-import { Department, User } from '../../types';
+import { Department, User, UserRole } from '../../types';
 
 interface UserFormProps {
     isOpen: boolean;
@@ -25,7 +25,7 @@ const UserForm: React.FC<UserFormProps> = ({ isOpen, onClose, initialData, depar
         email: initialData?.email || '',
         password: '', // Siempre vacío por seguridad al editar
         confirmPassword: '', // Para confirmación en creación
-        role: initialData?.role || 'client' as 'admin' | 'agent' | 'client',
+        role: (initialData?.role || 'client') as UserRole,
         department_id: initialData?.department_id || null as number | null,
     });
 
@@ -55,7 +55,7 @@ const UserForm: React.FC<UserFormProps> = ({ isOpen, onClose, initialData, depar
         const { name, value } = e.target;
         setFormData(prev => ({
             ...prev,
-            [name]: name === 'department_id' && value ? parseInt(value) : value
+            [name]: name === 'department_id' ? (value ? parseInt(value, 10) : null) : name === 'role' ? (value as UserRole) : value
         }));
     };
 
@@ -113,7 +113,7 @@ const UserForm: React.FC<UserFormProps> = ({ isOpen, onClose, initialData, depar
                 // Llama a userService.createUser con los argumentos correctos
                 await userService.createUser(newUser, token as string);
                 addNotification('Usuario creado exitosamente!', 'success');
-                setFormData({ username: '', email: '', password: '', confirmPassword: '', role: 'client', department_id: null });
+                setFormData({ username: '', email: '', password: '', confirmPassword: '', role: 'client' as UserRole, department_id: null });
                 // Pasa el objeto newUser (ya tipado como NewUser) al callback onSave
                 await onSave(newUser); // Usar await para asegurar que la operación se complete antes de cerrar el modal
             }
@@ -212,9 +212,12 @@ const UserForm: React.FC<UserFormProps> = ({ isOpen, onClose, initialData, depar
                             <option value="client">Cliente</option>
                             <option value="agent">Agente</option>
                             <option value="admin">Administrador</option>
+                            <option value="boss">Jefe (aprueba compras)</option>
+                            <option value="purchasing">Encargado de Compras</option>
+                            <option value="supplier">Proveedor</option>
                         </select>
                     </div>
-                    {formData.role === 'agent' && (
+                    {(formData.role === 'agent' || formData.role === 'boss') && (
                         <div className="mb-4">
                             <label htmlFor="department" className="block text-gray-700 text-sm font-bold mb-2">Departamento:</label>
                             <select

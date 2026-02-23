@@ -54,12 +54,16 @@ const io = new Server(server, {
   transports: ['websocket', 'polling']
 });
 
+app.set('io', io);
 app.use((req, res, next) => {
   req.io = io;
   next();
 });
 
-// --- 4. IMPORTACIÓN DE RUTAS ---
+// --- 4. IMPORTACIÓN DE CONFIGURACIÓN FIREBASE (Módulo Compras) ---
+require('./config/firebase');
+
+// --- 5. IMPORTACIÓN DE RUTAS ---
 const authRoutes = require('./routes/authRoutes');
 const userRoutes = require('./routes/userRoutes');
 const ticketRoutes = require('./routes/ticketRoutes');
@@ -71,8 +75,9 @@ const companyRoutes = require('./routes/companyRoutes');
 const depositarioRoutes = require('./routes/depositarioRoutes');
 const aiRoutes = require('./routes/aiRoutes');
 const { startCronJobs } = require('./services/cronJobs');
+const { startPurchaseCrons } = require('./cron/purchaseCron');
 
-// --- 5. DEFINICIÓN DE ENDPOINTS (API) ---
+// --- 6. DEFINICIÓN DE ENDPOINTS (API) ---
 app.use('/api/auth', authRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/tickets', ticketRoutes);
@@ -83,6 +88,8 @@ app.use('/api/reports', reportRoutes);
 app.use('/api/companies', companyRoutes);
 app.use('/api/depositarios', depositarioRoutes);
 app.use('/api/ai', aiRoutes);
+app.use('/api/purchases', require('./routes/purchaseRoutes'));
+app.use('/api/suppliers', require('./routes/supplierRoutes'));
 
 // ✅ RUTAS PÚBLICAS (Para registro sin token)
 app.use('/api/public', require('./routes/publicDataRoutes'));
@@ -93,18 +100,16 @@ app.use('/api/admin', require('./routes/problemAdminRoutes'));
 // ✅ RUTAS DE DATOS GENERALES (Para tickets y perfiles)
 app.use('/api', require('./routes/dataRoutes'));
 
-// --- 6. SOCKET.IO EVENTOS ---
+// --- 7. SOCKET.IO EVENTOS ---
 io.on('connection', (socket) => {
   const token = socket.handshake.auth.token;
   if (token) {
       try {
           const decoded = jwt.verify(token, process.env.JWT_SECRET);
           socket.join(`user-${decoded.id}`);
-          console.log(`✅ Socket conectado: ${decoded.username} (${socket.id})`);
-          
-          if (decoded.role) {
-              socket.join(decoded.role);
-          }
+          if (decoded.role) socket.join(decoded.role);
+          if (decoded.department_id) socket.join(`department-${decoded.department_id}`);
+          console.log(`✅ Socket conectado: user-${decoded.id} (${socket.id})`);
       } catch (error) {
           // Token inválido o expirado
       }
@@ -115,7 +120,7 @@ io.on('connection', (socket) => {
   });
 });
 
-// --- 7. SERVIR FRONTEND (PRODUCCIÓN) ---
+// --- 8. SERVIR FRONTEND (PRODUCCIÓN) ---
 app.use(express.static(path.join(__dirname, '../../frontend/build')));
 app.get('*', (req, res) => {
   if (req.url.startsWith('/api')) {
@@ -124,9 +129,20 @@ app.get('*', (req, res) => {
   res.sendFile(path.resolve(__dirname, '../../frontend/build', 'index.html'));
 });
 
-// --- 8. INICIO DEL SERVIDOR ---
+// --- 9. INICIO DEL SERVIDOR ---
 const PORT = process.env.PORT || 5040;
 server.listen(PORT, '0.0.0.0', () => {
   console.log(`🚀 Servidor corriendo en puerto ${PORT}`);
   startCronJobs();
+  startPurchaseCrons();
+
+  require('./services/notificationService').getNotificationConfigStatus()
+    .then((status) => {
+      console.log('--- Estado de notificaciones ---');
+      console.log('Email:', status.email.configured ? '✅ Configurado' : '⚠️ ' + (status.email.message || 'No configurado'));
+      console.log('Push:', status.push.configured ? `✅ Firebase OK (${status.push.usersWithFcmToken} usuarios con FCM)` : '⚠️ ' + (status.push.message || 'No configurado'));
+      console.log('WhatsApp:', status.whatsapp.configured ? '✅ Twilio configurado' : '⚠️ ' + (status.whatsapp.message || 'No configurado'));
+      console.log('---');
+    })
+    .catch((e) => console.warn('[Startup] No se pudo verificar notificaciones:', e.message));
 });

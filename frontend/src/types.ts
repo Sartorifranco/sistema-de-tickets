@@ -31,7 +31,7 @@ export interface Company {
 // ====================================================================
 // USER TYPES
 // ====================================================================
-export type UserRole = 'admin' | 'agent' | 'client';
+export type UserRole = 'admin' | 'agent' | 'client' | 'boss' | 'purchasing' | 'supplier';
 
 export interface User {
     last_name: any;

@@ -10,7 +10,9 @@ const {
     changePassword, 
     adminResetPassword,
     getAgents,
-    getAgentActiveTickets
+    getAgentActiveTickets,
+    getMyNotificationPreferences,
+    updateMyNotificationPreferences
 } = require('../controllers/userController');
 const { authenticateToken, authorize } = require('../middleware/authMiddleware');
 
@@ -25,6 +27,10 @@ router.route('/')
 
 router.route('/agents')
     .get(authorize(['admin', 'agent']), getAgents);
+
+router.route('/me/notification-preferences')
+    .get(getMyNotificationPreferences)
+    .put(updateMyNotificationPreferences);
 
 router.route('/:id')
     .get(authorize(['admin', 'agent']), getUserById)

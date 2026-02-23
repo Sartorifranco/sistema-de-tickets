@@ -71,5 +71,29 @@ const upload = multer({
     }
 });
 
-// Se exporta la instancia de Multer directamente.
+// Multer en memoria para Firebase Storage (facturas de proveedores)
+const memoryStorage = multer.memoryStorage();
+const uploadToMemory = multer({
+    storage: memoryStorage,
+    limits: { fileSize: 1024 * 1024 * 10 }, // 10MB para facturas
+    fileFilter: (req, file, cb) => {
+        const allowed = ['.pdf', '.jpg', '.jpeg', '.png', '.gif', '.webp'];
+        const ext = path.extname(file.originalname || '').toLowerCase();
+        if (allowed.includes(ext)) return cb(null, true);
+        cb(new Error('Solo se permiten PDF, JPG, JPEG, PNG, GIF o WEBP para el comprobante.'));
+    }
+});
+
+const uploadBudgetPdf = multer({
+    storage: memoryStorage,
+    limits: { fileSize: 1024 * 1024 * 10 },
+    fileFilter: (req, file, cb) => {
+        const ext = path.extname(file.originalname || '').toLowerCase();
+        if (ext === '.pdf') return cb(null, true);
+        cb(new Error('Solo se permite PDF para el presupuesto oficial.'));
+    }
+});
+
 module.exports = upload;
+module.exports.uploadToMemory = uploadToMemory;
+module.exports.uploadBudgetPdf = uploadBudgetPdf;

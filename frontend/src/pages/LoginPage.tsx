@@ -14,8 +14,9 @@ const LoginPage: React.FC = () => {
 
     useEffect(() => {
         if (user) {
-            const roleDashboard = `/${user.role}`;
-            navigate(roleDashboard, { replace: true });
+            if (user.role === 'supplier') navigate('/purchases', { replace: true });
+            else if (user.role === 'boss' || user.role === 'purchasing') navigate('/client', { replace: true });
+            else navigate(`/${user.role}`, { replace: true });
         }
     }, [user, navigate]);
 

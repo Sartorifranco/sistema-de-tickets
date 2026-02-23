@@ -33,10 +33,26 @@ const NotificationBell: React.FC = () => {
         if (!notification.is_read) {
             markNotificationAsRead(notification.id);
         }
-        // Navegar a la página relacionada si existe
+        // Navegar a la página relacionada según tipo y rol
         if (notification.related_type === 'ticket' && notification.related_id) {
             const basePath = user?.role === 'admin' ? '/admin' : user?.role === 'agent' ? '/agent' : '/client';
             navigate(`${basePath}/tickets/${notification.related_id}`);
+        } else if (notification.related_type === 'purchase') {
+            switch (user?.role) {
+                case 'boss':
+                    navigate('/purchases/approvals');
+                    break;
+                case 'purchasing':
+                    navigate(notification.related_id ? `/purchases/management/${notification.related_id}` : '/purchases/management');
+                    break;
+                case 'supplier':
+                case 'admin':
+                case 'agent':
+                case 'client':
+                default:
+                    navigate('/purchases');
+                    break;
+            }
         }
         setIsDropdownOpen(false);
     };

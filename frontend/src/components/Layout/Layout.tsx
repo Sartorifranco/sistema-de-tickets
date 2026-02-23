@@ -3,6 +3,7 @@ import { NavLink, Outlet } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { toast } from 'react-toastify';
 import NotificationBell from '../NotificationBell/NotificationBell';
+import FcmTokenHandler from '../FcmTokenHandler/FcmTokenHandler';
 
 const Layout: React.FC = () => {
     const { user, logout } = useAuth();
@@ -37,6 +38,8 @@ const Layout: React.FC = () => {
                         <li><NavLink to="/admin/problemas" className={getLinkClassName}>Problemáticas</NavLink></li>
                         <li><NavLink to="/admin/tickets" className={getLinkClassName}>Tickets</NavLink></li>
                         <li><NavLink to="/admin/reports" className={getLinkClassName}>Reportes</NavLink></li>
+                        <li><NavLink to="/purchases" end className={getLinkClassName}>🛒 Compras</NavLink></li>
+                        <li><NavLink to="/purchases/invoices" className={getLinkClassName}>📄 Facturas</NavLink></li>
                     </>
                 );
             case 'agent':
@@ -50,15 +53,51 @@ const Layout: React.FC = () => {
                         {/* ✅ NUEVO: Enlace a Mantenimiento para Agentes */}
                         <li><NavLink to="/agent/depositarios" className={getLinkClassName}>🏧 Mantenimiento Equipos</NavLink></li>
                         <li><NavLink to="/agent/equipos" className={getLinkClassName}>🖥️ Monitoreo Equipos</NavLink></li>
+                        <li><NavLink to="/purchases" end className={getLinkClassName}>🛒 Compras</NavLink></li>
                     </>
                 );
-            case 'client':
+            case 'client': {
+                const isBacar = user?.company_name && String(user.company_name).toLowerCase().includes('bacar');
                 return (
                     <>
                         <li className="text-xs uppercase text-gray-400 mt-2 mb-2 px-3">Cliente</li>
                         <li><NavLink to="/client" end className={getLinkClassName}>Dashboard</NavLink></li>
                         <li><NavLink to="/profile" className={getLinkClassName}>Mi Perfil</NavLink></li>
                         <li><NavLink to="/client/tickets" className={getLinkClassName}>Mis Tickets</NavLink></li>
+                        {isBacar && <li><NavLink to="/purchases" end className={getLinkClassName}>🛒 Compras</NavLink></li>}
+                    </>
+                );
+            }
+            case 'boss':
+                return (
+                    <>
+                        <li className="text-xs uppercase text-gray-400 mt-2 mb-2 px-3">Jefe</li>
+                        <li><NavLink to="/client" end className={getLinkClassName}>Dashboard</NavLink></li>
+                        <li><NavLink to="/profile" className={getLinkClassName}>Mi Perfil</NavLink></li>
+                        <li><NavLink to="/client/tickets" className={getLinkClassName}>Mis Tickets</NavLink></li>
+                        <li><NavLink to="/purchases" end className={getLinkClassName}>🛒 Mis solicitudes</NavLink></li>
+                        <li><NavLink to="/purchases/new" className={getLinkClassName}>+ Nueva solicitud</NavLink></li>
+                        <li><NavLink to="/purchases/approvals" className={getLinkClassName}>✓ Aprobar solicitudes</NavLink></li>
+                    </>
+                );
+            case 'purchasing':
+                return (
+                    <>
+                        <li className="text-xs uppercase text-gray-400 mt-2 mb-2 px-3">Compras</li>
+                        <li><NavLink to="/client" end className={getLinkClassName}>Dashboard</NavLink></li>
+                        <li><NavLink to="/profile" className={getLinkClassName}>Mi Perfil</NavLink></li>
+                        <li><NavLink to="/client/tickets" className={getLinkClassName}>Mis Tickets</NavLink></li>
+                        <li><NavLink to="/purchases" end className={getLinkClassName}>🛒 Mis solicitudes</NavLink></li>
+                        <li><NavLink to="/purchases/management" className={getLinkClassName}>📋 Gestión de compras</NavLink></li>
+                        <li><NavLink to="/purchases/invoices" className={getLinkClassName}>📄 Facturas</NavLink></li>
+                    </>
+                );
+            case 'supplier':
+                return (
+                    <>
+                        <li className="text-xs uppercase text-gray-400 mt-2 mb-2 px-3">Proveedor</li>
+                        <li><NavLink to="/profile" className={getLinkClassName}>Mi Perfil</NavLink></li>
+                        <li><NavLink to="/purchases" end className={getLinkClassName}>🛒 Presupuestos</NavLink></li>
                     </>
                 );
             default:
@@ -67,6 +106,8 @@ const Layout: React.FC = () => {
     };
 
     return (
+        <>
+            <FcmTokenHandler />
         <div className="flex h-screen bg-gray-100 font-sans">
             <aside className={`fixed inset-y-0 left-0 z-40 w-64 bg-gray-800 text-white flex flex-col shadow-lg 
                                 transform transition-transform duration-300 ease-in-out 
@@ -109,6 +150,7 @@ const Layout: React.FC = () => {
             </div>
             {isSidebarOpen && <div onClick={() => setIsSidebarOpen(false)} className="fixed inset-0 bg-black opacity-50 z-20 md:hidden"></div>}
         </div>
+        </>
     );
 };
 

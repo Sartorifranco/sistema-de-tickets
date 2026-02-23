@@ -1,9 +1,14 @@
 const express = require('express');
 const router = express.Router();
 const { authenticateToken } = require('../middleware/authMiddleware');
+const { authorize } = require('../middleware/authMiddleware');
 const {
     getNotifications,
     getUnreadNotificationCount,
+    getConfigStatus,
+    getWhatsAppHelp,
+    testWhatsApp,
+    testEmail,
     markNotificationAsRead,
     deleteNotification,
     markAllNotificationsAsRead,
@@ -11,6 +16,11 @@ const {
 } = require('../controllers/notificationController');
 
 router.use(authenticateToken);
+
+router.get('/config-status', authorize(['admin', 'purchasing']), getConfigStatus);
+router.get('/whatsapp-help', authorize(['admin', 'purchasing', 'supplier', 'boss']), getWhatsAppHelp);
+router.post('/test-whatsapp', testWhatsApp);
+router.post('/test-email', testEmail);
 
 // GET /api/notifications -> Obtiene todas las notificaciones
 // PUT /api/notifications -> Marca todas como leídas

@@ -314,7 +314,7 @@ const AgentDashboard: React.FC = () => {
                 </div>
             </div>
             
-            {isModalOpen && user && <DetailsModal title={modalContent.title} items={modalContent.items} onClose={() => setIsModalOpen(false)} loading={modalLoading} role={user.role} />}
+            {isModalOpen && user && <DetailsModal title={modalContent.title} items={modalContent.items} onClose={() => setIsModalOpen(false)} loading={modalLoading} role={user.role === 'agent' || user.role === 'admin' || user.role === 'client' ? user.role : 'agent'} />}
         </>
     );
 };
