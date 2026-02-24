@@ -204,10 +204,9 @@ test.describe('Flujo de Compras E2E (Happy Path - Video Directorio)', () => {
         await showRoleTransition(page, 'Jefe');
         await showCaption(page, 'Paso 2: El Jefe recibe el correo y aprueba con un clic, sin necesidad de iniciar sesión.');
 
-        await page.evaluate(() => localStorage.clear());
+        await page.evaluate(() => { localStorage.clear(); sessionStorage.clear(); });
         await page.goto(`${BASE_URL}/mock-email?purchaseId=${purchaseId}`);
         await page.waitForLoadState('networkidle');
-        await page.waitForTimeout(1500);
 
         await expect(page.getByText(/Requiere su Aprobación/i)).toBeVisible({ timeout: 12000 });
         await page.getByRole('button', { name: /✅ APROBAR/i }).click();
@@ -221,7 +220,7 @@ test.describe('Flujo de Compras E2E (Happy Path - Video Directorio)', () => {
         // ========== c) Compras: Solicitar cotización ==========
         await showRoleTransition(page, 'Compras');
         await showCaption(page, 'Paso 3: El Encargado de Compras revisa el pedido y selecciona proveedores a licitar.');
-        await loginPage.goto();
+        await loginPage.goto();  // ya hace localStorage.clear() internamente
         await loginPage.login(PURCHASING_EMAIL, PURCHASING_PASSWORD);
         await loginPage.expectLoginSuccess();
 
@@ -243,7 +242,7 @@ test.describe('Flujo de Compras E2E (Happy Path - Video Directorio)', () => {
         // ========== d) Proveedor: Cotizar con métodos de pago complejos ==========
         await showRoleTransition(page, 'Proveedor');
         await showCaption(page, 'Paso 4: El Proveedor ingresa, cotiza con opciones avanzadas (Tarjeta, Visa, 3 cuotas sin interés).');
-        await loginPage.goto();
+        await loginPage.goto();  // ya hace localStorage.clear() internamente
         await loginPage.login(SUPPLIER_EMAIL, SUPPLIER_PASSWORD);
         await loginPage.expectLoginSuccess();
 
@@ -261,7 +260,7 @@ test.describe('Flujo de Compras E2E (Happy Path - Video Directorio)', () => {
         await page.context().clearCookies();
 
         // ========== e) Compras: Seleccionar ganador ==========
-        await loginPage.goto();
+        await loginPage.goto();  // ya hace localStorage.clear() internamente
         await loginPage.login(PURCHASING_EMAIL, PURCHASING_PASSWORD);
         await loginPage.expectLoginSuccess();
 
@@ -294,7 +293,7 @@ test.describe('Flujo de Compras E2E (Happy Path - Video Directorio)', () => {
 
         // ========== f) Proveedor: Marcar enviado y subir factura ==========
         await showRoleTransition(page, 'Proveedor');
-        await loginPage.goto();
+        await loginPage.goto();  // ya hace localStorage.clear() internamente
         await loginPage.login(SUPPLIER_EMAIL, SUPPLIER_PASSWORD);
         await loginPage.expectLoginSuccess();
 
@@ -331,7 +330,7 @@ test.describe('Flujo de Compras E2E (Happy Path - Video Directorio)', () => {
         // ========== g) Empleado: Calificar pedido (5 estrellas + comentario) ==========
         await showRoleTransition(page, 'Solicitante');
         await showCaption(page, 'Paso 6: El Empleado recibe el pedido, califica con 5 estrellas y cierra el proceso.');
-        await loginPage.goto();
+        await loginPage.goto();  // ya hace localStorage.clear() internamente
         await loginPage.login(EMPLOYEE_EMAIL, EMPLOYEE_PASSWORD);
         await loginPage.expectLoginSuccess();
 
