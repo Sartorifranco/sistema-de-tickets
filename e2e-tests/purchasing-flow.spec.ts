@@ -208,7 +208,7 @@ test.describe('Flujo de Compras E2E (Happy Path - Video Directorio)', () => {
         await page.goto(`${BASE_URL}/mock-email?purchaseId=${purchaseId}`);
         await page.waitForLoadState('networkidle');
 
-        await expect(page.getByText(/Requiere su Aprobación/i)).toBeVisible({ timeout: 12000 });
+        await expect(page.getByText(/Requiere su Aprobación/i).first()).toBeVisible({ timeout: 12000 });
         await page.getByRole('button', { name: /✅ APROBAR/i }).click();
 
         await page.waitForURL(/success-approval/, { timeout: 15000 });
