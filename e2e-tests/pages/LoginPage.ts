@@ -20,19 +20,20 @@ export class LoginPage {
     /**
      * Limpia la sesión previa y navega a /login.
      *
-     * ORDEN CRÍTICO: limpiar localStorage ANTES de navegar.
-     * Si se limpia DESPUÉS, React ya habrá leído el token y redirigido
-     * fuera del login antes de que podamos borrarlo.
+     * Primera llamada: la página puede ser about:blank (sin localStorage).
+     * Llamadas siguientes: el logout ya limpió el token; esto es una red de seguridad.
      */
     async goto() {
-        // 1. Borrar sesión en la página actual (sea cual sea)
+        // Intentar borrar storage en la página actual.
+        // Puede lanzar SecurityError si es about:blank → se ignora con .catch().
         await this.page.evaluate(() => {
-            localStorage.clear();
-            sessionStorage.clear();
-        });
-        // 2. Ahora navegar: React no encontrará token y permanecerá en /login
+            try { localStorage.clear(); } catch {}
+            try { sessionStorage.clear(); } catch {}
+        }).catch(() => {});
+
         await this.page.goto('/login');
-        // 3. Esperar a que el formulario esté realmente listo
+
+        // Esperar a que el formulario esté realmente listo
         await this.emailInput().waitFor({ state: 'visible' });
     }
 
