@@ -24,7 +24,12 @@ export class LoginPage {
     }
 
     async expectLoginSuccess() {
-        await this.page.waitForURL(/\/(client|purchases|agent|admin)/);
+        await this.page.waitForURL(/\/(client|purchases|agent|admin|profile)/, { timeout: 30000 }).catch(async () => {
+            const hasError = await this.page.getByText(/Error|credenciales|incorrecto/i).isVisible().catch(() => false);
+            throw new Error(
+                hasError ? 'Login falló: credenciales incorrectas o backend no responde.' : 'Login no redirigió. Verifique .env.e2e y que backend/frontend estén corriendo.'
+            );
+        });
     }
 
     async expectLoginError() {

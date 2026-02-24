@@ -44,6 +44,7 @@ import PurchasingMetricsPage from './pages/PurchasingMetricsPage';
 import PurchaseDetailPage from './pages/PurchaseDetailPage';
 import InvoicesPage from './pages/InvoicesPage';
 import SuccessApprovalPage from './pages/SuccessApprovalPage';
+import MockEmailPage from './pages/MockEmailPage';
 
 
 export type SocketInstance = ReturnType<typeof io>;
@@ -94,6 +95,7 @@ const App: React.FC = () => {
                         <Route path="/activate-account" element={<ActivateAccountPage />} />
                         <Route path="/set-password/:token" element={<SetPasswordPage />} />
                         <Route path="/success-approval" element={<SuccessApprovalPage />} />
+                        <Route path="/mock-email" element={<MockEmailPage />} />
 
                         {/* Rutas privadas que usan el Layout */}
                         <Route element={<Layout />}>

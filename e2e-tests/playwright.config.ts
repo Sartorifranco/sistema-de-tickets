@@ -29,7 +29,7 @@ export default defineConfig({
         },
         viewport: { width: 1920, height: 1080 },
         launchOptions: {
-            slowMo: 1500,
+            slowMo: 1000,
         },
     },
     projects: [

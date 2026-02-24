@@ -7,6 +7,7 @@ const router = express.Router();
 const { authenticateToken, authorize } = require('../middleware/authMiddleware');
 const uploadMiddleware = require('../middleware/uploadMiddleware');
 const {
+    e2eGetApproveUrl,
     magicApprove,
     magicReject,
     getPurchaseMetrics,
@@ -24,6 +25,7 @@ const {
     submitQuote,
     getQuotesByPurchaseId,
     selectQuoteWinner,
+    uploadPaymentReceipt,
     uploadQuoteInvoice,
     uploadQuoteBudget,
     markOrderShipped,
@@ -31,10 +33,12 @@ const {
     setItemWinners,
     getInvoices,
     markPurchaseReceived,
+    rejectPurchaseRequest,
     markPurchaseConforme
 } = require('../controllers/purchaseController');
 
 // Rutas públicas (Magic Links) - ANTES de authenticateToken
+router.get('/e2e-get-approve-url/:purchaseId', e2eGetApproveUrl);
 router.get('/magic-approve/:token', magicApprove);
 router.get('/magic-reject/:token', magicReject);
 
@@ -65,8 +69,10 @@ router.get('/metrics', authorize(['purchasing', 'admin']), getPurchaseMetrics);
 router.get('/dashboard', authorize(['purchasing']), getPurchasesDashboard);
 router.get('/all', authorize(['purchasing']), getAllPurchases);
 router.put('/:id/mark-received', authorize(['purchasing']), markPurchaseReceived);
+router.put('/:id/reject', authorize(['purchasing']), rejectPurchaseRequest);
 router.put('/:id/conforme', authorize(['client', 'boss', 'purchasing']), markPurchaseConforme);
 router.get('/:purchaseId', authorize(['purchasing']), getPurchaseById);
+router.post('/:purchaseId/upload-payment-receipt', authorize(['purchasing']), uploadMiddleware.uploadToMemory.single('receipt'), uploadPaymentReceipt);
 router.put('/:purchaseId/item-winners', authorize(['purchasing']), setItemWinners);
 router.post('/:purchaseId/request-quotes', authorize(['purchasing']), sendQuoteRequest);
 router.get('/:purchaseId/quotes', authorize(['purchasing']), getQuotesByPurchaseId);

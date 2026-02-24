@@ -7,14 +7,23 @@ import SupplierQuotesPage from './SupplierQuotesPage';
 import HelpBox from '../components/Common/HelpBox';
 import PurchaseStepper from '../components/Purchases/PurchaseStepper';
 
+interface PurchaseItem {
+    producto: string;
+    cantidad: number;
+    descripcion: string;
+}
+
 interface PurchaseRequest {
     id: string;
+    title?: string;
     productOrService: string;
     description: string;
     quantity: number;
+    items?: PurchaseItem[];
     referenceLink?: string;
     deliveryDeadline?: string;
     estimatedDeliveryDate?: string;
+    rejectionComment?: string;
     status: string;
     createdAt: string;
 }
@@ -23,6 +32,7 @@ const MyPurchasesPage: React.FC = () => {
     const { user } = useAuth();
     const [purchases, setPurchases] = useState<PurchaseRequest[]>([]);
     const [loading, setLoading] = useState(true);
+    const [expandedId, setExpandedId] = useState<string | null>(null);
     const [ratingModal, setRatingModal] = useState<{ id: string; productOrService: string } | null>(null);
     const [rating, setRating] = useState(0);
     const [ratingHover, setRatingHover] = useState(0);
@@ -86,7 +96,7 @@ const MyPurchasesPage: React.FC = () => {
         if (status === 'Conforme / Cerrado') return 'bg-green-100 text-green-800';
         if (status === 'Entregado') return 'bg-emerald-100 text-emerald-800';
         if (status.includes('Pendiente')) return 'bg-amber-100 text-amber-800';
-        if (status.includes('Aprobad')) return 'bg-green-100 text-green-800';
+        if (status.includes('Aprobad')) return 'bg-blue-100 text-blue-800';
         if (status.includes('Rechazad')) return 'bg-red-100 text-red-800';
         return 'bg-gray-100 text-gray-800';
     };
@@ -154,56 +164,96 @@ const MyPurchasesPage: React.FC = () => {
                     </Link>
                 </div>
             ) : (
-                <div className="grid gap-4 sm:grid-cols-1 lg:grid-cols-2">
-                    {purchases.map((p) => (
-                        <div
-                            key={p.id}
-                            className="bg-white rounded-lg shadow p-5 border border-gray-200 hover:shadow-md transition-shadow"
-                        >
-                            <div className="flex justify-between items-start mb-3">
-                                <h3 className="font-bold text-gray-800 text-lg">{p.productOrService}</h3>
-                                {p.status === 'Conforme / Cerrado' ? (
-                                    <span className="px-2 py-1 rounded text-xs font-medium bg-green-100 text-green-800">
-                                        {p.status}
-                                    </span>
-                                ) : (
-                                    <span className={`px-2 py-1 rounded text-xs font-medium ${getStatusColor(p.status)}`}>
-                                        {p.status}
-                                    </span>
-                                )}
-                            </div>
-                            <PurchaseStepper status={p.status} className="mb-3" />
-                            <p className="text-gray-600 text-sm mb-2 line-clamp-2">{p.description}</p>
-                            <div className="flex flex-wrap gap-2 text-xs text-gray-500">
-                                <span>Cantidad: {p.quantity}</span>
-                                {p.deliveryDeadline && (
-                                    <span>• Entrega solicitada: {formatDate(p.deliveryDeadline)}</span>
-                                )}
-                                {p.estimatedDeliveryDate && (
-                                    <span className="text-amber-700">• Plazo estimado: {p.estimatedDeliveryDate}</span>
-                                )}
-                                <span>• Creado: {formatDate(p.createdAt)}</span>
-                            </div>
-                            {p.status === 'Entregado' && (
+                <div className="space-y-3">
+                    {purchases.map((p) => {
+                        const isExpanded = expandedId === p.id;
+                        const itemCount = Array.isArray(p.items) ? p.items.length : 0;
+                        const totalItems = itemCount > 0 ? itemCount : 1;
+                        const displayTitle = (p.title || p.productOrService) || `Solicitud (${totalItems} ítem${totalItems !== 1 ? 's' : ''})`;
+                        return (
+                            <div
+                                key={p.id}
+                                className="bg-white rounded-xl shadow-md border border-gray-200 overflow-hidden hover:shadow-lg transition-shadow"
+                            >
                                 <button
-                                    onClick={() => openRatingModal(p)}
-                                    className="mt-3 px-4 py-2 bg-green-600 hover:bg-green-700 text-white text-sm font-medium rounded-md"
+                                    type="button"
+                                    onClick={() => setExpandedId(isExpanded ? null : p.id)}
+                                    className="w-full flex items-center justify-between p-4 text-left hover:bg-gray-50/50 transition-colors"
                                 >
-                                    ✓ Marcar como Recibido / Conforme
+                                    <div className="flex-1 min-w-0">
+                                        <h3 className="font-bold text-gray-800 text-lg truncate">{displayTitle}</h3>
+                                        <div className="flex flex-wrap items-center gap-3 mt-1 text-sm text-gray-500">
+                                            <span>{formatDate(p.createdAt)}</span>
+                                            <span>• {totalItems} ítem{totalItems !== 1 ? 's' : ''}</span>
+                                        </div>
+                                    </div>
+                                    <div className="flex items-center gap-3 ml-4 shrink-0">
+                                        <span className={`px-3 py-1 rounded-full text-xs font-semibold ${getStatusColor(p.status)}`}>
+                                            {p.status}
+                                        </span>
+                                        <span className="text-gray-400 text-xl">
+                                            {isExpanded ? '▲' : '▼'}
+                                        </span>
+                                    </div>
                                 </button>
-                            )}
-                            {p.referenceLink && (
-                                <a
-                                    href={p.referenceLink}
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                    className="text-sm text-red-600 hover:underline mt-2 inline-block"
-                                >
-                                    Ver referencia →
-                                </a>
-                            )}
-                        </div>
-                    ))}
+                                {isExpanded && (
+                                    <div className="px-4 pb-4 pt-0 border-t border-gray-100">
+                                        <PurchaseStepper status={p.status} className="my-4" />
+                                        {Array.isArray(p.items) && p.items.length > 0 ? (
+                                            <div className="mb-4">
+                                                <p className="text-sm font-medium text-gray-700 mb-2">Ítems de la solicitud</p>
+                                                <ul className="space-y-2">
+                                                    {p.items.map((item, idx) => (
+                                                        <li key={idx} className="p-3 bg-gray-50 rounded-lg text-sm">
+                                                            <div className="flex justify-between items-center">
+                                                                <span className="font-medium text-gray-800">{item.producto}</span>
+                                                                <span className="text-gray-500">x{item.cantidad}</span>
+                                                            </div>
+                                                            {item.descripcion && <p className="text-gray-600 text-xs mt-1">{item.descripcion}</p>}
+                                                        </li>
+                                                    ))}
+                                                </ul>
+                                            </div>
+                                        ) : (
+                                            <p className="text-gray-600 text-sm mb-4 line-clamp-2">{p.description}</p>
+                                        )}
+                                        <div className="flex flex-wrap gap-2 text-xs text-gray-500 mb-3">
+                                            {p.deliveryDeadline && (
+                                                <span>Fecha límite: {formatDate(p.deliveryDeadline)}</span>
+                                            )}
+                                            {p.estimatedDeliveryDate && (
+                                                <span className="text-amber-700">• Entrega estimada: {p.estimatedDeliveryDate}</span>
+                                            )}
+                                        </div>
+                                        {p.status === 'Rechazado' && p.rejectionComment && (
+                                            <div className="mb-3 p-3 bg-red-50 border border-red-100 rounded-lg">
+                                                <p className="text-xs font-medium text-red-800">Motivo de rechazo:</p>
+                                                <p className="text-sm text-red-700">{p.rejectionComment}</p>
+                                            </div>
+                                        )}
+                                        {p.status === 'Entregado' && (
+                                            <button
+                                                onClick={() => openRatingModal(p)}
+                                                className="px-4 py-2 bg-green-600 hover:bg-green-700 text-white text-sm font-medium rounded-lg shadow-sm"
+                                            >
+                                                ✓ Marcar como Recibido / Conforme
+                                            </button>
+                                        )}
+                                        {p.referenceLink && (
+                                            <a
+                                                href={p.referenceLink}
+                                                target="_blank"
+                                                rel="noopener noreferrer"
+                                                className="text-sm text-red-600 hover:underline mt-3 inline-block"
+                                            >
+                                                Ver referencia →
+                                            </a>
+                                        )}
+                                    </div>
+                                )}
+                            </div>
+                        );
+                    })}
                 </div>
             )}
 

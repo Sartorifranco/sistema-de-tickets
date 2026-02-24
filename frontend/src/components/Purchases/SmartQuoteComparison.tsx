@@ -22,6 +22,14 @@ interface ItemWinner {
     quoteId: string;
 }
 
+interface PaymentDetails {
+    efectivo?: { discountPercent?: number };
+    tarjeta?: { cards: string[]; cuotasSinInteres?: number };
+    cheque?: { dias?: number };
+    transferencia?: { aclaraciones?: string };
+    cc?: { aclaraciones?: string };
+}
+
 interface Quote {
     id: string;
     supplierId: number;
@@ -32,6 +40,7 @@ interface Quote {
     price?: number;
     itemPrices?: QuoteItemPrice[];
     paymentMethods?: string[];
+    paymentDetails?: PaymentDetails;
     deliveryTerm?: string;
     paymentTerm?: string;
 }
@@ -62,6 +71,22 @@ const parsePaymentCuotas = (term?: string): number => {
     if (!term) return 0;
     const m = term.match(/(\d+)\s*cuotas?/i);
     return m ? parseInt(m[1], 10) : 0;
+};
+
+const formatPaymentDetails = (q: Quote): string => {
+    const pd = q.paymentDetails;
+    if (!pd) return Array.isArray(q.paymentMethods) && q.paymentMethods.length > 0 ? q.paymentMethods.join(', ') : '-';
+    const parts: string[] = [];
+    if (pd.efectivo?.discountPercent != null) parts.push(`Efectivo ${pd.efectivo.discountPercent}% dto`);
+    if (pd.tarjeta) {
+        const cards = pd.tarjeta.cards?.length ? ` (${pd.tarjeta.cards.join(', ')})` : '';
+        const cuotas = pd.tarjeta.cuotasSinInteres ? ` ${pd.tarjeta.cuotasSinInteres} cuotas s/i` : '';
+        parts.push(`Tarjeta${cards}${cuotas}`);
+    }
+    if (pd.cheque?.dias != null) parts.push(`Cheque ${pd.cheque.dias} días`);
+    if (pd.transferencia?.aclaraciones) parts.push(`Transferencia: ${pd.transferencia.aclaraciones.slice(0, 30)}${pd.transferencia.aclaraciones.length > 30 ? '...' : ''}`);
+    if (pd.cc?.aclaraciones) parts.push(`Cta Cte: ${pd.cc.aclaraciones.slice(0, 30)}${pd.cc.aclaraciones.length > 30 ? '...' : ''}`);
+    return parts.length > 0 ? parts.join(' | ') : (Array.isArray(q.paymentMethods) && q.paymentMethods.length > 0 ? q.paymentMethods.join(', ') : '-');
 };
 
 const SmartQuoteComparison: React.FC<SmartQuoteComparisonProps> = ({
@@ -308,12 +333,12 @@ const SmartQuoteComparison: React.FC<SmartQuoteComparisonProps> = ({
                                                 ) : (
                                                     <span className="text-gray-400">—</span>
                                                 )}
-                                                {(q.deliveryTerm || q.paymentTerm || (Array.isArray(q.paymentMethods) && q.paymentMethods.length > 0)) && (
+                                                {(q.deliveryTerm || q.paymentTerm || formatPaymentDetails(q) !== '-') && (
                                                     <div className="text-xs text-gray-500 mt-0.5">
                                                         {q.deliveryTerm && <span title="Plazo entrega">{q.deliveryTerm}</span>}
                                                         {q.paymentTerm && <span className="ml-1" title="Plazo pago">{q.paymentTerm}</span>}
-                                                        {Array.isArray(q.paymentMethods) && q.paymentMethods.length > 0 && (
-                                                            <span className="ml-1" title="Formas de pago">({q.paymentMethods.length} formas)</span>
+                                                        {formatPaymentDetails(q) !== '-' && (
+                                                            <span className="ml-1 block mt-0.5" title="Formas de pago">{formatPaymentDetails(q)}</span>
                                                         )}
                                                     </div>
                                                 )}

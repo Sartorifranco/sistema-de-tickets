@@ -16,12 +16,16 @@ export class PurchasingDashboardPage {
     }
 
     async expectPurchaseVisible(productName: string) {
-        await this.page.getByText(new RegExp(productName, 'i')).first().waitFor({ state: 'visible', timeout: 10000 });
+        await this.page.getByText(/Resto de solicitudes|Solicitudes prioritarias|Dashboard de Compras/i).first().waitFor({ state: 'visible', timeout: 10000 });
+        const safeName = productName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        await this.page.getByText(new RegExp(safeName, 'i')).first().waitFor({ state: 'attached', timeout: 20000 });
+        await this.page.getByText(new RegExp(safeName, 'i')).first().scrollIntoViewIfNeeded();
     }
 
     async clickPurchaseDetail(productName: string) {
-        const regex = new RegExp(productName, 'i');
+        const regex = new RegExp(productName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i');
         const loc = this.page.getByText(regex).first();
+        await loc.scrollIntoViewIfNeeded();
         await loc.click();
         await this.page.waitForTimeout(400);
         if (this.page.url().includes('/purchases/management') && !this.page.url().match(/\/purchases\/management\/[a-zA-Z0-9-]+$/)) {

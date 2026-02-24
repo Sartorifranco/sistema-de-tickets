@@ -12,7 +12,7 @@ const { sendSupplierInvitationEmail } = require('../services/emailService');
 // @route   POST /api/suppliers
 // @access  Private (purchasing)
 const createSupplier = asyncHandler(async (req, res) => {
-    const { companyName, email, contactName } = req.body;
+    const { companyName, email, contactName, rubro } = req.body;
 
     if (!email || !contactName) {
         res.status(400).json({
@@ -52,12 +52,24 @@ const createSupplier = asyncHandler(async (req, res) => {
     const invitationToken = crypto.randomBytes(32).toString('hex');
     const invitationExpires = new Date(Date.now() + 72 * 60 * 60 * 1000); // 72 horas
 
-    await pool.execute(
-        `INSERT INTO users (username, email, password, role, company_id, first_name, last_name, is_active,
-         supplier_invitation_token, supplier_invitation_expires) 
-         VALUES (?, ?, ?, 'supplier', NULL, ?, ?, 0, ?, ?)`,
-        [username, email, hashedPassword, firstName, lastName, invitationToken, invitationExpires]
-    );
+    const rubroStr = (rubro && String(rubro).trim()) ? String(rubro).trim() : null;
+    try {
+        await pool.execute(
+            `INSERT INTO users (username, email, password, role, company_id, first_name, last_name, is_active,
+             supplier_invitation_token, supplier_invitation_expires, supplier_rubro) 
+             VALUES (?, ?, ?, 'supplier', NULL, ?, ?, 0, ?, ?, ?)`,
+            [username, email, hashedPassword, firstName, lastName, invitationToken, invitationExpires, rubroStr]
+        );
+    } catch (insertErr) {
+        if (insertErr.message && insertErr.message.includes('supplier_rubro')) {
+            await pool.execute(
+                `INSERT INTO users (username, email, password, role, company_id, first_name, last_name, is_active,
+                 supplier_invitation_token, supplier_invitation_expires) 
+                 VALUES (?, ?, ?, 'supplier', NULL, ?, ?, 0, ?, ?)`,
+                [username, email, hashedPassword, firstName, lastName, invitationToken, invitationExpires]
+            );
+        } else throw insertErr;
+    }
 
     const [rows] = await pool.execute('SELECT id, username, email FROM users WHERE email = ?', [email]);
     const supplier = rows[0];
@@ -87,10 +99,26 @@ const createSupplier = asyncHandler(async (req, res) => {
 // @route   GET /api/suppliers
 // @access  Private (purchasing)
 const getSuppliers = asyncHandler(async (req, res) => {
-    const [suppliers] = await pool.execute(
-        `SELECT id, username, email, first_name, last_name, is_active, created_at
-         FROM users WHERE role = 'supplier' ORDER BY first_name, last_name ASC`
-    );
+    let rows;
+    try {
+        [rows] = await pool.execute(
+            `SELECT id, username, email, first_name, last_name, is_active, created_at,
+             COALESCE(supplier_rubro, '') as rubro
+             FROM users WHERE role = 'supplier' ORDER BY first_name, last_name ASC`
+        );
+    } catch (err) {
+        if (err.message && err.message.includes('supplier_rubro')) {
+            [rows] = await pool.execute(
+                `SELECT id, username, email, first_name, last_name, is_active, created_at
+                 FROM users WHERE role = 'supplier' ORDER BY first_name, last_name ASC`
+            );
+            rows = rows.map(r => ({ ...r, rubro: null }));
+        } else throw err;
+    }
+    const suppliers = rows.map(r => ({
+        ...r,
+        rubro: (r.rubro && String(r.rubro).trim()) ? String(r.rubro).trim() : null
+    }));
     res.status(200).json({ success: true, data: suppliers });
 });
 

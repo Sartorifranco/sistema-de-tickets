@@ -23,6 +23,9 @@ const InviteSupplierModal: React.FC<InviteSupplierModalProps> = ({ isOpen, onClo
     const [contactName, setContactName] = useState('');
     const [email, setEmail] = useState('');
     const [companyName, setCompanyName] = useState('');
+    const [rubro, setRubro] = useState('');
+
+    const RUBRO_OPTIONS = ['Librería e Insumos de Oficina', 'Tecnología / IT', 'Limpieza y Maestranza', 'Mantenimiento y Ferretería', 'Servicios Profesionales', 'Otros'];
     const [loading, setLoading] = useState(false);
     const [invitationLink, setInvitationLink] = useState<string | null>(null);
     const [regeneratingId, setRegeneratingId] = useState<number | null>(null);
@@ -70,6 +73,7 @@ const InviteSupplierModal: React.FC<InviteSupplierModalProps> = ({ isOpen, onClo
                 contactName: contactName.trim(),
                 email: email.trim(),
                 companyName: companyName.trim() || undefined,
+                rubro: rubro.trim() || undefined,
             });
             if (data.success && data.data?.invitationLink) {
                 setInvitationLink(data.data.invitationLink);
@@ -86,6 +90,7 @@ const InviteSupplierModal: React.FC<InviteSupplierModalProps> = ({ isOpen, onClo
                 setContactName('');
                 setEmail('');
                 setCompanyName('');
+                setRubro('');
             } else {
                 toast.error(data.message || 'Error al registrar.');
             }
@@ -110,6 +115,7 @@ const InviteSupplierModal: React.FC<InviteSupplierModalProps> = ({ isOpen, onClo
         setContactName('');
         setEmail('');
         setCompanyName('');
+        setRubro('');
         onClose();
     };
 
@@ -218,6 +224,19 @@ const InviteSupplierModal: React.FC<InviteSupplierModalProps> = ({ isOpen, onClo
                                         placeholder="Empresa (opcional)"
                                         className="w-full px-3 py-2 border rounded-md"
                                     />
+                                    <div>
+                                        <label className="block text-xs font-medium text-gray-600 mb-1">Rubro (para filtrado inteligente)</label>
+                                        <select
+                                            value={rubro}
+                                            onChange={(e) => setRubro(e.target.value)}
+                                            className="w-full px-3 py-2 border rounded-md"
+                                        >
+                                            <option value="">-- Sin rubro --</option>
+                                            {RUBRO_OPTIONS.map((opt) => (
+                                                <option key={opt} value={opt}>{opt}</option>
+                                            ))}
+                                        </select>
+                                    </div>
                                     <div className="flex gap-2">
                                         <button type="submit" disabled={loading} className="flex-1 py-2 bg-red-600 hover:bg-red-700 text-white font-medium rounded-md disabled:opacity-50">
                                             {loading ? 'Registrando...' : 'Registrar e invitar'}

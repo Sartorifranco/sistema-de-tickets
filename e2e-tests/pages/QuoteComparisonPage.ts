@@ -19,10 +19,9 @@ export class QuoteComparisonPage {
         }
     }
 
-    /** Para comparativa simple (1 ítem) - botón Seleccionar ganador */
+    /** Para comparativa simple o fallback (QuoteComparison) - botón Seleccionar Ganador */
     async clickSelectWinnerButton() {
-        const btn = this.page.locator('button').filter({ hasText: /Seleccionar.*[Gg]anador/i }).first();
-        await btn.click();
+        await this.page.getByRole('button', { name: /Seleccionar\s+Ganador/i }).first().click({ timeout: 15000 });
     }
 
     /** SmartQuoteComparison - confirmar ganadores por ítem */

@@ -26,6 +26,7 @@ const RUBRO_OPTIONS = [
 
 const PurchaseRequestForm: React.FC<PurchaseRequestFormProps> = ({ onSuccess }) => {
     const [loading, setLoading] = useState(false);
+    const [title, setTitle] = useState('');
     const [items, setItems] = useState<PurchaseItem[]>([{ ...INITIAL_ITEM }]);
     const [rubro, setRubro] = useState<string>('');
     const [referenceLink, setReferenceLink] = useState('');
@@ -85,6 +86,10 @@ const PurchaseRequestForm: React.FC<PurchaseRequestFormProps> = ({ onSuccess }) 
             toast.error(`Máximo ${MAX_ITEMS} ítems permitidos.`);
             return;
         }
+        if (!title || !title.trim()) {
+            toast.error('Ingrese el Título de la solicitud.');
+            return;
+        }
         if (!rubro || !RUBRO_OPTIONS.includes(rubro as typeof RUBRO_OPTIONS[number])) {
             toast.error('Seleccione el Rubro de Compra.');
             return;
@@ -93,6 +98,7 @@ const PurchaseRequestForm: React.FC<PurchaseRequestFormProps> = ({ onSuccess }) 
         setLoading(true);
         try {
             const payload = {
+                title: title.trim(),
                 items: validItems,
                 rubro: rubro.trim(),
                 referenceLink: referenceLink.trim() || undefined,
@@ -101,6 +107,7 @@ const PurchaseRequestForm: React.FC<PurchaseRequestFormProps> = ({ onSuccess }) 
             };
             await api.post('/api/purchases', payload);
             toast.success('Solicitud de compra creada correctamente.');
+            setTitle('');
             setItems([{ ...INITIAL_ITEM }]);
             setRubro('');
             setReferenceLink('');
@@ -119,6 +126,18 @@ const PurchaseRequestForm: React.FC<PurchaseRequestFormProps> = ({ onSuccess }) 
     return (
         <form onSubmit={handleSubmit} className="bg-white rounded-lg shadow p-6 space-y-6">
             <h2 className="text-xl font-bold text-gray-800 mb-4">Nueva solicitud de compra</h2>
+
+            <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Título de la solicitud *</label>
+                <input
+                    type="text"
+                    value={title}
+                    onChange={(e) => setTitle(e.target.value)}
+                    placeholder="Ej: Compra de Teclados y Mouse"
+                    required
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-red-500 focus:border-red-500"
+                />
+            </div>
 
             <div className="space-y-4">
                 <div className="flex justify-between items-center">
@@ -214,7 +233,7 @@ const PurchaseRequestForm: React.FC<PurchaseRequestFormProps> = ({ onSuccess }) 
                     />
                 </div>
                 <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Fecha tope de entrega</label>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Fecha límite</label>
                     <input
                         type="date"
                         value={deliveryDeadline}

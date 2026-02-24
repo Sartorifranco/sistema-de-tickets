@@ -18,12 +18,14 @@ interface QuoteItem {
     invoiceUploadedAt?: string | null;
     shippedAt?: string | null;
     purchaseRequest: {
+        title?: string;
         productOrService: string;
         description: string;
         quantity: number;
         items?: PurchaseItem[];
         referenceLink?: string;
         deliveryDeadline?: string;
+        payment_receipt_url?: string | null;
     };
     createdAt?: string;
     submittedAt?: string;
@@ -31,16 +33,36 @@ interface QuoteItem {
 
 interface PendingQuote extends QuoteItem {
     purchaseRequest: QuoteItem['purchaseRequest'] & {
+        title?: string;
         items?: PurchaseItem[];
         referenceLink?: string;
         deliveryDeadline?: string;
         paymentPreferences?: string | null;
+        payment_receipt_url?: string | null;
     };
 }
 
 interface QuoteOptions {
     paymentMethods: string[];
     receiptTypes: string[];
+}
+
+const PAYMENT_METHOD_LABELS: Record<string, string> = {
+    efectivo: 'Efectivo',
+    tarjeta: 'Tarjeta',
+    cheque: 'Cheque',
+    transferencia: 'Transferencia',
+    cc: 'Cuenta Corriente'
+};
+
+const TARJETA_OPTIONS = ['Visa', 'Master', 'AMEX', 'Naranja'];
+
+interface PaymentDetails {
+    efectivo?: { discountPercent?: number };
+    tarjeta?: { cards: string[]; cuotasSinInteres?: number };
+    cheque?: { dias?: number };
+    transferencia?: { aclaraciones?: string };
+    cc?: { aclaraciones?: string };
 }
 
 const SupplierQuotesPage: React.FC = () => {
@@ -61,9 +83,10 @@ const SupplierQuotesPage: React.FC = () => {
         paymentTerm: string;
         receiptType: string;
         paymentMethods: string[];
+        paymentDetails: PaymentDetails;
         itemPrices: Record<number, { inStock: boolean; unitPrice: string }>;
         budgetPdfUrl: string | null;
-    }>({ price: '', deliveryTerm: '', paymentTerm: '', receiptType: '', paymentMethods: [], itemPrices: {}, budgetPdfUrl: null });
+    }>({ price: '', deliveryTerm: '', paymentTerm: '', receiptType: '', paymentMethods: [], paymentDetails: {}, itemPrices: {}, budgetPdfUrl: null });
     const [uploadingBudget, setUploadingBudget] = useState<string | null>(null);
 
     const fetchData = async () => {
@@ -94,7 +117,7 @@ const SupplierQuotesPage: React.FC = () => {
     }, []);
 
     const handleSubmitQuote = async (quoteId: string) => {
-        const { price, deliveryTerm, paymentTerm, receiptType, paymentMethods, itemPrices, budgetPdfUrl } = formData;
+        const { price, deliveryTerm, paymentTerm, receiptType, paymentMethods, paymentDetails, itemPrices, budgetPdfUrl } = formData;
         const currentQuote = pendingQuotes.find(q => q.quoteId === quoteId);
         const items = currentQuote?.purchaseRequest?.items || [];
         const hasItems = items.length > 0;
@@ -119,7 +142,8 @@ const SupplierQuotesPage: React.FC = () => {
                 deliveryTerm,
                 paymentTerm,
                 receiptType,
-                paymentMethods
+                paymentMethods,
+                paymentDetails: Object.keys(paymentDetails || {}).length > 0 ? paymentDetails : undefined
             };
             if (hasItems) {
                 payload.itemPrices = Object.entries(itemPrices).map(([idx, ip]) => ({
@@ -135,7 +159,7 @@ const SupplierQuotesPage: React.FC = () => {
             if (data.success) {
                 toast.success('Cotización enviada correctamente. La verá en la pestaña "Todas".');
                 setModalOpen(null);
-                setFormData({ price: '', deliveryTerm: '', paymentTerm: '', receiptType: '', paymentMethods: [], itemPrices: {}, budgetPdfUrl: null });
+                setFormData({ price: '', deliveryTerm: '', paymentTerm: '', receiptType: '', paymentMethods: [], paymentDetails: {}, itemPrices: {}, budgetPdfUrl: null });
                 setActiveTab('all');
                 fetchData();
             } else {
@@ -155,7 +179,7 @@ const SupplierQuotesPage: React.FC = () => {
         const items = q?.purchaseRequest?.items || [];
         const initItemPrices: Record<number, { inStock: boolean; unitPrice: string }> = {};
         items.forEach((_, i) => { initItemPrices[i] = { inStock: false, unitPrice: '' }; });
-        setFormData({ price: '', deliveryTerm: '', paymentTerm: '', receiptType: '', paymentMethods: [], itemPrices: initItemPrices, budgetPdfUrl: null });
+        setFormData({ price: '', deliveryTerm: '', paymentTerm: '', receiptType: '', paymentMethods: [], paymentDetails: {}, itemPrices: initItemPrices, budgetPdfUrl: null });
     };
 
     const handleUploadBudget = async (quoteId: string, file: File) => {
@@ -416,6 +440,18 @@ const SupplierQuotesPage: React.FC = () => {
                                         {q.shippedAt && <span>• Pedido enviado: {formatDate(q.shippedAt)}</span>}
                                         {q.invoiceUploadedAt && <span>• Factura subida: {formatDate(q.invoiceUploadedAt)}</span>}
                                     </div>
+                                    {q.status === 'winner' && (q as PendingQuote).purchaseRequest?.payment_receipt_url && (
+                                        <div className="mt-3">
+                                            <a
+                                                href={(q as PendingQuote).purchaseRequest!.payment_receipt_url!}
+                                                target="_blank"
+                                                rel="noopener noreferrer"
+                                                className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-md"
+                                            >
+                                                📥 Descargar Comprobante de Pago de Bacar
+                                            </a>
+                                        </div>
+                                    )}
                                     {q.status === 'winner' && q.invoiceFileUrl && (
                                         <div className="mt-3">
                                             <a
@@ -508,10 +544,22 @@ const SupplierQuotesPage: React.FC = () => {
             {/* Modal enviar cotización */}
             {modalOpen && options && (() => {
                 const currentQuote = pendingQuotes.find(q => q.quoteId === modalOpen);
+                const pr = currentQuote?.purchaseRequest;
                 return (
                 <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
                     <div className="bg-white rounded-lg shadow-xl max-w-md w-full p-6 max-h-[90vh] overflow-y-auto">
                         <h2 className="text-xl font-bold text-gray-800 mb-4">Enviar cotización</h2>
+                        {pr && (
+                            <div className="mb-4 p-4 bg-blue-50 border border-blue-200 rounded-lg text-sm">
+                                <h3 className="font-semibold text-blue-900 mb-2">Detalles de la solicitud de Bacar</h3>
+                                <p className="text-blue-800 font-medium mb-1">Título: {pr.title || pr.productOrService}</p>
+                                {pr.deliveryDeadline && (
+                                    <p className="text-blue-800 mb-1">Fecha límite solicitada: {formatDate(pr.deliveryDeadline)}</p>
+                                )}
+                                <p className="text-blue-900 mt-2">Descripción de la necesidad:</p>
+                                <p className="text-blue-800 mt-0.5">{pr.description || '-'}</p>
+                            </div>
+                        )}
                         {currentQuote?.purchaseRequest.paymentPreferences && (
                             <div className="mb-4 p-2 bg-amber-50 border border-amber-200 rounded text-sm">
                                 <span className="font-medium text-amber-800">Preferencias de pago del comprador:</span>
@@ -591,7 +639,7 @@ const SupplierQuotesPage: React.FC = () => {
                                 </div>
                             )}
                             <div>
-                                <label className="block text-sm font-medium text-gray-700">Plazo de entrega</label>
+                                <label className="block text-sm font-medium text-gray-700">Fecha límite</label>
                                 <input
                                     type="text"
                                     value={formData.deliveryTerm}
@@ -624,24 +672,126 @@ const SupplierQuotesPage: React.FC = () => {
                                 </select>
                             </div>
                             <div>
-                                <label className="block text-sm font-medium text-gray-700">Métodos de pago</label>
-                                <div className="mt-2 flex flex-wrap gap-2">
+                                <label className="block text-sm font-medium text-gray-700 mb-2">Forma de pago</label>
+                                <div className="space-y-3">
                                     {options.paymentMethods.map((m) => (
-                                        <label key={m} className="inline-flex items-center">
-                                            <input
-                                                type="checkbox"
-                                                checked={formData.paymentMethods.includes(m)}
-                                                onChange={(e) => {
-                                                    if (e.target.checked) {
-                                                        setFormData(f => ({ ...f, paymentMethods: [...f.paymentMethods, m] }));
-                                                    } else {
-                                                        setFormData(f => ({ ...f, paymentMethods: f.paymentMethods.filter(x => x !== m) }));
-                                                    }
-                                                }}
-                                                className="rounded border-gray-300 text-red-600 focus:ring-red-500"
-                                            />
-                                            <span className="ml-1 text-sm">{m}</span>
-                                        </label>
+                                        <div key={m} className="p-3 border border-gray-200 rounded-lg">
+                                            <label className="inline-flex items-center">
+                                                <input
+                                                    type="checkbox"
+                                                    checked={formData.paymentMethods.includes(m)}
+                                                    onChange={(e) => {
+                                                        if (e.target.checked) {
+                                                            setFormData(f => ({
+                                                                ...f,
+                                                                paymentMethods: [...f.paymentMethods, m],
+                                                                paymentDetails: {
+                                                                    ...f.paymentDetails,
+                                                                    [m]: m === 'tarjeta' ? { cards: [], cuotasSinInteres: 0 }
+                                                                        : (m === 'transferencia' || m === 'cc') ? { aclaraciones: '' }
+                                                                        : {}
+                                                                }
+                                                            }));
+                                                        } else {
+                                                            setFormData(prev => {
+                                                                const pd = (prev.paymentDetails || {}) as Record<string, unknown>;
+                                                                const rest = { ...pd };
+                                                                delete rest[m];
+                                                                return { ...prev, paymentMethods: prev.paymentMethods.filter(x => x !== m), paymentDetails: rest as PaymentDetails };
+                                                            });
+                                                        }
+                                                    }}
+                                                    className="rounded border-gray-300 text-red-600 focus:ring-red-500"
+                                                />
+                                                <span className="ml-2 text-sm font-medium">{PAYMENT_METHOD_LABELS[m] || m}</span>
+                                            </label>
+                                            {formData.paymentMethods.includes(m) && m === 'efectivo' && (
+                                                <div className="mt-2 ml-6">
+                                                    <label className="block text-xs text-gray-600 mb-1">¿Ofrece % de descuento por pago en efectivo? (opcional)</label>
+                                                    <input
+                                                        type="number"
+                                                        min="0"
+                                                        max="100"
+                                                        step="0.5"
+                                                        placeholder="Ej: 5"
+                                                        value={formData.paymentDetails?.efectivo?.discountPercent ?? ''}
+                                                        onChange={(e) => setFormData(f => ({
+                                                            ...f,
+                                                            paymentDetails: { ...f.paymentDetails, efectivo: { discountPercent: e.target.value ? parseFloat(e.target.value) : undefined } }
+                                                        }))}
+                                                        className="w-24 px-2 py-1 border border-gray-300 rounded text-sm"
+                                                    />
+                                                </div>
+                                            )}
+                                            {formData.paymentMethods.includes(m) && m === 'tarjeta' && (
+                                                <div className="mt-2 ml-6 space-y-2">
+                                                    <div>
+                                                        <span className="block text-xs text-gray-600 mb-1">Tarjetas aceptadas</span>
+                                                        <div className="flex flex-wrap gap-2">
+                                                            {TARJETA_OPTIONS.map((card) => (
+                                                                <label key={card} className="inline-flex items-center">
+                                                                    <input
+                                                                        type="checkbox"
+                                                                        checked={(formData.paymentDetails?.tarjeta?.cards || []).includes(card)}
+                                                                        onChange={(e) => {
+                                                                            const cards = formData.paymentDetails?.tarjeta?.cards || [];
+                                                                            const newCards = e.target.checked ? [...cards, card] : cards.filter(c => c !== card);
+                                                                            setFormData(f => ({ ...f, paymentDetails: { ...f.paymentDetails, tarjeta: { ...f.paymentDetails?.tarjeta, cards: newCards, cuotasSinInteres: f.paymentDetails?.tarjeta?.cuotasSinInteres } } }));
+                                                                        }}
+                                                                        className="rounded border-gray-300 text-red-600 focus:ring-red-500"
+                                                                    />
+                                                                    <span className="ml-1 text-xs">{card}</span>
+                                                                </label>
+                                                            ))}
+                                                        </div>
+                                                    </div>
+                                                    <div>
+                                                        <label className="block text-xs text-gray-600 mb-1">Cantidad de cuotas sin interés</label>
+                                                        <input
+                                                            type="number"
+                                                            min="0"
+                                                            value={formData.paymentDetails?.tarjeta?.cuotasSinInteres ?? ''}
+                                                            onChange={(e) => setFormData(f => ({
+                                                                ...f,
+                                                                paymentDetails: { ...f.paymentDetails, tarjeta: { ...f.paymentDetails?.tarjeta, cards: f.paymentDetails?.tarjeta?.cards || [], cuotasSinInteres: e.target.value ? parseInt(e.target.value, 10) : 0 } }
+                                                            }))}
+                                                            className="w-20 px-2 py-1 border border-gray-300 rounded text-sm"
+                                                        />
+                                                    </div>
+                                                </div>
+                                            )}
+                                            {formData.paymentMethods.includes(m) && m === 'cheque' && (
+                                                <div className="mt-2 ml-6">
+                                                    <label className="block text-xs text-gray-600 mb-1">A cuántos días (ej: 30, 60, 90)</label>
+                                                    <input
+                                                        type="number"
+                                                        min="0"
+                                                        placeholder="30"
+                                                        value={formData.paymentDetails?.cheque?.dias ?? ''}
+                                                        onChange={(e) => setFormData(f => ({
+                                                            ...f,
+                                                            paymentDetails: { ...f.paymentDetails, cheque: { dias: e.target.value ? parseInt(e.target.value, 10) : undefined } }
+                                                        }))}
+                                                        className="w-24 px-2 py-1 border border-gray-300 rounded text-sm"
+                                                    />
+                                                </div>
+                                            )}
+                                            {(formData.paymentMethods.includes(m) && (m === 'transferencia' || m === 'cc')) && (
+                                                <div className="mt-2 ml-6">
+                                                    <label className="block text-xs text-gray-600 mb-1">Aclaraciones / CBU / Alias</label>
+                                                    <textarea
+                                                        rows={2}
+                                                        placeholder="Indique detalles de transferencia, CBU o Alias"
+                                                        value={formData.paymentDetails?.[m]?.aclaraciones ?? ''}
+                                                        onChange={(e) => setFormData(f => ({
+                                                            ...f,
+                                                            paymentDetails: { ...f.paymentDetails, [m]: { aclaraciones: e.target.value } }
+                                                        }))}
+                                                        className="w-full px-2 py-1 border border-gray-300 rounded text-sm"
+                                                    />
+                                                </div>
+                                            )}
+                                        </div>
                                     ))}
                                 </div>
                             </div>

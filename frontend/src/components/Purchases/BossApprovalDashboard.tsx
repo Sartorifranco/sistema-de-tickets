@@ -11,6 +11,7 @@ interface PurchaseItem {
 
 interface PendingRequest {
     id: string;
+    title?: string;
     productOrService: string;
     description: string;
     quantity: number;
@@ -138,7 +139,7 @@ const BossApprovalDashboard: React.FC = () => {
                                                             </svg>
                                                         </button>
                                                     )}
-                                                    <span className="font-medium">{r.productOrService}</span>
+                                                    <span className="font-medium">{r.title || r.productOrService}</span>
                                                 </div>
                                             </td>
                                             <td className="px-4 py-3">{r.requesterUsername}</td>

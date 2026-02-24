@@ -6,16 +6,16 @@ import React from 'react';
 
 const STEPS = [
     { id: 'solicitado', label: 'Solicitado' },
-    { id: 'aprobado', label: 'Aprobado por Jefe' },
+    { id: 'aprobado', label: 'Aprobado' },
     { id: 'cotizando', label: 'Cotizando' },
     { id: 'compra', label: 'Compra Aprobada' },
     { id: 'entregado', label: 'Entregado' }
 ];
 
 const STATUS_TO_STEP: Record<string, number> = {
-    'Pendiente Aprobación Jefe': 0,
-    'Rechazado por Jefe': 0,
-    'Aprobado por Jefe': 1,
+    'Pendiente de Aprobación': 0,
+    'Rechazado': 0,
+    'Aprobado': 1,
     'Recibido': 1,
     'Esperando presupuesto': 2,
     'Compra Aprobada': 3,

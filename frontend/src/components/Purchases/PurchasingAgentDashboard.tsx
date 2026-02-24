@@ -36,7 +36,7 @@ interface Purchase {
 }
 
 const PURCHASING_STATUSES = [
-    'Aprobado por Jefe',
+    'Aprobado',
     'Recibido',
     'Esperando presupuesto',
     'Compra Aprobada',
@@ -46,7 +46,7 @@ const PURCHASING_STATUSES = [
 ];
 
 const STATUS_PRIORITY: Record<string, number> = {
-    'Aprobado por Jefe': 0,
+    'Aprobado': 0,
     'Recibido': 1,
     'Esperando presupuesto': 2,
     'Compra Aprobada': 3,
@@ -121,7 +121,7 @@ const PurchasingAgentDashboard: React.FC = () => {
             .map(([rubro, purchases]) => ({
                 rubro,
                 total: purchases.length,
-                newCount: purchases.filter(x => ['Aprobado por Jefe', 'Recibido'].includes(x.status)).length,
+                newCount: purchases.filter(x => ['Aprobado', 'Recibido'].includes(x.status)).length,
                 purchases: purchases.map(p => ({
                     id: p.id,
                     productOrService: p.productOrService,
@@ -166,7 +166,7 @@ const PurchasingAgentDashboard: React.FC = () => {
     const getStatusColor = (status: string) => {
         if (status === 'Entregado' || status === 'Conforme / Cerrado') return 'bg-green-100 text-green-800';
         if (status === 'Rechazado') return 'bg-red-100 text-red-800';
-        if (status === 'Aprobado por Jefe' || status === 'Recibido') return 'bg-blue-100 text-blue-800';
+        if (status === 'Aprobado' || status === 'Recibido') return 'bg-blue-100 text-blue-800';
         if (status.includes('Esperando')) return 'bg-amber-100 text-amber-800';
         return 'bg-gray-100 text-gray-800';
     };

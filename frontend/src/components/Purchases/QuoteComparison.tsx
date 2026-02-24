@@ -2,6 +2,14 @@ import React from 'react';
 import api from '../../config/axiosConfig';
 import { toast } from 'react-toastify';
 
+interface PaymentDetails {
+    efectivo?: { discountPercent?: number };
+    tarjeta?: { cards: string[]; cuotasSinInteres?: number };
+    cheque?: { dias?: number };
+    transferencia?: { aclaraciones?: string };
+    cc?: { aclaraciones?: string };
+}
+
 interface Quote {
     id: string;
     supplierId: number;
@@ -10,6 +18,7 @@ interface Quote {
     status: string;
     price?: number;
     paymentMethods?: string[];
+    paymentDetails?: PaymentDetails;
     deliveryTerm?: string;
     paymentTerm?: string;
     receiptType?: string;
@@ -18,6 +27,22 @@ interface Quote {
     invoiceUploadedAt?: string | null;
     submittedAt?: string;
 }
+
+const formatPaymentDetails = (q: Quote): string => {
+    const pd = q.paymentDetails;
+    if (!pd) return Array.isArray(q.paymentMethods) && q.paymentMethods.length > 0 ? q.paymentMethods.join(', ') : '-';
+    const parts: string[] = [];
+    if (pd.efectivo?.discountPercent != null) parts.push(`Efectivo ${pd.efectivo.discountPercent}% dto`);
+    if (pd.tarjeta) {
+        const cards = pd.tarjeta.cards?.length ? ` (${pd.tarjeta.cards.join(', ')})` : '';
+        const cuotas = pd.tarjeta.cuotasSinInteres ? ` ${pd.tarjeta.cuotasSinInteres} cuotas s/i` : '';
+        parts.push(`Tarjeta${cards}${cuotas}`);
+    }
+    if (pd.cheque?.dias != null) parts.push(`Cheque ${pd.cheque.dias} días`);
+    if (pd.transferencia?.aclaraciones) parts.push(`Transferencia: ${pd.transferencia.aclaraciones.slice(0, 40)}${pd.transferencia.aclaraciones.length > 40 ? '...' : ''}`);
+    if (pd.cc?.aclaraciones) parts.push(`Cta Cte: ${pd.cc.aclaraciones.slice(0, 40)}${pd.cc.aclaraciones.length > 40 ? '...' : ''}`);
+    return parts.length > 0 ? parts.join(' | ') : (Array.isArray(q.paymentMethods) && q.paymentMethods.length > 0 ? q.paymentMethods.join(', ') : '-');
+};
 
 interface QuoteComparisonProps {
     purchaseId: string;
@@ -100,9 +125,7 @@ const QuoteComparison: React.FC<QuoteComparisonProps> = ({ purchaseId, quotes, o
                                 )}
                             </td>
                             <td className="px-4 py-3 text-sm">
-                                {Array.isArray(q.paymentMethods) && q.paymentMethods.length > 0
-                                    ? q.paymentMethods.join(', ')
-                                    : '-'}
+                                {formatPaymentDetails(q)}
                             </td>
                             <td className="px-4 py-3 text-sm">
                                 {q.status === 'winner' ? (

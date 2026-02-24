@@ -19,12 +19,18 @@ interface ItemWinner {
 
 interface Purchase {
     id: string;
+    title?: string;
     productOrService: string;
     description: string;
+    rubro?: string;
+    rejectionComment?: string;
     quantity: number;
     items?: PurchaseItem[];
     itemWinners?: ItemWinner[];
     status: string;
+    winningQuoteId?: string;
+    winningSupplierId?: number;
+    payment_receipt_url?: string | null;
     requesterUsername: string;
     referenceLink?: string;
     deliveryDeadline?: string;
@@ -55,7 +61,7 @@ interface Quote {
 }
 
 const PURCHASING_STATUSES = [
-    'Aprobado por Jefe',
+    'Aprobado',
     'Recibido',
     'Esperando presupuesto',
     'Compra Aprobada',
@@ -78,7 +84,12 @@ const PurchaseDetailPage: React.FC = () => {
     const [supplierIds, setSupplierIds] = useState<number[]>([]);
     const [paymentPrefCheckboxes, setPaymentPrefCheckboxes] = useState<string[]>([]);
     const [paymentPrefOtros, setPaymentPrefOtros] = useState('');
-    const [suppliers, setSuppliers] = useState<{ id: number; first_name?: string; last_name?: string; email: string; is_active?: number }[]>([]);
+    const [suppliers, setSuppliers] = useState<{ id: number; first_name?: string; last_name?: string; email: string; is_active?: number; rubro?: string }[]>([]);
+    const [showRejectModal, setShowRejectModal] = useState(false);
+    const [rejectComment, setRejectComment] = useState('');
+    const [rejecting, setRejecting] = useState(false);
+    const [showUploadReceiptModal, setShowUploadReceiptModal] = useState(false);
+    const [uploadingReceipt, setUploadingReceipt] = useState(false);
 
     const fetchData = async () => {
         if (!purchaseId) return;
@@ -93,7 +104,7 @@ const PurchaseDetailPage: React.FC = () => {
                 setPurchase(p);
                 setStatus(p.status);
                 setEstimatedDeliveryDate(p.estimatedDeliveryDate || '');
-                if (p.status === 'Aprobado por Jefe') {
+                if (p.status === 'Aprobado') {
                     api.put(`/api/purchases/${purchaseId}/mark-received`).then((r) => {
                         if (r.data.success && r.data.data?.status === 'Recibido') {
                             setPurchase(prev => prev ? { ...prev, status: 'Recibido' } : null);
@@ -189,7 +200,56 @@ const PurchaseDetailPage: React.FC = () => {
         });
     };
 
-    const canRequestQuotes = ['Aprobado por Jefe', 'Recibido', 'Esperando presupuesto'].includes(purchase?.status || '');
+    const canRequestQuotes = ['Aprobado', 'Recibido', 'Esperando presupuesto'].includes(purchase?.status || '');
+    const canReject = ['Aprobado', 'Recibido', 'Esperando presupuesto'].includes(purchase?.status || '');
+
+    const handleUploadPaymentReceipt = async (file: File) => {
+        if (!purchaseId) return;
+        setUploadingReceipt(true);
+        try {
+            const fd = new FormData();
+            fd.append('receipt', file);
+            const { data } = await api.post(`/api/purchases/${purchaseId}/upload-payment-receipt`, fd, {
+                headers: { 'Content-Type': 'multipart/form-data' }
+            });
+            if (data.success) {
+                toast.success('Comprobante de pago subido correctamente.');
+                setShowUploadReceiptModal(false);
+                fetchData();
+            } else {
+                toast.error(data.message || 'Error al subir.');
+            }
+        } catch (error: unknown) {
+            const err = error as { response?: { data?: { message?: string } } };
+            toast.error(err.response?.data?.message || 'Error al subir comprobante.');
+        } finally {
+            setUploadingReceipt(false);
+        }
+    };
+
+    const handleReject = async () => {
+        if (!purchaseId || !rejectComment.trim()) {
+            toast.error('Ingrese el motivo de rechazo.');
+            return;
+        }
+        setRejecting(true);
+        try {
+            const { data } = await api.put(`/api/purchases/${purchaseId}/reject`, { comment: rejectComment.trim() });
+            if (data.success) {
+                toast.success('Solicitud rechazada.');
+                setShowRejectModal(false);
+                setRejectComment('');
+                fetchData();
+            } else {
+                toast.error(data.message || 'Error al rechazar.');
+            }
+        } catch (error: unknown) {
+            const err = error as { response?: { data?: { message?: string } } };
+            toast.error(err.response?.data?.message || 'Error al rechazar.');
+        } finally {
+            setRejecting(false);
+        }
+    };
 
     if (loading || !purchase) {
         return (
@@ -213,7 +273,7 @@ const PurchaseDetailPage: React.FC = () => {
                 <p>Al seleccionar un ganador, el proveedor recibirá notificaciones por email, push y WhatsApp para continuar con el pedido (subir factura, coordinar entrega, etc.).</p>
             </HelpBox>
             <div className="bg-white rounded-lg shadow p-6 border border-gray-200">
-                <h1 className="text-2xl font-bold text-gray-800 mb-4">{purchase.productOrService}</h1>
+                <h1 className="text-2xl font-bold text-gray-800 mb-4">{purchase.title || purchase.productOrService}</h1>
                 <p className="text-gray-600 mb-4">{purchase.description}</p>
                 <div className="flex flex-wrap gap-2 text-sm text-gray-500 mb-4">
                     <span>Solicitante: {purchase.requesterUsername}</span>
@@ -225,6 +285,13 @@ const PurchaseDetailPage: React.FC = () => {
                         </a>
                     )}
                 </div>
+
+                {purchase.status === 'Rechazado' && purchase.rejectionComment && (
+                    <div className="mb-4 p-4 bg-red-50 border border-red-200 rounded-lg">
+                        <p className="text-sm font-medium text-red-800 mb-1">Motivo de rechazo:</p>
+                        <p className="text-sm text-red-700">{purchase.rejectionComment}</p>
+                    </div>
+                )}
 
                 <div className="grid gap-4 sm:grid-cols-1 md:grid-cols-2 mb-4">
                     <div>
@@ -240,7 +307,7 @@ const PurchaseDetailPage: React.FC = () => {
                         </select>
                     </div>
                     <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">Plazo de entrega estimado</label>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Fecha límite</label>
                         <input
                             type="text"
                             value={estimatedDeliveryDate}
@@ -258,23 +325,61 @@ const PurchaseDetailPage: React.FC = () => {
                     {statusLoading ? 'Guardando...' : 'Guardar estado'}
                 </button>
 
-                {canRequestQuotes && (
-                    <div className="mt-6 pt-6 border-t">
+                {purchase.status === 'Compra Aprobada' && purchase.winningQuoteId && (
+                    <div className="mt-4 p-4 bg-green-50 border border-green-200 rounded-lg">
+                        {purchase.payment_receipt_url ? (
+                            <div>
+                                <p className="text-sm font-medium text-green-800 mb-2">Comprobante de pago ya subido</p>
+                                <a
+                                    href={purchase.payment_receipt_url}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="inline-flex items-center gap-2 px-4 py-2 bg-green-600 hover:bg-green-700 text-white font-medium rounded-md"
+                                >
+                                    📥 Ver / Descargar comprobante
+                                </a>
+                                <button
+                                    onClick={() => setShowUploadReceiptModal(true)}
+                                    className="ml-3 px-4 py-2 bg-gray-200 hover:bg-gray-300 text-gray-800 font-medium rounded-md text-sm"
+                                >
+                                    Reemplazar
+                                </button>
+                            </div>
+                        ) : (
+                            <button
+                                onClick={() => setShowUploadReceiptModal(true)}
+                                className="px-6 py-3 bg-green-600 hover:bg-green-700 text-white font-semibold rounded-lg text-base shadow-md hover:shadow-lg transition-all"
+                            >
+                                📄 Subir Comprobante de Pago
+                            </button>
+                        )}
+                    </div>
+                )}
+                <div className="mt-6 pt-6 border-t flex flex-wrap gap-3">
+                    {canRequestQuotes && (
                         <button
                             onClick={() => setShowQuoteRequest(true)}
                             className="px-6 py-3 bg-green-600 hover:bg-green-700 text-white font-semibold rounded-lg text-base shadow-md hover:shadow-lg transition-all"
                         >
                             📤 Solicitar Presupuestos
                         </button>
-                    </div>
-                )}
+                    )}
+                    {canReject && (
+                        <button
+                            onClick={() => setShowRejectModal(true)}
+                            className="px-6 py-3 bg-red-700 hover:bg-red-800 text-white font-semibold rounded-lg text-base shadow-md hover:shadow-lg transition-all"
+                        >
+                            ✕ Rechazar Solicitud
+                        </button>
+                    )}
+                </div>
 
             {/* Modal Solicitar Presupuestos */}
             {showQuoteRequest && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
                     <div className="bg-white rounded-lg shadow-xl max-w-lg w-full p-6 max-h-[90vh] overflow-y-auto">
-                        <h2 className="text-xl font-bold text-gray-800 mb-4">Solicitar Presupuestos</h2>
-                        <p className="text-gray-600 text-sm mb-4">Seleccione los proveedores a quienes desea enviar esta solicitud de cotización.</p>
+                        <h2 className="text-xl font-bold text-gray-800 mb-1">Solicitar Presupuestos</h2>
+                        <p className="text-gray-600 text-sm mb-4">Seleccione los proveedores</p>
                         {suppliers.filter(s => s.is_active).length === 0 ? (
                             <p className="text-amber-700 text-sm py-4">No hay proveedores activos. Invite proveedores y espere a que activen su cuenta.</p>
                         ) : (
@@ -320,7 +425,17 @@ const PurchaseDetailPage: React.FC = () => {
                                     )}
                                 </div>
                                 <div className="space-y-2 mb-6 max-h-48 overflow-y-auto">
-                                    {suppliers.filter(s => s.is_active).map((s) => (
+                                    {(() => {
+                                        const activeSuppliers = suppliers.filter(s => s.is_active);
+                                        const purchaseRubro = (purchase?.rubro || '').trim().toLowerCase();
+                                        const sorted = [...activeSuppliers].sort((a, b) => {
+                                            const aMatch = purchaseRubro && a.rubro && String(a.rubro).toLowerCase().includes(purchaseRubro);
+                                            const bMatch = purchaseRubro && b.rubro && String(b.rubro).toLowerCase().includes(purchaseRubro);
+                                            if (aMatch && !bMatch) return -1;
+                                            if (!aMatch && bMatch) return 1;
+                                            return 0;
+                                        });
+                                        return sorted.map((s) => (
                                         <label key={s.id} className="flex items-center p-3 rounded-lg hover:bg-gray-50 cursor-pointer">
                                             <input
                                                 type="checkbox"
@@ -333,9 +448,13 @@ const PurchaseDetailPage: React.FC = () => {
                                             />
                                             <span className="ml-3 font-medium text-gray-800">
                                                 {s.first_name && s.last_name ? `${s.first_name} ${s.last_name}` : s.email}
+                                                {purchase?.rubro && s.rubro && String(s.rubro).toLowerCase().includes((purchase.rubro || '').toLowerCase()) && (
+                                                    <span className="ml-2 text-xs text-green-600 font-normal">✓ Rubro coincidente</span>
+                                                )}
                                             </span>
                                         </label>
-                                    ))}
+                                        ));
+                                    })()}
                                 </div>
                             </>
                         )}
@@ -352,6 +471,81 @@ const PurchaseDetailPage: React.FC = () => {
                                 className="flex-1 px-4 py-2 bg-green-600 hover:bg-green-700 text-white font-medium rounded-md disabled:opacity-50"
                             >
                                 Enviar
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Modal Rechazar Solicitud */}
+            {showRejectModal && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+                    <div className="bg-white rounded-lg shadow-xl max-w-md w-full p-6">
+                        <h2 className="text-xl font-bold text-gray-800 mb-2">Rechazar Solicitud</h2>
+                        <p className="text-sm text-gray-600 mb-4">Debe indicar el motivo del rechazo para que el solicitante pueda conocerlo.</p>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">Motivo de Rechazo *</label>
+                        <textarea
+                            value={rejectComment}
+                            onChange={(e) => setRejectComment(e.target.value)}
+                            placeholder="Ej: El presupuesto no contempla estos ítems en este momento..."
+                            rows={4}
+                            required
+                            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-red-500 focus:border-red-500 text-sm mb-4"
+                        />
+                        <div className="flex gap-3">
+                            <button
+                                onClick={() => { setShowRejectModal(false); setRejectComment(''); }}
+                                className="flex-1 px-4 py-2 bg-gray-200 hover:bg-gray-300 text-gray-800 font-medium rounded-md"
+                            >
+                                Cancelar
+                            </button>
+                            <button
+                                onClick={handleReject}
+                                disabled={rejecting || !rejectComment.trim()}
+                                className="flex-1 px-4 py-2 bg-red-700 hover:bg-red-800 disabled:opacity-50 disabled:cursor-not-allowed text-white font-medium rounded-md"
+                            >
+                                {rejecting ? 'Rechazando...' : 'Confirmar Rechazo'}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Modal Subir Comprobante de Pago */}
+            {showUploadReceiptModal && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+                    <div className="bg-white rounded-lg shadow-xl max-w-md w-full p-6">
+                        <h2 className="text-xl font-bold text-gray-800 mb-2">Subir Comprobante de Pago</h2>
+                        <p className="text-sm text-gray-600 mb-4">
+                            Suba el comprobante de transferencia o pago. El proveedor ganador podrá descargarlo desde su portal.
+                        </p>
+                        <input
+                            id="receipt-file"
+                            type="file"
+                            accept=".pdf,.jpg,.jpeg,.png,.gif,.webp"
+                            className="hidden"
+                            onChange={(e) => {
+                                const f = e.target.files?.[0];
+                                if (f) {
+                                    handleUploadPaymentReceipt(f);
+                                    e.target.value = '';
+                                }
+                            }}
+                            disabled={!!uploadingReceipt}
+                        />
+                        <label
+                            htmlFor="receipt-file"
+                            className={`inline-flex items-center justify-center w-full px-4 py-3 rounded-md font-medium cursor-pointer ${uploadingReceipt ? 'bg-gray-300 text-gray-500 cursor-not-allowed' : 'bg-green-600 hover:bg-green-700 text-white'}`}
+                        >
+                            {uploadingReceipt ? 'Subiendo...' : 'Seleccionar archivo (PDF o imagen)'}
+                        </label>
+                        <p className="text-xs text-gray-500 mt-2">PDF, JPG, JPEG, PNG, GIF o WEBP (máx. 10 MB)</p>
+                        <div className="mt-4">
+                            <button
+                                onClick={() => setShowUploadReceiptModal(false)}
+                                className="w-full px-4 py-2 bg-gray-200 hover:bg-gray-300 text-gray-800 font-medium rounded-md"
+                            >
+                                Cancelar
                             </button>
                         </div>
                     </div>

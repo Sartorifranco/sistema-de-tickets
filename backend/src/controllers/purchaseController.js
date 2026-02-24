@@ -45,7 +45,7 @@ const createPurchaseRequest = asyncHandler(async (req, res) => {
         return;
     }
 
-    const { items: rawItems, rubro: reqRubro, referenceLink: reqRefLink, deliveryDeadline: reqDeadline, is_recurring: isRecurring } = req.body;
+    const { items: rawItems, title: reqTitle, rubro: reqRubro, referenceLink: reqRefLink, deliveryDeadline: reqDeadline, is_recurring: isRecurring } = req.body;
     const { id: userId, department_id: departmentId, username } = req.user;
 
     const items = Array.isArray(rawItems) ? rawItems : [];
@@ -89,15 +89,19 @@ const createPurchaseRequest = asyncHandler(async (req, res) => {
         return;
     }
 
-    const productOrService = validatedItems.length === 1
-        ? validatedItems[0].producto
-        : `Solicitud (${validatedItems.length} ítems)`;
+    const title = (reqTitle && String(reqTitle).trim()) ? String(reqTitle).trim() : null;
+    if (!title) {
+        res.status(400).json({ success: false, message: 'El Título de la solicitud es obligatorio.' });
+        return;
+    }
+    const productOrService = title;
     const description = validatedItems.map((i) => `${i.producto}: ${i.descripcion}`).join(' | ');
     const quantity = validatedItems.reduce((sum, i) => sum + i.cantidad, 0);
 
     try {
         const docRef = await db.collection('purchase_requests').add({
             items: validatedItems,
+            title,
             productOrService,
             description,
             quantity,
@@ -105,7 +109,7 @@ const createPurchaseRequest = asyncHandler(async (req, res) => {
             referenceLink: reqRefLink ? String(reqRefLink).trim() : null,
             deliveryDeadline: reqDeadline || null,
             imageUrl: null,
-            status: 'Pendiente Aprobación Jefe',
+            status: 'Pendiente de Aprobación',
             userId: Number(userId),
             departmentId: departmentId ? Number(departmentId) : null,
             requesterUsername: username || 'Desconocido',
@@ -222,7 +226,7 @@ const getPendingApprovals = asyncHandler(async (req, res) => {
 
     try {
         const snapshot = await db.collection('purchase_requests')
-            .where('status', '==', 'Pendiente Aprobación Jefe')
+            .where('status', '==', 'Pendiente de Aprobación')
             .where('departmentId', '==', Number(departmentId))
             .get();
 
@@ -307,7 +311,7 @@ const approveRequest = asyncHandler(async (req, res) => {
             return;
         }
 
-        if (data.status !== 'Pendiente Aprobación Jefe') {
+        if (data.status !== 'Pendiente de Aprobación') {
             res.status(400).json({
                 success: false,
                 message: 'La solicitud ya fue procesada.'
@@ -315,7 +319,7 @@ const approveRequest = asyncHandler(async (req, res) => {
             return;
         }
 
-        const newStatus = approved ? 'Aprobado por Jefe' : 'Rechazado';
+        const newStatus = approved ? 'Aprobado' : 'Rechazado';
         await docRef.update({
             status: newStatus,
             updatedAt: admin.firestore.FieldValue.serverTimestamp(),
@@ -345,9 +349,9 @@ const approveRequest = asyncHandler(async (req, res) => {
     }
 });
 
-// Estados permitidos para el Encargado de Compras
+// Estados permitidos para el Encargado de Compras (no incluye Pendiente de Aprobación ni Rechazado)
 const PURCHASING_STATUSES = [
-    'Aprobado por Jefe',
+    'Aprobado',
     'Recibido',
     'Esperando presupuesto',
     'Compra Aprobada',
@@ -357,7 +361,7 @@ const PURCHASING_STATUSES = [
 ];
 
 // Estados considerados "nuevos" (recién aprobadas)
-const NEW_STATUSES = ['Aprobado por Jefe', 'Recibido'];
+const NEW_STATUSES = ['Aprobado', 'Recibido'];
 
 // @desc    Dashboard por áreas (solo Encargado de Compras)
 // @route   GET /api/purchases/dashboard
@@ -373,7 +377,7 @@ const getPurchasesDashboard = asyncHandler(async (req, res) => {
 
     try {
         const snapshot = await db.collection('purchase_requests')
-            .where('status', 'in', ['Aprobado por Jefe', 'Recibido', 'Esperando presupuesto', 'Compra Aprobada', 'Esperando entrega', 'Entregado', 'Conforme / Cerrado'])
+            .where('status', 'in', ['Aprobado', 'Recibido', 'Esperando presupuesto', 'Compra Aprobada', 'Esperando entrega', 'Entregado', 'Conforme / Cerrado'])
             .get();
 
         const purchases = snapshot.docs.map(doc => {
@@ -646,7 +650,7 @@ const getAllPurchases = asyncHandler(async (req, res) => {
 
     try {
         let snapshot = await db.collection('purchase_requests')
-            .where('status', 'in', ['Aprobado por Jefe', 'Recibido', 'Esperando presupuesto', 'Compra Aprobada', 'Esperando entrega', 'Entregado', 'Conforme / Cerrado'])
+            .where('status', 'in', ['Aprobado', 'Recibido', 'Esperando presupuesto', 'Compra Aprobada', 'Esperando entrega', 'Entregado', 'Conforme / Cerrado'])
             .get();
 
         let purchases = snapshot.docs
@@ -684,7 +688,7 @@ const getAllPurchases = asyncHandler(async (req, res) => {
     }
 });
 
-// @desc    Marcar como "Solicitud recibida" automáticamente al abrir (solo si está "Aprobado por Jefe")
+// @desc    Marcar como "Solicitud recibida" automáticamente al abrir (solo si está "Aprobado")
 // @route   PUT /api/purchases/:id/mark-received
 // @access  Private (rol purchasing)
 const markPurchaseReceived = asyncHandler(async (req, res) => {
@@ -700,7 +704,7 @@ const markPurchaseReceived = asyncHandler(async (req, res) => {
         return;
     }
     const data = docSnap.data();
-    if (data.status !== 'Aprobado por Jefe') {
+    if (data.status !== 'Aprobado') {
         res.status(200).json({ success: true, message: 'Sin cambios.', data: { id, status: data.status } });
         return;
     }
@@ -712,6 +716,54 @@ const markPurchaseReceived = asyncHandler(async (req, res) => {
         success: true,
         message: 'Marcada como recibida.',
         data: { id, status: 'Recibido' }
+    });
+});
+
+// @desc    Rechazar solicitud (solo Encargado de Compras). Requiere motivo obligatorio.
+// @route   PUT /api/purchases/:id/reject
+// @body    { comment: string }
+// @access  Private (rol purchasing)
+const rejectPurchaseRequest = asyncHandler(async (req, res) => {
+    if (!db) {
+        res.status(503).json({ success: false, message: 'Módulo de compras no disponible.' });
+        return;
+    }
+    const { id } = req.params;
+    const { comment } = req.body || {};
+    const commentStr = (comment != null && String(comment).trim()) ? String(comment).trim() : null;
+    if (!commentStr) {
+        res.status(400).json({ success: false, message: 'El motivo de rechazo es obligatorio.' });
+        return;
+    }
+
+    const docRef = db.collection('purchase_requests').doc(id);
+    const docSnap = await docRef.get();
+    if (!docSnap.exists) {
+        res.status(404).json({ success: false, message: 'Solicitud no encontrada.' });
+        return;
+    }
+    const data = docSnap.data();
+    const allowedStatuses = ['Aprobado', 'Recibido', 'Esperando presupuesto'];
+    if (!allowedStatuses.includes(data.status)) {
+        res.status(400).json({
+            success: false,
+            message: `Solo puede rechazar solicitudes en estado Aprobado, Recibido o Esperando presupuesto. Estado actual: ${data.status}.`
+        });
+        return;
+    }
+
+    await docRef.update({
+        status: 'Rechazado',
+        rejectionComment: commentStr,
+        rejectionBy: req.user.username || req.user.id,
+        rejectionAt: admin.firestore.FieldValue.serverTimestamp(),
+        updatedAt: admin.firestore.FieldValue.serverTimestamp()
+    });
+
+    res.status(200).json({
+        success: true,
+        message: 'Solicitud rechazada.',
+        data: { id, status: 'Rechazado' }
     });
 });
 
@@ -754,7 +806,7 @@ const updatePurchaseStatus = asyncHandler(async (req, res) => {
         const currentStatus = currentData.status;
 
         // No puede cambiar si está en "Pendiente" o "Rechazado"
-        if (currentStatus === 'Pendiente Aprobación Jefe' || currentStatus === 'Rechazado') {
+        if (currentStatus === 'Pendiente de Aprobación' || currentStatus === 'Rechazado') {
             res.status(400).json({
                 success: false,
                 message: 'No puede cambiar el estado de solicitudes pendientes o rechazadas.'
@@ -809,7 +861,7 @@ const sendQuoteRequest = asyncHandler(async (req, res) => {
         return;
     }
     const reqData = reqDoc.data();
-    if (!['Aprobado por Jefe', 'Recibido', 'Esperando presupuesto'].includes(reqData.status)) {
+    if (!['Aprobado', 'Recibido', 'Esperando presupuesto'].includes(reqData.status)) {
         res.status(400).json({ success: false, message: 'La solicitud no está en estado válido para solicitar presupuestos.' });
         return;
     }
@@ -886,10 +938,12 @@ const getMyQuotes = asyncHandler(async (req, res) => {
             invoiceUploadedAt: d.invoiceUploadedAt?.toDate?.()?.toISOString?.() || null,
             shippedAt: d.shippedAt?.toDate?.()?.toISOString?.() || null,
             purchaseRequest: {
+                title: reqData.title || reqData.productOrService,
                 productOrService: reqData.productOrService,
                 description: reqData.description,
                 quantity: reqData.quantity,
-                items: reqData.items || []
+                items: reqData.items || [],
+                payment_receipt_url: reqData.payment_receipt_url || null
             },
             createdAt: d.createdAt?.toDate?.()?.toISOString?.(),
             submittedAt: d.submittedAt?.toDate?.()?.toISOString?.()
@@ -924,13 +978,15 @@ const getMyPendingQuotes = asyncHandler(async (req, res) => {
             quoteId: doc.id,
             purchaseRequestId: d.purchaseRequestId,
             purchaseRequest: {
+                title: reqData.title || reqData.productOrService,
                 productOrService: reqData.productOrService,
                 description: reqData.description,
                 quantity: reqData.quantity,
                 items: reqData.items || [],
                 referenceLink: reqData.referenceLink,
                 deliveryDeadline: reqData.deliveryDeadline,
-                paymentPreferences: reqData.paymentPreferences || null
+                paymentPreferences: reqData.paymentPreferences || null,
+                payment_receipt_url: reqData.payment_receipt_url || null
             },
             createdAt: d.createdAt?.toDate?.()?.toISOString?.()
         });
@@ -960,7 +1016,7 @@ const submitQuote = asyncHandler(async (req, res) => {
         return;
     }
     const { quoteId } = req.params;
-    let { paymentMethods, deliveryTerm, paymentTerm, receiptType, price, budgetPdfUrl, itemPrices } = req.body;
+    let { paymentMethods, deliveryTerm, paymentTerm, receiptType, price, budgetPdfUrl, itemPrices, paymentDetails } = req.body;
     const supplierId = Number(req.user.id);
 
     if (!deliveryTerm || !paymentTerm || !receiptType) {
@@ -1026,6 +1082,29 @@ const submitQuote = asyncHandler(async (req, res) => {
     };
     if (validatedItemPrices.length > 0) {
         updatePayload.itemPrices = validatedItemPrices;
+    }
+    if (paymentDetails && typeof paymentDetails === 'object') {
+        const sanitized = {};
+        const pd = paymentDetails;
+        if (pd.efectivo && (pd.efectivo.discountPercent != null)) {
+            sanitized.efectivo = { discountPercent: Math.min(100, Math.max(0, parseFloat(pd.efectivo.discountPercent) || 0)) };
+        }
+        if (pd.tarjeta) {
+            const cards = Array.isArray(pd.tarjeta.cards) ? pd.tarjeta.cards : [];
+            sanitized.tarjeta = { cards, cuotasSinInteres: Math.max(0, parseInt(pd.tarjeta.cuotasSinInteres, 10) || 0) };
+        }
+        if (pd.cheque && (pd.cheque.dias != null)) {
+            sanitized.cheque = { dias: Math.max(0, parseInt(pd.cheque.dias, 10) || 0) };
+        }
+        if (pd.transferencia && typeof pd.transferencia.aclaraciones === 'string') {
+            sanitized.transferencia = { aclaraciones: pd.transferencia.aclaraciones.slice(0, 500) };
+        }
+        if (pd.cc && typeof pd.cc.aclaraciones === 'string') {
+            sanitized.cc = { aclaraciones: pd.cc.aclaraciones.slice(0, 500) };
+        }
+        if (Object.keys(sanitized).length > 0) {
+            updatePayload.paymentDetails = sanitized;
+        }
     }
     await quoteRef.update(updatePayload);
 
@@ -1215,6 +1294,53 @@ const uploadQuoteBudget = asyncHandler(async (req, res) => {
         success: true,
         message: 'Presupuesto subido.',
         data: { budgetPdfUrl: urlResult }
+    });
+});
+
+// @desc    Subir comprobante de pago (compras) - cuando compra aprobada y hay ganador
+// @route   POST /api/purchases/:purchaseId/upload-payment-receipt
+// @access  Private (purchasing)
+const uploadPaymentReceipt = asyncHandler(async (req, res) => {
+    if (!db || !bucket) {
+        res.status(503).json({ success: false, message: 'Módulo de compras o Storage no disponible.' });
+        return;
+    }
+    const { purchaseId } = req.params;
+
+    if (!req.file || !req.file.buffer) {
+        res.status(400).json({ success: false, message: 'Debe adjuntar un archivo (PDF o imagen).' });
+        return;
+    }
+
+    const reqRef = db.collection('purchase_requests').doc(purchaseId);
+    const reqSnap = await reqRef.get();
+    if (!reqSnap.exists) {
+        res.status(404).json({ success: false, message: 'Solicitud no encontrada.' });
+        return;
+    }
+    const data = reqSnap.data();
+    if (data.status !== 'Compra Aprobada' || !data.winningQuoteId) {
+        res.status(400).json({ success: false, message: 'Solo se puede subir comprobante cuando la compra está aprobada y hay proveedor ganador.' });
+        return;
+    }
+
+    const filename = `payment-receipts/${purchaseId}/${Date.now()}-${req.file.originalname || 'receipt'}`;
+    const file = bucket.file(filename);
+    await file.save(req.file.buffer, {
+        metadata: { contentType: req.file.mimetype || 'application/octet-stream' }
+    });
+    const [urlResult] = await file.getSignedUrl({ action: 'read', expires: '03-01-2500' });
+
+    await reqRef.update({
+        payment_receipt_url: urlResult,
+        payment_receipt_uploaded_at: admin.firestore.FieldValue.serverTimestamp(),
+        updatedAt: admin.firestore.FieldValue.serverTimestamp()
+    });
+
+    res.status(200).json({
+        success: true,
+        message: 'Comprobante de pago subido correctamente.',
+        data: { payment_receipt_url: urlResult }
     });
 });
 
@@ -1494,6 +1620,40 @@ const setItemWinners = asyncHandler(async (req, res) => {
 // ==================== APROBACIÓN MÁGICA (1-CLIC SIN LOGIN) ====================
 
 const FRONTEND_URL = process.env.FRONTEND_URL || 'http://localhost:3020';
+const API_URL = process.env.API_URL || `http://localhost:${process.env.PORT || 5040}`;
+
+// @desc    [E2E] Obtener URL de aprobación mágica para mock-email (solo cuando E2E_ENABLED=true)
+// @route   GET /api/purchases/:purchaseId/e2e-get-approve-url
+// @access  Public (solo E2E)
+const e2eGetApproveUrl = asyncHandler(async (req, res) => {
+    if (process.env.E2E_ENABLED !== 'true') {
+        return res.status(403).json({ success: false, message: 'Solo disponible en modo E2E.' });
+    }
+    const { purchaseId } = req.params;
+    if (!purchaseId || !db) {
+        return res.status(400).json({ success: false, message: 'Parámetros inválidos.' });
+    }
+    const doc = await db.collection('purchase_requests').doc(purchaseId).get();
+    if (!doc.exists) {
+        return res.status(404).json({ success: false, message: 'Solicitud no encontrada.' });
+    }
+    const data = doc.data();
+    const departmentId = data.departmentId || 0;
+    const [[bossRow]] = await pool.execute(
+        "SELECT id FROM users WHERE role = 'boss' AND department_id = ? LIMIT 1",
+        [departmentId]
+    );
+    if (!bossRow) {
+        return res.status(404).json({ success: false, message: 'No hay jefe para este departamento.' });
+    }
+    const token = jwt.sign(
+        { purchaseId, bossId: bossRow.id, action: 'approve' },
+        process.env.JWT_SECRET || 'secret',
+        { expiresIn: '7d' }
+    );
+    const approveUrl = `${API_URL}/api/purchases/magic-approve/${token}`;
+    res.status(200).json({ success: true, data: { approveUrl, productOrService: data.productOrService, description: data.description } });
+});
 
 // @desc    Aprobar solicitud por Magic Link (público, sin autenticación)
 // @route   GET /api/purchases/magic-approve/:token
@@ -1529,7 +1689,7 @@ const magicApprove = asyncHandler(async (req, res) => {
         }
 
         const data = docSnap.data();
-        if (data.status !== 'Pendiente Aprobación Jefe') {
+        if (data.status !== 'Pendiente de Aprobación') {
             return res.redirect(`${FRONTEND_URL}/success-approval?error=used`);
         }
         if (Number(data.departmentId) !== Number(bossRow.department_id)) {
@@ -1540,7 +1700,7 @@ const magicApprove = asyncHandler(async (req, res) => {
         const bossUsername = userRows[0]?.username || bossId;
 
         await docRef.update({
-            status: 'Aprobado por Jefe',
+            status: 'Aprobado',
             updatedAt: admin.firestore.FieldValue.serverTimestamp(),
             approvedBy: bossUsername,
             approvedAt: admin.firestore.FieldValue.serverTimestamp()
@@ -1596,7 +1756,7 @@ const magicReject = asyncHandler(async (req, res) => {
         }
 
         const data = docSnap.data();
-        if (data.status !== 'Pendiente Aprobación Jefe') {
+        if (data.status !== 'Pendiente de Aprobación') {
             return res.redirect(`${FRONTEND_URL}/success-approval?error=used`);
         }
         if (Number(data.departmentId) !== Number(bossRow.department_id)) {
@@ -1705,6 +1865,7 @@ const markPurchaseConforme = asyncHandler(async (req, res) => {
 });
 
 module.exports = {
+    e2eGetApproveUrl,
     magicApprove,
     magicReject,
     getPurchaseMetrics,
@@ -1721,6 +1882,7 @@ module.exports = {
     submitQuote,
     getQuotesByPurchaseId,
     selectQuoteWinner,
+    uploadPaymentReceipt,
     uploadQuoteInvoice,
     uploadQuoteBudget,
     markOrderShipped,
@@ -1729,5 +1891,6 @@ module.exports = {
     getPurchasesDashboard,
     getInvoices,
     markPurchaseReceived,
+    rejectPurchaseRequest,
     markPurchaseConforme
 };
