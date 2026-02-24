@@ -2,13 +2,12 @@
  * Page Object: Página de Login
  * Selectores user-facing, esperas basadas en estado del DOM, sin waitForTimeout.
  */
-import { Page, expect } from '@playwright/test';
+import { Page } from '@playwright/test';
 
 export class LoginPage {
     readonly page: Page;
 
     // User-facing locators: resistentes a cambios de ID/clase CSS.
-    // El input tiene placeholder "Correo Electrónico" y label sr-only "Correo".
     readonly emailInput    = () => this.page.getByPlaceholder('Correo Electrónico');
     readonly passwordInput = () => this.page.getByPlaceholder('Contraseña');
     readonly submitButton  = () => this.page.getByRole('button', { name: /Iniciar Sesión/i });
@@ -19,65 +18,56 @@ export class LoginPage {
     }
 
     /**
-     * Navega a /login y limpia cualquier sesión previa que pudiera
-     * interferir con la redirección post-login.
+     * Limpia la sesión previa y navega a /login.
+     *
+     * ORDEN CRÍTICO: limpiar localStorage ANTES de navegar.
+     * Si se limpia DESPUÉS, React ya habrá leído el token y redirigido
+     * fuera del login antes de que podamos borrarlo.
      */
     async goto() {
-        await this.page.goto('/login');
-        // Limpiar localStorage DESPUÉS de cargar la página para no interferir
-        // con el enrutador de React si ya está en /login.
+        // 1. Borrar sesión en la página actual (sea cual sea)
         await this.page.evaluate(() => {
             localStorage.clear();
             sessionStorage.clear();
         });
-        // Esperar a que el formulario esté listo antes de entregar el control.
+        // 2. Ahora navegar: React no encontrará token y permanecerá en /login
+        await this.page.goto('/login');
+        // 3. Esperar a que el formulario esté realmente listo
         await this.emailInput().waitFor({ state: 'visible' });
     }
 
     /**
      * Rellena credenciales y hace submit.
-     * - Usa fill() para velocidad; React captura onChange correctamente.
-     * - Hace click y espera simultáneamente la respuesta de red (Promise.all)
-     *   para eliminar race conditions.
+     * Simple y robusto: fill + click. La verificación la hace expectLoginSuccess().
+     * Se evita Promise.all + waitForResponse porque con slowMo el servidor puede
+     * tardar más de 15s en responder y genera TimeoutError en el listener.
      */
     async login(email: string, password: string) {
         await this.emailInput().waitFor({ state: 'visible' });
         await this.emailInput().fill(email);
         await this.passwordInput().fill(password);
-
-        // Promise.all garantiza que el clic y la espera de red se lancen juntos,
-        // evitando que waitForResponse pierda la respuesta si el clic fue muy rápido.
-        await Promise.all([
-            this.page.waitForResponse(
-                (res) =>
-                    res.url().includes('/api/auth/login') &&
-                    res.request().method() === 'POST',
-                { timeout: 15000 }
-            ),
-            this.submitButton().click(),
-        ]);
+        await this.submitButton().click();
     }
 
     /**
      * Verifica que el login fue exitoso esperando la redirección.
-     * Si la URL no cambia en 20s, busca mensajes de error visibles
+     * Si la URL no cambia en 30s, captura el mensaje de error visible
      * para dar un diagnóstico útil en lugar de un timeout genérico.
      */
     async expectLoginSuccess() {
         try {
             await this.page.waitForURL(
                 /\/(client|purchases|agent|admin|profile|supplier)/,
-                { timeout: 20000 }
+                { timeout: 30000 }
             );
         } catch {
-            // Intentar capturar el mensaje de error visible para diagnóstico.
-            const errorText = await this.page
-                .getByText(/Error|credenciales|incorrecto|no encontrado|inválid/i)
+            const toastText = await this.errorToast()
                 .first()
                 .textContent({ timeout: 3000 })
                 .catch(() => null);
 
-            const toastText = await this.errorToast()
+            const errorText = await this.page
+                .getByText(/Error|credenciales|incorrecto|no encontrado|inválid/i)
                 .first()
                 .textContent({ timeout: 3000 })
                 .catch(() => null);
@@ -88,8 +78,8 @@ export class LoginPage {
             throw new Error(
                 diagnosis
                     ? `Login falló: "${diagnosis.trim()}" (URL actual: ${currentUrl})`
-                    : `Login no redirigió tras 20s. URL actual: ${currentUrl}. ` +
-                      `Verificar credenciales en .env.e2e, que el backend esté corriendo y E2E_BASE_URL sea correcto.`
+                    : `Login no redirigió tras 30s. URL actual: ${currentUrl}. ` +
+                      `Verificar credenciales en .env.e2e y que E2E_BASE_URL sea correcto (puerto del backend).`
             );
         }
     }
