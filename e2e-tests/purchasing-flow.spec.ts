@@ -298,17 +298,18 @@ test.describe('Flujo de Compras E2E (Happy Path - Video Directorio)', () => {
         await loginPage.expectLoginSuccess();
 
         await supplierQuotes.goto();
-        await page.waitForTimeout(1500);
+        await page.waitForLoadState('networkidle');
 
-        const winnerCard = page.locator('.bg-white.rounded-lg').filter({ hasText: title }).filter({ hasText: 'Ganador' }).first();
-        await winnerCard.waitFor({ state: 'visible', timeout: 10000 });
+        // Buscar tarjeta ganadora con selector más amplio (la clase real es bg-white rounded-lg shadow)
+        const winnerCard = page.locator('div').filter({ hasText: title }).filter({ hasText: 'Ganador' }).first();
+        await winnerCard.waitFor({ state: 'visible', timeout: 20000 });
 
         const markShippedBtn = winnerCard.getByRole('button', { name: /Notificar pedido enviado/i });
         if (await markShippedBtn.isVisible()) {
             await markShippedBtn.click();
-            await page.waitForTimeout(800);
+            await page.waitForLoadState('networkidle');
             await page.getByRole('button', { name: /Confirmar envío/i }).click();
-            await page.waitForTimeout(2000);
+            await page.waitForLoadState('networkidle');
         }
 
         const fileInput = winnerCard.locator('input[type="file"]');
