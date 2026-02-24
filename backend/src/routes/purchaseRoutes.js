@@ -7,7 +7,6 @@ const router = express.Router();
 const { authenticateToken, authorize } = require('../middleware/authMiddleware');
 const uploadMiddleware = require('../middleware/uploadMiddleware');
 const {
-    e2eGetApproveUrl,
     magicApprove,
     magicReject,
     getPurchaseMetrics,
@@ -38,7 +37,6 @@ const {
 } = require('../controllers/purchaseController');
 
 // Rutas públicas (Magic Links) - ANTES de authenticateToken
-router.get('/e2e-get-approve-url/:purchaseId', e2eGetApproveUrl);
 router.get('/magic-approve/:token', magicApprove);
 router.get('/magic-reject/:token', magicReject);
 

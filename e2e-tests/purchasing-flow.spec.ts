@@ -204,11 +204,12 @@ test.describe('Flujo de Compras E2E (Happy Path - Video Directorio)', () => {
         await showRoleTransition(page, 'Jefe');
         await showCaption(page, 'Paso 2: El Jefe recibe el correo y aprueba con un clic, sin necesidad de iniciar sesión.');
 
+        await page.evaluate(() => localStorage.clear());
         await page.goto(`${BASE_URL}/mock-email?purchaseId=${purchaseId}`);
         await page.waitForLoadState('networkidle');
         await page.waitForTimeout(1500);
 
-        await expect(page.getByText(/Requiere su Aprobación/i)).toBeVisible({ timeout: 8000 });
+        await expect(page.getByText(/Requiere su Aprobación/i)).toBeVisible({ timeout: 12000 });
         await page.getByRole('button', { name: /✅ APROBAR/i }).click();
 
         await page.waitForURL(/success-approval/, { timeout: 15000 });

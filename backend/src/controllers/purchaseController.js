@@ -1651,7 +1651,11 @@ const e2eGetApproveUrl = asyncHandler(async (req, res) => {
         process.env.JWT_SECRET || 'secret',
         { expiresIn: '7d' }
     );
-    const approveUrl = `${API_URL}/api/purchases/magic-approve/${token}`;
+    const origin = req.get('Origin') || (() => { try { const r = req.get('Referer'); return r ? new URL(r).origin : ''; } catch { return ''; } })();
+    const nextUrl = (origin && (origin.includes('localhost') || origin.includes('127.0.0.1')))
+        ? `${origin}/success-approval`
+        : `${FRONTEND_URL}/success-approval`;
+    const approveUrl = `${API_URL}/api/purchases/magic-approve/${token}?next=${encodeURIComponent(nextUrl)}`;
     res.status(200).json({ success: true, data: { approveUrl, productOrService: data.productOrService, description: data.description } });
 });
 
@@ -1660,65 +1664,62 @@ const e2eGetApproveUrl = asyncHandler(async (req, res) => {
 // @access  Public
 const magicApprove = asyncHandler(async (req, res) => {
     const { token } = req.params;
+    const nextParam = req.query.next;
+    const isLocalNext = nextParam && (String(nextParam).includes('localhost') || String(nextParam).includes('127.0.0.1'));
+    const base = isLocalNext ? nextParam.replace(/\?.*$/, '') : FRONTEND_URL;
+    const successBase = base.includes('/success-approval') ? base : base + '/success-approval';
+    const redirect = (q) => `${successBase}?${q}`;
     if (!token) {
-        return res.redirect(`${FRONTEND_URL}/success-approval?error=invalid`);
+        return res.redirect(redirect('error=invalid'));
     }
     try {
         const decoded = jwt.verify(token, process.env.JWT_SECRET || 'secret');
         const { purchaseId, bossId, action } = decoded;
         if (action !== 'approve' || !purchaseId || !bossId) {
-            return res.redirect(`${FRONTEND_URL}/success-approval?error=invalid`);
+            return res.redirect(redirect('error=invalid'));
         }
-
         if (!db) {
-            return res.redirect(`${FRONTEND_URL}/success-approval?error=unavailable`);
+            return res.redirect(redirect('error=unavailable'));
         }
-
         const [[bossRow]] = await pool.execute(
             'SELECT department_id FROM users WHERE id = ? AND role = ?',
             [bossId, 'boss']
         );
         if (!bossRow || !bossRow.department_id) {
-            return res.redirect(`${FRONTEND_URL}/success-approval?error=invalid`);
+            return res.redirect(redirect('error=invalid'));
         }
-
         const docRef = db.collection('purchase_requests').doc(purchaseId);
         const docSnap = await docRef.get();
         if (!docSnap.exists) {
-            return res.redirect(`${FRONTEND_URL}/success-approval?error=notfound`);
+            return res.redirect(redirect('error=notfound'));
         }
-
         const data = docSnap.data();
         if (data.status !== 'Pendiente de Aprobación') {
-            return res.redirect(`${FRONTEND_URL}/success-approval?error=used`);
+            return res.redirect(redirect('error=used'));
         }
         if (Number(data.departmentId) !== Number(bossRow.department_id)) {
-            return res.redirect(`${FRONTEND_URL}/success-approval?error=invalid`);
+            return res.redirect(redirect('error=invalid'));
         }
-
         const [userRows] = await pool.execute('SELECT username FROM users WHERE id = ?', [bossId]);
         const bossUsername = userRows[0]?.username || bossId;
-
         await docRef.update({
             status: 'Aprobado',
             updatedAt: admin.firestore.FieldValue.serverTimestamp(),
             approvedBy: bossUsername,
             approvedAt: admin.firestore.FieldValue.serverTimestamp()
         });
-
         notifyPurchasingApproved(req.io || null, {
             productOrService: data.productOrService,
             approvedBy: bossUsername,
             purchaseId
         });
-
-        return res.redirect(`${FRONTEND_URL}/success-approval?approved=true`);
+        return res.redirect(redirect('approved=true'));
     } catch (err) {
         if (err.name === 'TokenExpiredError' || err.name === 'JsonWebTokenError') {
-            return res.redirect(`${FRONTEND_URL}/success-approval?error=invalid`);
+            return res.redirect(redirect('error=invalid'));
         }
         console.error('[PurchaseController] magicApprove error:', err);
-        return res.redirect(`${FRONTEND_URL}/success-approval?error=server`);
+        return res.redirect(redirect('error=server'));
     }
 });
 

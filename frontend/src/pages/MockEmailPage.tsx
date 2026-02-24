@@ -5,7 +5,6 @@
  */
 import React, { useState, useEffect } from 'react';
 import { useSearchParams, Link } from 'react-router-dom';
-import api from '../config/axiosConfig';
 
 const MockEmailPage: React.FC = () => {
     const [searchParams] = useSearchParams();
@@ -22,19 +21,20 @@ const MockEmailPage: React.FC = () => {
             setLoading(false);
             return;
         }
-        api.get(`/api/purchases/e2e-get-approve-url/${purchaseId}`)
-            .then((res) => {
-                if (res.data.success && res.data.data?.approveUrl) {
-                    setApproveUrl(res.data.data.approveUrl);
-                    setProductOrService(res.data.data.productOrService || 'Solicitud de compra');
-                    setDescription(res.data.data.description || '');
+        const url = `${window.location.origin}/api/public/e2e-get-approve-url/${purchaseId}`;
+        fetch(url, { credentials: 'omit' })
+            .then((res) => res.json())
+            .then((data) => {
+                if (data.success && data.data?.approveUrl) {
+                    setApproveUrl(data.data.approveUrl);
+                    setProductOrService(data.data.productOrService || 'Solicitud de compra');
+                    setDescription(data.data.description || '');
                 } else {
-                    setError(res.data.message || 'No se pudo obtener el enlace de aprobación.');
+                    setError(data.message || 'No se pudo obtener el enlace de aprobación.');
                 }
             })
             .catch((err) => {
-                const msg = err.response?.data?.message || err.message || 'Error al cargar. Verifique que E2E_ENABLED=true en el backend.';
-                setError(msg);
+                setError(err.message || 'Error al cargar. Verifique E2E_ENABLED=true en backend/.env');
             })
             .finally(() => setLoading(false));
     }, [purchaseId]);
