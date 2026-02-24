@@ -308,12 +308,21 @@ test.describe('Flujo de Compras E2E (Happy Path - Video Directorio)', () => {
         await page.getByRole('button', { name: /Todas/i }).click();
         await page.waitForLoadState('networkidle');
 
-        // Buscar tarjeta ganadora en la pestaña "Todas"
-        const winnerCard = page.locator('div').filter({ hasText: title }).filter({ hasText: 'Ganador' }).first();
+        // Buscar tarjeta ganadora en la pestaña "Todas".
+        // IMPORTANTE: usar 'div.bg-white.rounded-lg.shadow' en lugar de 'div' genérico.
+        // Con 'div' genérico, .first() devuelve el contenedor padre más externo (que incluye
+        // TODAS las tarjetas), haciendo que markShippedBtn encuentre múltiples botones y
+        // lancé strict mode violation en isVisible().
+        const winnerCard = page.locator('div.bg-white.rounded-lg.shadow')
+            .filter({ hasText: title })
+            .filter({ hasText: 'Ganador' })
+            .first();
         await winnerCard.waitFor({ state: 'visible', timeout: 20000 });
 
-        const markShippedBtn = winnerCard.getByRole('button', { name: /Notificar.*enviado/i });
-        if (await markShippedBtn.isVisible()) {
+        // .first() en markShippedBtn como defensa adicional ante múltiples re-runs
+        const markShippedBtn = winnerCard.getByRole('button', { name: /Notificar.*enviado/i }).first();
+        const shippedBtnVisible = await markShippedBtn.isVisible().catch(() => false);
+        if (shippedBtnVisible) {
             await markShippedBtn.click();
             await page.waitForLoadState('networkidle');
             await page.getByRole('button', { name: /Confirmar envío/i }).click();
