@@ -297,14 +297,22 @@ test.describe('Flujo de Compras E2E (Happy Path - Video Directorio)', () => {
         await loginPage.login(SUPPLIER_EMAIL, SUPPLIER_PASSWORD);
         await loginPage.expectLoginSuccess();
 
-        await supplierQuotes.goto();
+        // Tras el login, el proveedor ya está en /purchases con SupplierQuotesPage cargado.
+        // NO llamar supplierQuotes.goto() (hace page.goto → reload completo que puede causar
+        // race-condition 401 en verifyUserSession). En su lugar, esperar que la página cargue.
+        await page.waitForLoadState('networkidle');
+        // Confirmar que SupplierQuotesPage renderizó correctamente
+        await page.getByRole('heading', { name: /Mis presupuestos/i }).waitFor({ state: 'visible', timeout: 15000 });
+
+        // La pestaña activa por defecto es "Pendientes". El ganador aparece en "Todas".
+        await page.getByRole('button', { name: /Todas/i }).click();
         await page.waitForLoadState('networkidle');
 
-        // Buscar tarjeta ganadora con selector más amplio (la clase real es bg-white rounded-lg shadow)
+        // Buscar tarjeta ganadora en la pestaña "Todas"
         const winnerCard = page.locator('div').filter({ hasText: title }).filter({ hasText: 'Ganador' }).first();
         await winnerCard.waitFor({ state: 'visible', timeout: 20000 });
 
-        const markShippedBtn = winnerCard.getByRole('button', { name: /Notificar pedido enviado/i });
+        const markShippedBtn = winnerCard.getByRole('button', { name: /Notificar.*enviado/i });
         if (await markShippedBtn.isVisible()) {
             await markShippedBtn.click();
             await page.waitForLoadState('networkidle');
@@ -312,8 +320,9 @@ test.describe('Flujo de Compras E2E (Happy Path - Video Directorio)', () => {
             await page.waitForLoadState('networkidle');
         }
 
-        const fileInput = winnerCard.locator('input[type="file"]');
-        if (await fileInput.isVisible()) {
+        // El file input es hidden (clase CSS "hidden") — usar count() en lugar de isVisible()
+        const fileInput = winnerCard.locator('input[type="file"]').first();
+        if (await fileInput.count() > 0) {
             const minimalPdf = Buffer.from(
                 '%PDF-1.4\n1 0 obj<</Type/Catalog/Pages 2 0 R>>endobj\n2 0 obj<</Type/Pages/Kids[3 0 R]/Count 1>>endobj\n3 0 obj<</Type/Page/MediaBox[0 0 612 792]/Parent 2 0 R>>endobj\nxref\n0 4\n0000000000 65535 f \n0000000009 00000 n \n0000000052 00000 n \n0000000101 00000 n \ntrailer<</Size 4/Root 1 0 R>>\nstartxref\n178\n%%EOF'
             );
