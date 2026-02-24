@@ -5,6 +5,9 @@
 export const PURCHASING_ALLOWED_EMAILS: string[] = [
     'admin@bacarsa.com.ar',
     'sistemas.ti@bacarsa.com.ar',
+    'compras@bacarsa.com.ar',
+    'francosartori.dev@gmail.com',
+    'francosarto11@gmail.com',
 ];
 
 export const canAccessPurchasingModule = (userEmail: string | undefined | null): boolean => {
