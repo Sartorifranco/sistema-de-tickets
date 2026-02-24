@@ -4,6 +4,7 @@ import { useAuth } from '../../context/AuthContext';
 import { toast } from 'react-toastify';
 import NotificationBell from '../NotificationBell/NotificationBell';
 import FcmTokenHandler from '../FcmTokenHandler/FcmTokenHandler';
+import { canAccessPurchasingModule } from '../../config/purchasingFeatureFlag';
 
 const Layout: React.FC = () => {
     const { user, logout } = useAuth();
@@ -38,8 +39,12 @@ const Layout: React.FC = () => {
                         <li><NavLink to="/admin/problemas" className={getLinkClassName}>Problemáticas</NavLink></li>
                         <li><NavLink to="/admin/tickets" className={getLinkClassName}>Tickets</NavLink></li>
                         <li><NavLink to="/admin/reports" className={getLinkClassName}>Reportes</NavLink></li>
-                        <li><NavLink to="/purchases" end className={getLinkClassName}>🛒 Compras</NavLink></li>
-                        <li><NavLink to="/purchases/invoices" className={getLinkClassName}>📄 Facturas</NavLink></li>
+                        {canAccessPurchasingModule(user?.email) && (
+                            <>
+                                <li><NavLink to="/purchases" end className={getLinkClassName}>🛒 Compras</NavLink></li>
+                                <li><NavLink to="/purchases/invoices" className={getLinkClassName}>📄 Facturas</NavLink></li>
+                            </>
+                        )}
                     </>
                 );
             case 'agent':
@@ -53,7 +58,9 @@ const Layout: React.FC = () => {
                         {/* ✅ NUEVO: Enlace a Mantenimiento para Agentes */}
                         <li><NavLink to="/agent/depositarios" className={getLinkClassName}>🏧 Mantenimiento Equipos</NavLink></li>
                         <li><NavLink to="/agent/equipos" className={getLinkClassName}>🖥️ Monitoreo Equipos</NavLink></li>
-                        <li><NavLink to="/purchases" end className={getLinkClassName}>🛒 Compras</NavLink></li>
+                        {canAccessPurchasingModule(user?.email) && (
+                            <li><NavLink to="/purchases" end className={getLinkClassName}>🛒 Compras</NavLink></li>
+                        )}
                     </>
                 );
             case 'client': {
@@ -64,7 +71,9 @@ const Layout: React.FC = () => {
                         <li><NavLink to="/client" end className={getLinkClassName}>Dashboard</NavLink></li>
                         <li><NavLink to="/profile" className={getLinkClassName}>Mi Perfil</NavLink></li>
                         <li><NavLink to="/client/tickets" className={getLinkClassName}>Mis Tickets</NavLink></li>
-                        {isBacar && <li><NavLink to="/purchases" end className={getLinkClassName}>🛒 Compras</NavLink></li>}
+                        {isBacar && canAccessPurchasingModule(user?.email) && (
+                            <li><NavLink to="/purchases" end className={getLinkClassName}>🛒 Compras</NavLink></li>
+                        )}
                     </>
                 );
             }
@@ -75,9 +84,13 @@ const Layout: React.FC = () => {
                         <li><NavLink to="/client" end className={getLinkClassName}>Dashboard</NavLink></li>
                         <li><NavLink to="/profile" className={getLinkClassName}>Mi Perfil</NavLink></li>
                         <li><NavLink to="/client/tickets" className={getLinkClassName}>Mis Tickets</NavLink></li>
-                        <li><NavLink to="/purchases" end className={getLinkClassName}>🛒 Mis solicitudes</NavLink></li>
-                        <li><NavLink to="/purchases/new" className={getLinkClassName}>+ Nueva solicitud</NavLink></li>
-                        <li><NavLink to="/purchases/approvals" className={getLinkClassName}>✓ Aprobar solicitudes</NavLink></li>
+                        {canAccessPurchasingModule(user?.email) && (
+                            <>
+                                <li><NavLink to="/purchases" end className={getLinkClassName}>🛒 Mis solicitudes</NavLink></li>
+                                <li><NavLink to="/purchases/new" className={getLinkClassName}>+ Nueva solicitud</NavLink></li>
+                                <li><NavLink to="/purchases/approvals" className={getLinkClassName}>✓ Aprobar solicitudes</NavLink></li>
+                            </>
+                        )}
                     </>
                 );
             case 'purchasing':
@@ -87,9 +100,13 @@ const Layout: React.FC = () => {
                         <li><NavLink to="/client" end className={getLinkClassName}>Dashboard</NavLink></li>
                         <li><NavLink to="/profile" className={getLinkClassName}>Mi Perfil</NavLink></li>
                         <li><NavLink to="/client/tickets" className={getLinkClassName}>Mis Tickets</NavLink></li>
-                        <li><NavLink to="/purchases" end className={getLinkClassName}>🛒 Mis solicitudes</NavLink></li>
-                        <li><NavLink to="/purchases/management" className={getLinkClassName}>📋 Gestión de compras</NavLink></li>
-                        <li><NavLink to="/purchases/invoices" className={getLinkClassName}>📄 Facturas</NavLink></li>
+                        {canAccessPurchasingModule(user?.email) && (
+                            <>
+                                <li><NavLink to="/purchases" end className={getLinkClassName}>🛒 Mis solicitudes</NavLink></li>
+                                <li><NavLink to="/purchases/management" className={getLinkClassName}>📋 Gestión de compras</NavLink></li>
+                                <li><NavLink to="/purchases/invoices" className={getLinkClassName}>📄 Facturas</NavLink></li>
+                            </>
+                        )}
                     </>
                 );
             case 'supplier':
@@ -97,7 +114,9 @@ const Layout: React.FC = () => {
                     <>
                         <li className="text-xs uppercase text-gray-400 mt-2 mb-2 px-3">Proveedor</li>
                         <li><NavLink to="/profile" className={getLinkClassName}>Mi Perfil</NavLink></li>
-                        <li><NavLink to="/purchases" end className={getLinkClassName}>🛒 Presupuestos</NavLink></li>
+                        {canAccessPurchasingModule(user?.email) && (
+                            <li><NavLink to="/purchases" end className={getLinkClassName}>🛒 Presupuestos</NavLink></li>
+                        )}
                     </>
                 );
             default:

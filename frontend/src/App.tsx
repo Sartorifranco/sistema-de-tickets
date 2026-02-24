@@ -29,6 +29,7 @@ import ClientDashboard from './pages/ClientDashboard';
 import ClientTicketsPage from './pages/ClientMyTicketsPage';
 import ClientTicketDetailPage from './pages/ClientTicketDetailPage';
 import PrivateRoute from './components/Common/PrivateRoute';
+import PurchasingRouteGuard from './components/Common/PurchasingRouteGuard';
 import ReportsPage from './pages/ReportsPage';
 import AdminProblemsPage from './pages/AdminProblemsPage'; 
 import AdminLocationsPage from './pages/AdminLocationPage';
@@ -129,14 +130,14 @@ const App: React.FC = () => {
                             <Route path="/client/tickets" element={<PrivateRoute roles={['client', 'boss', 'purchasing']}><ClientTicketsPage /></PrivateRoute>} />
                             <Route path="/client/tickets/:id" element={<PrivateRoute roles={['client', 'boss', 'purchasing']}><ClientTicketDetailPage /></PrivateRoute>} />
 
-                            {/* Módulo de Compras - disponible para todos los roles */}
-                            <Route path="/purchases" element={<PrivateRoute><MyPurchasesPage /></PrivateRoute>} />
-                            <Route path="/purchases/new" element={<PrivateRoute><PurchaseRequestPage /></PrivateRoute>} />
-                            <Route path="/purchases/approvals" element={<PrivateRoute roles={['boss']}><BossApprovalPage /></PrivateRoute>} />
-                            <Route path="/purchases/management" element={<PrivateRoute roles={['purchasing']}><PurchasingAgentPage /></PrivateRoute>} />
-                            <Route path="/purchases/metrics" element={<PrivateRoute roles={['purchasing', 'admin']}><PurchasingMetricsPage /></PrivateRoute>} />
-                            <Route path="/purchases/management/:purchaseId" element={<PrivateRoute roles={['purchasing']}><PurchaseDetailPage /></PrivateRoute>} />
-                            <Route path="/purchases/invoices" element={<PrivateRoute roles={['purchasing', 'admin']}><InvoicesPage /></PrivateRoute>} />
+                            {/* Módulo de Compras - Deploy Oculto: solo correos en PURCHASING_ALLOWED_EMAILS */}
+                            <Route path="/purchases" element={<PrivateRoute><PurchasingRouteGuard><MyPurchasesPage /></PurchasingRouteGuard></PrivateRoute>} />
+                            <Route path="/purchases/new" element={<PrivateRoute><PurchasingRouteGuard><PurchaseRequestPage /></PurchasingRouteGuard></PrivateRoute>} />
+                            <Route path="/purchases/approvals" element={<PrivateRoute roles={['boss']}><PurchasingRouteGuard><BossApprovalPage /></PurchasingRouteGuard></PrivateRoute>} />
+                            <Route path="/purchases/management" element={<PrivateRoute roles={['purchasing']}><PurchasingRouteGuard><PurchasingAgentPage /></PurchasingRouteGuard></PrivateRoute>} />
+                            <Route path="/purchases/metrics" element={<PrivateRoute roles={['purchasing', 'admin']}><PurchasingRouteGuard><PurchasingMetricsPage /></PurchasingRouteGuard></PrivateRoute>} />
+                            <Route path="/purchases/management/:purchaseId" element={<PrivateRoute roles={['purchasing']}><PurchasingRouteGuard><PurchaseDetailPage /></PurchasingRouteGuard></PrivateRoute>} />
+                            <Route path="/purchases/invoices" element={<PrivateRoute roles={['purchasing', 'admin']}><PurchasingRouteGuard><InvoicesPage /></PurchasingRouteGuard></PrivateRoute>} />
                         </Route>
 
                         <Route path="*" element={<NotFoundPage />} />
