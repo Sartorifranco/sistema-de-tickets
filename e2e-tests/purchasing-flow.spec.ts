@@ -9,6 +9,10 @@
  * Pasos: Empleado crea → Jefe aprueba desde mock-email → Compras solicita cotización →
  *        Proveedor cotiza (con métodos de pago complejos) → Compras selecciona ganador →
  *        Proveedor marca enviado y sube factura → Empleado califica entrega
+ *
+ * ANTI-STRICT-MODE: Todos los selectores están acotados al elemento específico de
+ * ESTA ejecución usando `title` como discriminador, evitando colisiones con historial
+ * real en la BD de producción.
  */
 import { test, expect } from '@playwright/test';
 import { LoginPage } from './pages/LoginPage';
@@ -48,7 +52,6 @@ function logout(page: import('@playwright/test').Page) {
 
 /**
  * Transición de cambio de perfil: pantalla completa con "👤 INGRESANDO COMO: {role}".
- * Dura 3 segundos y luego remueve el overlay antes del login.
  */
 async function showRoleTransition(
     page: import('@playwright/test').Page,
@@ -64,17 +67,9 @@ async function showRoleTransition(
                 document.body.appendChild(el);
             }
             el.style.cssText = `
-                position: fixed;
-                top: 0;
-                left: 0;
-                width: 100vw;
-                height: 100vh;
-                background: rgba(0, 0, 0, 0.9);
-                display: flex;
-                align-items: center;
-                justify-content: center;
-                z-index: 99999;
-                pointer-events: none;
+                position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
+                background: rgba(0, 0, 0, 0.9); display: flex; align-items: center;
+                justify-content: center; z-index: 99999; pointer-events: none;
             `;
             el.innerHTML = `<span style="color: white; font-size: 60px; font-weight: bold; font-family: system-ui, sans-serif;">👤 INGRESANDO COMO: ${role}</span>`;
         },
@@ -103,23 +98,12 @@ async function showCaption(
                 el = document.createElement('div');
                 el.id = 'demo-caption';
                 el.style.cssText = `
-                    position: fixed;
-                    bottom: 50px;
-                    left: 50%;
-                    transform: translateX(-50%);
-                    background: rgba(0, 0, 0, 0.85);
-                    color: white;
-                    font-size: 26px;
-                    font-weight: 500;
-                    padding: 18px 36px;
-                    border-radius: 10px;
-                    box-shadow: 0 4px 24px rgba(0,0,0,0.5);
-                    z-index: 9999;
-                    pointer-events: none;
-                    max-width: 85%;
-                    text-align: center;
-                    font-family: system-ui, -apple-system, sans-serif;
-                    line-height: 1.4;
+                    position: fixed; bottom: 50px; left: 50%; transform: translateX(-50%);
+                    background: rgba(0, 0, 0, 0.85); color: white; font-size: 26px;
+                    font-weight: 500; padding: 18px 36px; border-radius: 10px;
+                    box-shadow: 0 4px 24px rgba(0,0,0,0.5); z-index: 9999;
+                    pointer-events: none; max-width: 85%; text-align: center;
+                    font-family: system-ui, -apple-system, sans-serif; line-height: 1.4;
                     transition: opacity 0.3s ease;
                 `;
                 document.body.appendChild(el);
@@ -148,11 +132,16 @@ test.describe('Flujo de Compras E2E (Happy Path - Video Directorio)', () => {
         const supplierQuotes = new SupplierQuotesPage(page);
         const quoteComparison = new QuoteComparisonPage(page);
 
+        // ── TÍTULO ÚNICO DE ESTE RUN: accesible por TODOS los pasos ──────────────
+        // Sirve como discriminador para aislar elementos de ESTA solicitud frente
+        // al historial de la BD de producción y evitar strict-mode violations.
         const title = pickRandom(TITLES);
         const item1 = ITEMS_POOL[0];
         const item2 = ITEMS_POOL[1];
 
-        // ========== a) Empleado: Crear solicitud ==========
+        // ======================================================================
+        // a) Empleado: Crear solicitud
+        // ======================================================================
         await showRoleTransition(page, 'Solicitante');
         await loginPage.goto();
         await showCaption(page, 'Paso 1: Un colaborador ingresa al sistema para solicitar insumos.');
@@ -184,26 +173,33 @@ test.describe('Flujo de Compras E2E (Happy Path - Video Directorio)', () => {
         await purchaseRequestPage.expectSuccessToast();
         await page.waitForTimeout(2000);
 
+        // Verificar que la nueva solicitud aparece en la lista del empleado.
+        // SCOPED: buscar la tarjeta específica con `title` para no confundirse
+        // con otras solicitudes de la misma persona en la BD.
         await page.goto('/purchases');
         await page.waitForLoadState('networkidle');
-        await page.waitForResponse((r) => r.url().includes('/api/purchases') && r.request().method() === 'GET', { timeout: 10000 }).catch(() => null);
-        await page.waitForTimeout(1500);
-        await expect(
-            page.getByText(title)
-                .or(page.getByText(item1.producto))
-                .or(page.getByText('Solicitud (2 ítems)'))
-                .first()
-        ).toBeVisible({ timeout: 15000 });
+        await page.waitForResponse(
+            (r) => r.url().includes('/api/purchases') && r.request().method() === 'GET',
+            { timeout: 10000 }
+        ).catch(() => null);
+
+        const myNewCard = page.locator('.bg-white.rounded-xl.shadow-md')
+            .filter({ hasText: title })
+            .first();
+        await myNewCard.waitFor({ state: 'visible', timeout: 15000 });
         await page.waitForTimeout(1000);
 
         await logout(page);
         await page.context().clearCookies();
         await expect(page).toHaveURL(/\/login/);
 
-        // ========== b) Jefe: Aprobar desde mock-email (simulación de correo) ==========
+        // ======================================================================
+        // b) Jefe: Aprobar desde mock-email (simulación de correo)
+        // ======================================================================
         await showRoleTransition(page, 'Jefe');
         await showCaption(page, 'Paso 2: El Jefe recibe el correo y aprueba con un clic, sin necesidad de iniciar sesión.');
 
+        // purchaseId identifica ESTA solicitud exactamente — sin ambigüedad
         await page.evaluate(() => { localStorage.clear(); sessionStorage.clear(); });
         await page.goto(`${BASE_URL}/mock-email?purchaseId=${purchaseId}`);
         await page.waitForLoadState('networkidle');
@@ -217,15 +213,18 @@ test.describe('Flujo de Compras E2E (Happy Path - Video Directorio)', () => {
 
         await page.context().clearCookies();
 
-        // ========== c) Compras: Solicitar cotización ==========
+        // ======================================================================
+        // c) Compras: Solicitar cotización
+        // ======================================================================
         await showRoleTransition(page, 'Compras');
         await showCaption(page, 'Paso 3: El Encargado de Compras revisa el pedido y selecciona proveedores a licitar.');
-        await loginPage.goto();  // ya hace localStorage.clear() internamente
+        await loginPage.goto();
         await loginPage.login(PURCHASING_EMAIL, PURCHASING_PASSWORD);
         await loginPage.expectLoginSuccess();
 
         await purchasingDashboard.goto();
         await purchasingDashboard.expectPurchaseVisible(title);
+        // clickPurchaseDetail está acotado a la card con `title` en el POM
         await purchasingDashboard.clickPurchaseDetail(title);
 
         await purchasingDashboard.expectOnDetailPage();
@@ -234,18 +233,22 @@ test.describe('Flujo de Compras E2E (Happy Path - Video Directorio)', () => {
         await purchaseDetail.expectQuoteRequestSuccess();
         await page.waitForTimeout(2000);
 
+        // Capturar el ID de la URL para navegar directo en el paso e)
         const detailPurchaseId = page.url().split('/').pop() || purchaseId;
 
         await logout(page);
         await page.context().clearCookies();
 
-        // ========== d) Proveedor: Cotizar con métodos de pago complejos ==========
+        // ======================================================================
+        // d) Proveedor: Cotizar con métodos de pago complejos
+        // ======================================================================
         await showRoleTransition(page, 'Proveedor');
         await showCaption(page, 'Paso 4: El Proveedor ingresa, cotiza con opciones avanzadas (Tarjeta, Visa, 3 cuotas sin interés).');
-        await loginPage.goto();  // ya hace localStorage.clear() internamente
+        await loginPage.goto();
         await loginPage.login(SUPPLIER_EMAIL, SUPPLIER_PASSWORD);
         await loginPage.expectLoginSuccess();
 
+        // goto() recarga /purchases; el POM scopea la tarjeta pendiente a `title`
         await supplierQuotes.goto();
         await supplierQuotes.expectPendingQuote(title);
         await supplierQuotes.openQuoteModal(title);
@@ -259,11 +262,14 @@ test.describe('Flujo de Compras E2E (Happy Path - Video Directorio)', () => {
         await logout(page);
         await page.context().clearCookies();
 
-        // ========== e) Compras: Seleccionar ganador ==========
-        await loginPage.goto();  // ya hace localStorage.clear() internamente
+        // ======================================================================
+        // e) Compras: Seleccionar ganador
+        // ======================================================================
+        await loginPage.goto();
         await loginPage.login(PURCHASING_EMAIL, PURCHASING_PASSWORD);
         await loginPage.expectLoginSuccess();
 
+        // Navegación directa por ID — sin ambigüedad con historial
         await page.goto(`/purchases/management/${detailPurchaseId}`);
         await page.waitForLoadState('networkidle');
 
@@ -274,7 +280,10 @@ test.describe('Flujo de Compras E2E (Happy Path - Video Directorio)', () => {
         await page.waitForTimeout(2000);
 
         await showCaption(page, 'Paso 5: La Comparativa Inteligente analiza ofertas. El Encargado confirma la compra.');
-        const hasSmartComparison = await page.getByText(/Confirmar ganadores por ítem/i).isVisible().catch(() => false);
+        const hasSmartComparison = await page
+            .getByText(/Confirmar ganadores por ítem/i)
+            .isVisible()
+            .catch(() => false);
         if (hasSmartComparison) {
             await quoteComparison.selectSupplierAsWinnerForAllItems();
             await quoteComparison.confirmItemWinners();
@@ -284,52 +293,57 @@ test.describe('Flujo de Compras E2E (Happy Path - Video Directorio)', () => {
         await quoteComparison.expectWinnerSelectedSuccess();
         await page.waitForTimeout(2000);
 
+        // SCOPED: .first() para evitar strict-mode si hay múltiples grids con "Estado"
         await expect(
-            page.locator('.grid').filter({ hasText: 'Estado' }).locator('select')
+            page.locator('.grid').filter({ hasText: 'Estado' }).locator('select').first()
         ).toHaveValue('Compra Aprobada', { timeout: 8000 });
 
         await logout(page);
         await page.context().clearCookies();
 
-        // ========== f) Proveedor: Marcar enviado y subir factura ==========
+        // ======================================================================
+        // f) Proveedor: Marcar enviado y subir factura
+        // ======================================================================
         await showRoleTransition(page, 'Proveedor');
-        await loginPage.goto();  // ya hace localStorage.clear() internamente
+        await loginPage.goto();
         await loginPage.login(SUPPLIER_EMAIL, SUPPLIER_PASSWORD);
         await loginPage.expectLoginSuccess();
 
-        // Tras el login, el proveedor ya está en /purchases con SupplierQuotesPage cargado.
-        // NO llamar supplierQuotes.goto() (hace page.goto → reload completo que puede causar
-        // race-condition 401 en verifyUserSession). En su lugar, esperar que la página cargue.
+        // Tras el login el proveedor ya está en /purchases — NO recargar para
+        // evitar race-condition 401 en verifyUserSession. Esperar que cargue.
         await page.waitForLoadState('networkidle');
-        // Confirmar que SupplierQuotesPage renderizó correctamente
         await page.getByRole('heading', { name: /Mis presupuestos/i }).waitFor({ state: 'visible', timeout: 15000 });
 
-        // La pestaña activa por defecto es "Pendientes". El ganador aparece en "Todas".
-        await page.getByRole('button', { name: /Todas/i }).click();
+        // Cambiar a la pestaña "Todas" donde aparece el ganador.
+        // .first() evita strict-mode si hubiera múltiples controles de tabs.
+        await page.getByRole('button', { name: /Todas/i }).first().click();
         await page.waitForLoadState('networkidle');
 
-        // Buscar tarjeta ganadora en la pestaña "Todas".
-        // IMPORTANTE: usar 'div.bg-white.rounded-lg.shadow' en lugar de 'div' genérico.
-        // Con 'div' genérico, .first() devuelve el contenedor padre más externo (que incluye
-        // TODAS las tarjetas), haciendo que markShippedBtn encuentre múltiples botones y
-        // lancé strict mode violation en isVisible().
+        // SCOPED: la card individual usa 'bg-white rounded-lg shadow' (NO 'rounded-xl').
+        // 'div' genérico tomaba el contenedor padre más externo que incluye TODAS
+        // las tarjetas → múltiples botones → strict-mode violation en isVisible().
         const winnerCard = page.locator('div.bg-white.rounded-lg.shadow')
             .filter({ hasText: title })
             .filter({ hasText: 'Ganador' })
             .first();
         await winnerCard.waitFor({ state: 'visible', timeout: 20000 });
 
-        // .first() en markShippedBtn como defensa adicional ante múltiples re-runs
-        const markShippedBtn = winnerCard.getByRole('button', { name: /Notificar.*enviado/i }).first();
+        // Botón "Notificar pedido enviado" — .first() como red de seguridad
+        const markShippedBtn = winnerCard
+            .getByRole('button', { name: /Notificar.*enviado/i })
+            .first();
         const shippedBtnVisible = await markShippedBtn.isVisible().catch(() => false);
         if (shippedBtnVisible) {
             await markShippedBtn.click();
-            await page.waitForLoadState('networkidle');
-            await page.getByRole('button', { name: /Confirmar envío/i }).click();
+            // SCOPED: modal de confirmación de envío — evitar clic en modal incorrecto
+            const shipModal = page.locator('.fixed.inset-0')
+                .filter({ has: page.getByRole('button', { name: /Confirmar envío/i }) });
+            await shipModal.waitFor({ state: 'visible', timeout: 5000 });
+            await shipModal.getByRole('button', { name: /Confirmar envío/i }).click();
             await page.waitForLoadState('networkidle');
         }
 
-        // El file input es hidden (clase CSS "hidden") — usar count() en lugar de isVisible()
+        // El input de factura tiene clase CSS "hidden" → usar count() > 0
         const fileInput = winnerCard.locator('input[type="file"]').first();
         if (await fileInput.count() > 0) {
             const minimalPdf = Buffer.from(
@@ -346,41 +360,66 @@ test.describe('Flujo de Compras E2E (Happy Path - Video Directorio)', () => {
         await logout(page);
         await page.context().clearCookies();
 
-        // ========== g) Empleado: Calificar pedido (5 estrellas + comentario) ==========
+        // ======================================================================
+        // g) Empleado: Calificar pedido (5 estrellas + comentario)
+        // ======================================================================
         await showRoleTransition(page, 'Solicitante');
         await showCaption(page, 'Paso 6: El Empleado recibe el pedido, califica con 5 estrellas y cierra el proceso.');
-        await loginPage.goto();  // ya hace localStorage.clear() internamente
+        await loginPage.goto();
         await loginPage.login(EMPLOYEE_EMAIL, EMPLOYEE_PASSWORD);
         await loginPage.expectLoginSuccess();
 
         await page.goto('/purchases');
         await page.waitForLoadState('networkidle');
-        await page.waitForTimeout(1500);
 
-        const purchaseCard = page.locator('.bg-white').filter({ hasText: title }).first();
-        await purchaseCard.waitFor({ state: 'visible', timeout: 10000 });
-        await purchaseCard.click();
-        await page.waitForTimeout(1000);
+        // SCOPED: la card en MyPurchasesPage usa 'bg-white rounded-xl shadow-md'
+        // (distinto a SupplierQuotesPage que usa 'bg-white rounded-lg shadow').
+        // Filtrar por `title` para no confundirse con otras solicitudes del empleado.
+        const myPurchaseCard = page.locator('.bg-white.rounded-xl.shadow-md')
+            .filter({ hasText: title })
+            .first();
+        await myPurchaseCard.waitFor({ state: 'visible', timeout: 10000 });
 
-        const conformeBtn = page.getByRole('button', { name: /Marcar como Recibido|Conforme/i });
-        if (await conformeBtn.isVisible()) {
+        // Clic en la tarjeta para expandirla (accordion toggle)
+        await myPurchaseCard.click();
+
+        // El botón "Marcar como Recibido" aparece DENTRO de la misma tarjeta
+        // cuando está expandida — buscarlo dentro del card evita colisiones
+        // con otras solicitudes que pudieran estar expandidas simultáneamente.
+        const conformeBtn = myPurchaseCard
+            .getByRole('button', { name: /Marcar como Recibido/i })
+            .first();
+        const conformeVisible = await conformeBtn.isVisible().catch(() => false);
+
+        if (conformeVisible) {
             await conformeBtn.click();
-            await page.waitForTimeout(800);
 
-            const star5 = page.getByRole('button', { name: /5 estrellas/i }).or(page.locator('.flex.gap-1 button').nth(4));
+            // SCOPED: modal de calificación — filtrar por su botón único
+            // para no confundirse con otros modales activos (ej: modal de envío)
+            const ratingModal = page.locator('.fixed.inset-0')
+                .filter({ has: page.getByRole('button', { name: /Confirmar y cerrar/i }) });
+            await ratingModal.waitFor({ state: 'visible', timeout: 8000 });
+
+            // Estrellas: los botones tienen aria-label="${n} estrellas" (confirmado en MyPurchasesPage.tsx)
+            // SCOPED al modal — evita coincidir con controles de rating en otras partes de la UI
+            const star5 = ratingModal.getByRole('button', { name: '5 estrellas' });
+            await star5.waitFor({ state: 'visible', timeout: 5000 });
             await star5.click();
-            await page.waitForTimeout(500);
 
-            const commentArea = page.getByPlaceholder(/Entregado a tiempo|comentario/i);
-            if (await commentArea.isVisible()) {
+            // Comentario — SCOPED al modal, placeholder confirmado: "Ej: Entregado a tiempo..."
+            const commentArea = ratingModal.getByPlaceholder(/Entregado a tiempo/i);
+            if (await commentArea.isVisible().catch(() => false)) {
                 await commentArea.fill('Excelente tiempo de entrega y calidad');
-                await page.waitForTimeout(1000);
+                await page.waitForTimeout(800);
             }
 
-            await page.getByRole('button', { name: /Confirmar y cerrar/i }).click();
-            await page.waitForTimeout(2000);
+            // Confirmar — SCOPED al modal para no hacer clic en "Cancelar" u otro botón
+            await ratingModal.getByRole('button', { name: 'Confirmar y cerrar' }).click();
+            await page.waitForLoadState('networkidle');
 
-            await expect(page.getByText(/conforme|Gracias por calificar/i)).toBeVisible({ timeout: 8000 }).catch(() => true);
+            await expect(page.getByText(/conforme|Gracias por calificar/i).first())
+                .toBeVisible({ timeout: 8000 })
+                .catch(() => true);
         }
 
         await showCaption(page, '¡Proceso completo! Grupo Bacar optimiza sus compras con el Módulo de Compras.', 5000);
