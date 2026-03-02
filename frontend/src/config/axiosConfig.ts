@@ -13,11 +13,12 @@ const api = axios.create({
     headers: { 'Content-Type': 'application/json' },
 });
 
-// Request interceptor: inyectar token (excepto en /refresh, que usa refreshToken en body)
+// Request interceptor: inyectar token (excepto en login y refresh)
 api.interceptors.request.use(
     (config: InternalAxiosRequestConfig) => {
-        const isRefreshRequest = (config.url ?? '').includes('/refresh');
-        if (!isRefreshRequest) {
+        const url = config.url ?? '';
+        const isPublicRequest = url.includes('/login') || url.includes('/refresh');
+        if (!isPublicRequest) {
             const token = localStorage.getItem('token');
             if (token) config.headers.Authorization = `Bearer ${token}`;
         }
