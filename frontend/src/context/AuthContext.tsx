@@ -23,8 +23,9 @@ interface AuthContextType {
     loading: boolean;
     error: string | null;
     login: (credentials: LoginData) => Promise<boolean>;
-    register: (userData: any) => Promise<boolean>; // Ajustado para ser más genérico
+    register: (userData: any) => Promise<boolean>;
     logout: () => void;
+    refreshSession: () => Promise<boolean>;
     clearError: () => void;
     updateUserContext: (updatedUserData: Partial<User>) => void;
 }
@@ -38,9 +39,9 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     const [loading, setLoading] = useState<boolean>(true); // Inicia en true para la verificación inicial
     const [error, setError] = useState<string | null>(null);
 
-    // ✅ CORRECCIÓN: La función 'logout' ahora también limpia la configuración de Axios.
     const logout = useCallback(() => {
         localStorage.removeItem('token');
+        localStorage.removeItem('refreshToken');
         delete api.defaults.headers.common['Authorization'];
         setToken(null);
         setUser(null);
@@ -54,15 +55,13 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
             const storedToken = localStorage.getItem('token');
             if (storedToken) {
                 try {
-                    // Configura el header de Axios con el token encontrado
                     api.defaults.headers.common['Authorization'] = `Bearer ${storedToken}`;
                     const response = await api.get('/api/auth/me');
                     const userData = response.data.user;
-
-                    // Si la verificación es exitosa, establece el estado de la aplicación
+                    // Usar token actual de localStorage (puede haberse actualizado por refresh del interceptor)
                     setUser(userData);
                     setIsAuthenticated(true);
-                    setToken(storedToken);
+                    setToken(localStorage.getItem('token'));
                 } catch (err) {
                     // Si el token es inválido o expiró, llama a logout para limpiar todo
                     logout(); 
@@ -81,13 +80,11 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
             const response = await api.post('/api/auth/login', credentials);
             
             if (response.data && response.data.token && response.data.user) {
-                const { token: newToken, user: userData } = response.data;
+                const { token: newToken, refreshToken: newRefreshToken, user: userData } = response.data;
     
-                // 1. Guardar el token en localStorage
                 localStorage.setItem('token', newToken);
-                // 2. Configurar el header de Axios para las siguientes peticiones
+                if (newRefreshToken) localStorage.setItem('refreshToken', newRefreshToken);
                 api.defaults.headers.common['Authorization'] = `Bearer ${newToken}`;
-                // 3. Actualizar el estado del contexto de React
                 setToken(newToken);
                 setUser(userData);
                 setIsAuthenticated(true);
@@ -107,14 +104,31 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     }, [logout]);
 
 
-    // --- Funciones sin cambios ---
+    const refreshSession = useCallback(async (): Promise<boolean> => {
+        const storedRefreshToken = localStorage.getItem('refreshToken');
+        if (!storedRefreshToken) return false;
+        try {
+            const response = await api.post('/api/auth/refresh', { refreshToken: storedRefreshToken });
+            const { token: newToken, user: userData } = response.data;
+            localStorage.setItem('token', newToken);
+            api.defaults.headers.common['Authorization'] = `Bearer ${newToken}`;
+            setToken(newToken);
+            setUser(userData);
+            setIsAuthenticated(true);
+            return true;
+        } catch {
+            logout();
+            return false;
+        }
+    }, [logout]);
+
     const register = useCallback(async (userData: any) => { return false; }, []);
     const clearError = useCallback(() => setError(null), []);
     const updateUserContext = useCallback((updatedUserData: Partial<User>) => {
         setUser(prevUser => prevUser ? { ...prevUser, ...updatedUserData } : null);
     }, []);
 
-    const value = { user, token, isAuthenticated, loading, error, login, register, logout, clearError, updateUserContext };
+    const value = { user, token, isAuthenticated, loading, error, login, register, logout, refreshSession, clearError, updateUserContext };
     
     // Muestra una pantalla de carga solo durante la verificación inicial
     if (loading) {

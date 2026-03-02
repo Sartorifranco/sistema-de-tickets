@@ -2,7 +2,7 @@
 const express = require('express');
 const router = express.Router();
 // Importa las funciones del controlador de autenticación desde el archivo correcto
-const { registerUser, loginUser, getMe, activateAccount, validateInvitationToken, setPasswordFromInvitation, saveFcmToken } = require('../controllers/authController');
+const { registerUser, loginUser, getMe, refreshTokenHandler, activateAccount, validateInvitationToken, setPasswordFromInvitation, saveFcmToken } = require('../controllers/authController');
 // Importa el middleware de protección de rutas, ahora como 'authenticateToken'
 const { authenticateToken } = require('../middleware/authMiddleware'); // <-- ¡CAMBIO AQUÍ!
 
@@ -11,6 +11,8 @@ const { authenticateToken } = require('../middleware/authMiddleware'); // <-- ¡
 router.post('/register', registerUser);
 // POST a /api/auth/login para iniciar sesión
 router.post('/login', loginUser);
+// POST a /api/auth/refresh para renovar el token sin volver a loguearse (recibe refreshToken en body)
+router.post('/refresh', refreshTokenHandler);
 
 router.post('/activate', activateAccount);
 router.get('/validate-invitation/:token', validateInvitationToken);

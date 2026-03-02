@@ -7,8 +7,17 @@ import FcmTokenHandler from '../FcmTokenHandler/FcmTokenHandler';
 import { canAccessPurchasingModule } from '../../config/purchasingFeatureFlag';
 
 const Layout: React.FC = () => {
-    const { user, logout } = useAuth();
+    const { user, logout, refreshSession } = useAuth();
     const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+    const [isRefreshing, setIsRefreshing] = useState(false);
+
+    const handleRefreshSession = async () => {
+        setIsRefreshing(true);
+        const ok = await refreshSession();
+        setIsRefreshing(false);
+        if (ok) toast.success('Sesión renovada correctamente.');
+        else toast.error('No se pudo renovar. Iniciá sesión nuevamente.');
+    };
 
     const handleLogout = () => {
         logout();
@@ -140,7 +149,20 @@ const Layout: React.FC = () => {
                         {renderNavLinks()}
                     </ul>
                 </nav>
-                <div className="p-4 border-t border-gray-700">
+                <div className="p-4 border-t border-gray-700 space-y-2">
+                    <button
+                        onClick={handleRefreshSession}
+                        disabled={isRefreshing}
+                        className="w-full flex items-center justify-center gap-2 p-3 rounded-lg bg-amber-600 hover:bg-amber-700 disabled:opacity-60 disabled:cursor-not-allowed text-white font-medium"
+                    >
+                        {isRefreshing ? (
+                            <>
+                                <span className="animate-spin">⟳</span> Renovando...
+                            </>
+                        ) : (
+                            <>⟳ Renovar sesión</>
+                        )}
+                    </button>
                     <button onClick={handleLogout} className="w-full flex items-center justify-center p-3 rounded-lg bg-red-600 hover:bg-red-700">
                         Cerrar Sesión
                     </button>

@@ -102,12 +102,19 @@ const loginUser = asyncHandler(async (req, res) => {
         res.status(401);
         throw new Error('Cuenta inactiva.');
     }
-    const token = jwt.sign({ 
-        id: user.id, 
-        role: user.role, 
-        company_id: user.company_id,
-        department_id: user.department_id 
-    }, process.env.JWT_SECRET, { expiresIn: '7d' });
+    // Access token: 7 días (para llamadas a la API)
+    const token = jwt.sign(
+        { id: user.id, role: user.role, company_id: user.company_id, department_id: user.department_id },
+        process.env.JWT_SECRET,
+        { expiresIn: '7d' }
+    );
+    // Refresh token: 30 días (para renovar sin volver a loguearse)
+    const refreshToken = jwt.sign(
+        { id: user.id, type: 'refresh' },
+        process.env.JWT_SECRET,
+        { expiresIn: '30d' }
+    );
+
     const [companyRow] = user.company_id
         ? await pool.execute('SELECT name FROM companies WHERE id = ?', [user.company_id])
         : [[{ name: null }]];
@@ -117,6 +124,7 @@ const loginUser = asyncHandler(async (req, res) => {
         success: true,
         message: 'Inicio de sesión exitoso',
         token,
+        refreshToken,
         user: {
             id: user.id,
             username: user.username,
@@ -200,6 +208,80 @@ const setPasswordFromInvitation = asyncHandler(async (req, res) => {
     });
 });
 
+// --- refreshToken: renovar sesión sin volver a loguearse ---
+const refreshTokenHandler = asyncHandler(async (req, res) => {
+    const { refreshToken } = req.body;
+    if (!refreshToken || typeof refreshToken !== 'string') {
+        res.status(400).json({
+            success: false,
+            message: 'Se requiere refreshToken.',
+            code: 'NO_REFRESH_TOKEN',
+        });
+        return;
+    }
+
+    let decoded;
+    try {
+        decoded = jwt.verify(refreshToken, process.env.JWT_SECRET);
+    } catch (err) {
+        const isExpired = err.name === 'TokenExpiredError';
+        res.status(401).json({
+            success: false,
+            message: isExpired
+                ? 'Sesión expirada. Por favor, iniciá sesión nuevamente.'
+                : 'Token de renovación inválido.',
+            code: isExpired ? 'TOKEN_EXPIRED' : 'TOKEN_INVALID',
+        });
+        return;
+    }
+
+    if (decoded.type !== 'refresh') {
+        res.status(401).json({
+            success: false,
+            message: 'Token inválido.',
+            code: 'TOKEN_INVALID',
+        });
+        return;
+    }
+
+    const [rows] = await pool.execute(
+        `SELECT u.id, u.username, u.email, u.role, u.department_id, u.company_id,
+                c.name AS company_name
+         FROM users u LEFT JOIN companies c ON u.company_id = c.id WHERE u.id = ?`,
+        [decoded.id]
+    );
+
+    if (!rows[0]) {
+        res.status(401).json({
+            success: false,
+            message: 'El usuario ya no existe.',
+            code: 'USER_NOT_FOUND',
+        });
+        return;
+    }
+
+    const user = rows[0];
+    const newAccessToken = jwt.sign(
+        { id: user.id, role: user.role, company_id: user.company_id, department_id: user.department_id },
+        process.env.JWT_SECRET,
+        { expiresIn: '7d' }
+    );
+
+    res.status(200).json({
+        success: true,
+        token: newAccessToken,
+        user: {
+            id: user.id,
+            username: user.username,
+            email: user.email,
+            role: user.role,
+            company_id: user.company_id,
+            department_id: user.department_id,
+            company_name: user.company_name || null,
+        },
+    });
+});
+
 // --- saveFcmToken (Push Notifications) ---
 const saveFcmToken = asyncHandler(async (req, res) => {
     const { fcm_token } = req.body;
@@ -221,6 +303,7 @@ module.exports = {
     registerUser,
     loginUser,
     getMe,
+    refreshTokenHandler,
     activateAccount,
     validateInvitationToken,
     setPasswordFromInvitation,
