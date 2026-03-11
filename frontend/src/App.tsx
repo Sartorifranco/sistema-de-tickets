@@ -36,6 +36,7 @@ import AdminLocationsPage from './pages/AdminLocationPage';
 // ✅ NUEVO: Importar la página de depositarios
 import DepositariosPage from './pages/DepositariosPage';
 import EquipmentMonitoringPage from './pages/EquipmentMonitoringPage';
+import MonitoringPage from './pages/MonitoringPage';
 import MyPurchasesPage from './pages/MyPurchasesPage';
 import PurchaseRequestPage from './pages/PurchaseRequestPage';
 import BossApprovalPage from './pages/BossApprovalPage';
@@ -116,6 +117,7 @@ const App: React.FC = () => {
                             {/* ✅ NUEVO: Ruta para Depositarios (Admin) */}
                             <Route path="/admin/depositarios" element={<PrivateRoute roles={['admin']}><DepositariosPage /></PrivateRoute>} />
                             <Route path="/admin/equipos" element={<PrivateRoute roles={['admin']}><EquipmentMonitoringPage /></PrivateRoute>} />
+                            <Route path="/admin/monitoreo" element={<PrivateRoute roles={['admin']}><MonitoringPage /></PrivateRoute>} />
 
                             {/* Rutas de Agente */}
                             <Route path="/agent" element={<PrivateRoute roles={['agent']}><AgentDashboard /></PrivateRoute>} />
@@ -126,6 +128,7 @@ const App: React.FC = () => {
                             {/* ✅ NUEVO: Ruta para Depositarios (Agente) - Usamos el mismo componente */}
                             <Route path="/agent/depositarios" element={<PrivateRoute roles={['agent']}><DepositariosPage /></PrivateRoute>} />
                             <Route path="/agent/equipos" element={<PrivateRoute roles={['agent']}><EquipmentMonitoringPage /></PrivateRoute>} />
+                            <Route path="/agent/monitoreo" element={<PrivateRoute roles={['agent']}><MonitoringPage /></PrivateRoute>} />
                             
                             {/* Rutas de Cliente (también para Jefe y Compras - empleados Bacar) */}
                             <Route path="/client" element={<PrivateRoute roles={['client', 'boss', 'purchasing']}><ClientDashboard /></PrivateRoute>} />

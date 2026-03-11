@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { NavLink, Outlet } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { toast } from 'react-toastify';
-import { Home, User, Users, Building, MapPin, AlertTriangle, Ticket, BarChart3, Landmark, Monitor, ShoppingCart, FileText, CheckCircle, PlusCircle, ClipboardList } from 'lucide-react';
+import { Home, User, Users, Building, MapPin, AlertTriangle, Ticket, BarChart3, Landmark, Monitor, Activity, ShoppingCart, FileText, CheckCircle, PlusCircle, ClipboardList } from 'lucide-react';
 import NotificationBell from '../NotificationBell/NotificationBell';
 import FcmTokenHandler from '../FcmTokenHandler/FcmTokenHandler';
 import { canAccessPurchasingModule } from '../../config/purchasingFeatureFlag';
@@ -35,6 +35,7 @@ const Layout: React.FC = () => {
                         <li><NavLink to="/admin/companies" className={getLinkClassName}><Building className={iconClass} />Empresas</NavLink></li>
                         <li><NavLink to="/admin/depositarios" className={getLinkClassName}><Landmark className={iconClass} />Gestión de Depositarios</NavLink></li>
                         <li><NavLink to="/admin/equipos" className={getLinkClassName}><Monitor className={iconClass} />Monitoreo Equipos</NavLink></li>
+                        <li><NavLink to="/admin/monitoreo" className={getLinkClassName}><Activity className={iconClass} />Monitoreo en Tiempo Real</NavLink></li>
                         <li><NavLink to="/admin/ubicaciones" className={getLinkClassName}><MapPin className={iconClass} />Ubicaciones</NavLink></li>
                         <li><NavLink to="/admin/problemas" className={getLinkClassName}><AlertTriangle className={iconClass} />Problemáticas</NavLink></li>
                         <li><NavLink to="/admin/tickets" className={getLinkClassName}><Ticket className={iconClass} />Tickets</NavLink></li>
@@ -56,6 +57,7 @@ const Layout: React.FC = () => {
                         <li><NavLink to="/agent/tickets" className={getLinkClassName}><Ticket className={iconClass} />Mis Tickets</NavLink></li>
                         <li><NavLink to="/agent/depositarios" className={getLinkClassName}><Landmark className={iconClass} />Mantenimiento Equipos</NavLink></li>
                         <li><NavLink to="/agent/equipos" className={getLinkClassName}><Monitor className={iconClass} />Monitoreo Equipos</NavLink></li>
+                        <li><NavLink to="/agent/monitoreo" className={getLinkClassName}><Activity className={iconClass} />Monitoreo en Tiempo Real</NavLink></li>
                         {canAccessPurchasingModule(user?.email) && (
                             <li><NavLink to="/purchases" end className={getLinkClassName}><ShoppingCart className={iconClass} />Compras</NavLink></li>
                         )}
