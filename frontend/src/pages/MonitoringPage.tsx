@@ -5,7 +5,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { Activity } from 'lucide-react';
 
-const MONITORING_URL = 'https://autbacar.dnsalias.com/mcp-server/http';
+const MONITORING_URL = 'https://autbacar.dnsalias.com/webhook/b176be3d-9eec-4c45-a89f-94460dee1461';
 const POLL_INTERVAL_MS = 30_000;
 
 const MonitoringPage: React.FC = () => {
