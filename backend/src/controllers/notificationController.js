@@ -3,6 +3,30 @@ const pool = require('../config/db');
 const { logActivity } = require('../services/activityLogService');
 const { getNotificationConfigStatus, sendTestWhatsApp, sendTestEmail, getUserNotificationPrefs } = require('../services/notificationService');
 
+// @desc    Registrar token FCM para Push Notifications (multi-dispositivo)
+// @route   POST /api/notifications/register-token
+// @access  Private
+const registerToken = asyncHandler(async (req, res) => {
+    const { fcmToken } = req.body;
+    if (!fcmToken || typeof fcmToken !== 'string') {
+        res.status(400);
+        throw new Error('Se requiere fcmToken.');
+    }
+    const token = fcmToken.trim();
+    const userId = req.user.id;
+
+    await pool.execute(
+        `INSERT INTO user_fcm_tokens (user_id, token) VALUES (?, ?)
+         ON DUPLICATE KEY UPDATE user_id = VALUES(user_id), created_at = NOW()`,
+        [userId, token]
+    );
+
+    res.status(200).json({
+        success: true,
+        message: 'Token de notificaciones registrado.',
+    });
+});
+
 // @desc    Enviar mensaje de prueba por WhatsApp al número del usuario
 // @route   POST /api/notifications/test-whatsapp
 // @access  Private (cualquier usuario con preferencias de notificación)
@@ -293,5 +317,6 @@ module.exports = {
     markNotificationAsRead,
     deleteNotification,
     markAllNotificationsAsRead,
-    deleteAllNotifications
+    deleteAllNotifications,
+    registerToken,
 };

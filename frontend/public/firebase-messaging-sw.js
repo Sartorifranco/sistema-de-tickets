@@ -29,3 +29,21 @@ messaging.onBackgroundMessage((payload) => {
     };
     self.registration.showNotification(title, options);
 });
+
+self.addEventListener('notificationclick', (event) => {
+    event.notification.close();
+    const url = event.notification.data?.ticketId
+        ? `${self.location.origin}/tickets/${event.notification.data.ticketId}`
+        : self.location.origin;
+    event.waitUntil(
+        clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clientList) => {
+            for (const client of clientList) {
+                if (client.url.startsWith(self.location.origin) && 'focus' in client) {
+                    client.navigate(url);
+                    return client.focus();
+                }
+            }
+            if (clients.openWindow) return clients.openWindow(url);
+        })
+    );
+});

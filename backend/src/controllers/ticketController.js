@@ -1,5 +1,6 @@
 const asyncHandler = require('express-async-handler');
 const pool = require('../config/db');
+const { sendPushToUsers } = require('../services/pushNotificationService');
 
 // @desc    Crear un nuevo ticket y notificar a los admins/agentes
 // @route   POST /api/tickets
@@ -50,7 +51,12 @@ const createTicket = asyncHandler(async (req, res) => {
     req.io.to('admin').to('agent').emit('dashboard_update', { message: `Nuevo ticket creado #${newTicketId}` });
 
     const message = `Nuevo ticket #${newTicketId} creado por ${creatorName}: "${title}"`;
-    const [adminsAndAgents] = await pool.execute("SELECT id FROM users WHERE role IN ('admin', 'agent')");
+    const [adminsAndAgents] = await pool.execute("SELECT id FROM users WHERE role IN ('admin', 'agent') AND is_active != 0");
+
+    const adminAgentIds = adminsAndAgents.map(u => u.id).filter(id => id !== loggedInUser.id);
+    if (adminAgentIds.length > 0) {
+        sendPushToUsers(adminAgentIds, 'Nuevo Ticket Creado', `Nuevo Ticket Creado: ${title}`, { ticketId: String(newTicketId) }).catch(() => {});
+    }
 
     for (const user of adminsAndAgents) {
         if (user.id === loggedInUser.id) continue;
@@ -280,7 +286,7 @@ const updateTicketStatus = asyncHandler(async (req, res) => {
         throw new Error('No se proporcionó un nuevo estado.');
     }
 
-    const [tickets] = await pool.execute('SELECT user_id, title, status FROM tickets WHERE id = ?', [ticketId]);
+    const [tickets] = await pool.execute('SELECT user_id, assigned_to_user_id, title, status FROM tickets WHERE id = ?', [ticketId]);
     if (tickets.length === 0) {
         res.status(404);
         throw new Error('Ticket no encontrado');
@@ -302,7 +308,9 @@ const updateTicketStatus = asyncHandler(async (req, res) => {
     }
     await pool.execute(updateQuery, [newStatus, ticketId]);
 
+    const pushUserIds = [];
     if (ticket.user_id && currentUserId !== ticket.user_id) {
+        pushUserIds.push(ticket.user_id);
         const statusLabels = { open: 'abierto', 'in-progress': 'en progreso', resolved: 'resuelto', closed: 'cerrado', reopened: 'reabierto' };
         const statusLabel = statusLabels[newStatus] || newStatus;
         const message = `Tu ticket #${ticketId}: "${ticket.title}" cambió de estado a "${statusLabel}".`;
@@ -311,6 +319,14 @@ const updateTicketStatus = asyncHandler(async (req, res) => {
         if (newNotification) {
             req.io.to(`user-${ticket.user_id}`).emit('new_notification', newNotification);
         }
+    }
+    const [adminsAgents] = await pool.execute("SELECT id FROM users WHERE role IN ('admin', 'agent') AND is_active != 0");
+    adminsAgents.forEach(u => { if (u.id !== currentUserId && !pushUserIds.includes(u.id)) pushUserIds.push(u.id); });
+    if (ticket.assigned_to_user_id && ticket.assigned_to_user_id !== currentUserId && !pushUserIds.includes(ticket.assigned_to_user_id)) {
+        pushUserIds.push(ticket.assigned_to_user_id);
+    }
+    if (pushUserIds.length > 0) {
+        sendPushToUsers(pushUserIds, 'Actualización en Ticket', `Actualización en Ticket #${ticketId}`, { ticketId }).catch(() => {});
     }
 
     req.io.to('admin').to('agent').emit('dashboard_update', { message: `Estado del ticket #${ticketId} actualizado` });
@@ -390,13 +406,21 @@ const addCommentToTicket = asyncHandler(async (req, res) => {
         const [ticketRows] = await pool.execute('SELECT user_id, assigned_to_user_id, title FROM tickets WHERE id = ?', [ticketId]);
         const ticket = ticketRows[0];
         let targetUserId, message;
+        const pushUserIds = [];
 
         if (['client', 'boss', 'purchasing'].includes(commenterRole) && ticket.assigned_to_user_id) {
             targetUserId = ticket.assigned_to_user_id;
             message = `Nuevo comentario del cliente en el ticket #${ticketId}: "${ticket.title}"`;
+            pushUserIds.push(ticket.assigned_to_user_id);
+            const [adminAgentIds] = await pool.execute("SELECT id FROM users WHERE role IN ('admin', 'agent') AND is_active != 0");
+            adminAgentIds.forEach(u => { if (u.id !== commenterId && !pushUserIds.includes(u.id)) pushUserIds.push(u.id); });
         } else if (!['client', 'boss', 'purchasing'].includes(commenterRole) && ticket.user_id !== commenterId) {
             targetUserId = ticket.user_id;
             message = `Un agente ha respondido a tu ticket #${ticketId}: "${ticket.title}"`;
+            pushUserIds.push(ticket.user_id);
+            if (ticket.assigned_to_user_id && ticket.assigned_to_user_id !== commenterId && !pushUserIds.includes(ticket.assigned_to_user_id)) pushUserIds.push(ticket.assigned_to_user_id);
+            const [adminAgentIds] = await pool.execute("SELECT id FROM users WHERE role IN ('admin', 'agent') AND is_active != 0");
+            adminAgentIds.forEach(u => { if (u.id !== commenterId && !pushUserIds.includes(u.id)) pushUserIds.push(u.id); });
         }
 
         if (targetUserId) {
@@ -405,6 +429,9 @@ const addCommentToTicket = asyncHandler(async (req, res) => {
             if (newNotification) {
                 req.io.to(`user-${targetUserId}`).emit('new_notification', newNotification);
             }
+        }
+        if (pushUserIds.length > 0) {
+            sendPushToUsers(pushUserIds, 'Actualización en Ticket', `Actualización en Ticket #${ticketId}`, { ticketId }).catch(() => {});
         }
     }
     

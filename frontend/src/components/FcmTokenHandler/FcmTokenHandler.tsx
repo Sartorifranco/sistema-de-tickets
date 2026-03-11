@@ -28,7 +28,7 @@ const FcmTokenHandler: React.FC = () => {
 
                 const token = await requestNotificationPermissionAndToken();
                 if (token) {
-                    await api.put('/api/auth/me/fcm-token', { fcm_token: token });
+                    await api.post('/api/notifications/register-token', { fcmToken: token });
                     console.log('[FCM] Token enviado al backend correctamente.');
                 }
             } catch (err) {
