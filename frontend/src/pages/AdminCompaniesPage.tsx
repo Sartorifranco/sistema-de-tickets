@@ -5,13 +5,7 @@ import api from '../config/axiosConfig';
 import { useAuth } from '../context/AuthContext';
 import { Company, ApiResponseError } from '../types';
 import { isAxiosErrorTypeGuard } from '../utils/typeGuards';
-import { FaEdit, FaTrash, FaPlus, FaBuilding } from 'react-icons/fa';
-import { IconType } from 'react-icons';
-
-// ✅ CORRECCIÓN FINAL: Se llama al ícono como una función para evitar el error de tipado.
-const IconWrapper: React.FC<{ icon: IconType, className?: string }> = ({ icon, className }) => {
-    return <span className={className}>{icon({})}</span>;
-};
+import { Pencil, Trash2, Plus, Building } from 'lucide-react';
 
 const AdminCompaniesPage: React.FC = () => {
     const { user } = useAuth();
@@ -103,7 +97,7 @@ const AdminCompaniesPage: React.FC = () => {
                         className="flex-grow p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-red-500 w-full"
                     />
                     <button type="submit" className="w-full sm:w-auto bg-red-600 text-white py-3 px-6 rounded-md hover:bg-red-700 transition-colors flex items-center justify-center gap-2">
-                        {isEditing ? 'Guardar Cambios' : <><IconWrapper icon={FaPlus} /> Añadir Empresa</>}
+                        {isEditing ? 'Guardar Cambios' : <><Plus className="w-5 h-5" /> Añadir Empresa</>}
                     </button>
                     {isEditing && (
                         <button type="button" onClick={resetForm} className="w-full sm:w-auto bg-gray-500 text-white py-3 px-6 rounded-md hover:bg-gray-600 transition-colors">
@@ -122,7 +116,7 @@ const AdminCompaniesPage: React.FC = () => {
                         companies.map(company => (
                             <div key={company.id} className="flex flex-col sm:flex-row items-start sm:items-center justify-between p-4 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors gap-4">
                                 <div className="flex items-center">
-                                    <IconWrapper icon={FaBuilding} className="text-gray-400 mr-3" />
+                                    <Building className="text-gray-400 mr-3 w-5 h-5 flex-shrink-0" />
                                     <span className="font-medium text-gray-800">{company.name}</span>
                                 </div>
                                 <div className="flex items-center gap-3 self-end sm:self-center flex-shrink-0">
@@ -130,10 +124,10 @@ const AdminCompaniesPage: React.FC = () => {
                                         Gestionar Deptos.
                                     </Link>
                                     <button onClick={() => startEditing(company)} className="p-2 text-gray-600 hover:text-blue-600" title="Editar">
-                                        <IconWrapper icon={FaEdit} />
+                                        <Pencil className="w-5 h-5" />
                                     </button>
                                     <button onClick={() => handleDeleteCompany(company.id)} className="p-2 text-gray-600 hover:text-red-600" title="Eliminar">
-                                        <IconWrapper icon={FaTrash} />
+                                        <Trash2 className="w-5 h-5" />
                                     </button>
                                 </div>
                             </div>

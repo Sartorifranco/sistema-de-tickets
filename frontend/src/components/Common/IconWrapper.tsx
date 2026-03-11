@@ -1,19 +1,14 @@
 import React from 'react';
-import { IconType } from 'react-icons';
-import { IconBaseProps } from 'react-icons/lib';
+import { LucideIcon } from 'lucide-react';
 
-interface IconWrapperProps extends IconBaseProps {
-    icon: IconType;
+interface IconWrapperProps {
+    icon: LucideIcon;
+    className?: string;
+    size?: number;
 }
 
-const IconWrapper: React.FC<IconWrapperProps> = ({ icon, ...props }) => {
-    // ✅ Solución Definitiva:
-    // En lugar de tratar el ícono como un componente JSX (<Icon />),
-    // lo llamamos directamente como una función y renderizamos su resultado.
-    // Esto evita el conflicto de tipos que tu proyecto está experimentando.
-    const iconElement = icon(props);
-    
-    return <>{iconElement}</>;
+const IconWrapper: React.FC<IconWrapperProps> = ({ icon: Icon, className, size }) => {
+    return <Icon className={className} size={size} />;
 };
 
 export default IconWrapper;
