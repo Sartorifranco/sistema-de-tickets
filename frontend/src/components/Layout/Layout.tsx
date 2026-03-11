@@ -10,17 +10,8 @@ import { canAccessPurchasingModule } from '../../config/purchasingFeatureFlag';
 const iconClass = 'w-5 h-5 flex-shrink-0';
 
 const Layout: React.FC = () => {
-    const { user, logout, refreshSession } = useAuth();
+    const { user, logout } = useAuth();
     const [isSidebarOpen, setIsSidebarOpen] = useState(false);
-    const [isRefreshing, setIsRefreshing] = useState(false);
-
-    const handleRefreshSession = async () => {
-        setIsRefreshing(true);
-        const ok = await refreshSession();
-        setIsRefreshing(false);
-        if (ok) toast.success('Sesión renovada correctamente.');
-        else toast.error('No se pudo renovar. Iniciá sesión nuevamente.');
-    };
 
     const handleLogout = () => {
         logout();
@@ -134,41 +125,28 @@ const Layout: React.FC = () => {
     return (
         <>
             <FcmTokenHandler />
-        <div className="flex h-screen bg-gray-100 font-sans">
-            <aside className={`fixed inset-y-0 left-0 z-40 w-64 bg-gray-800 text-white flex flex-col shadow-lg 
+        <div className="flex h-screen overflow-hidden bg-gray-100 font-sans">
+            <aside className={`fixed inset-y-0 left-0 z-40 w-64 h-full bg-gray-800 text-white flex flex-col shadow-lg 
                                 transform transition-transform duration-300 ease-in-out 
                                 ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'} 
                                 md:relative md:translate-x-0`}>
-                <div className="p-4 flex justify-center items-center border-b border-gray-700 h-20">
+                <div className="flex-shrink-0 p-4 flex justify-center items-center border-b border-gray-700 h-20">
                     <img src="/images/logo-b-sola.png" alt="BACAR Logo" className="h-12 w-auto" />
                 </div>
-                <nav className="flex-grow p-4">
+                <nav className="flex-1 min-h-0 overflow-y-auto p-4 [scrollbar-width:none] [&::-webkit-scrollbar]:[display:none]">
                     <ul className="space-y-2">
                         {renderNavLinks()}
                     </ul>
                 </nav>
-                <div className="p-4 border-t border-gray-700 space-y-2">
-                    <button
-                        onClick={handleRefreshSession}
-                        disabled={isRefreshing}
-                        className="w-full flex items-center justify-center gap-2 p-3 rounded-lg bg-amber-600 hover:bg-amber-700 disabled:opacity-60 disabled:cursor-not-allowed text-white font-medium"
-                    >
-                        {isRefreshing ? (
-                            <>
-                                <span className="animate-spin">⟳</span> Renovando...
-                            </>
-                        ) : (
-                            <>⟳ Renovar sesión</>
-                        )}
-                    </button>
-                    <button onClick={handleLogout} className="w-full flex items-center justify-center p-3 rounded-lg bg-red-600 hover:bg-red-700">
+                <div className="flex-shrink-0 p-4 border-t border-gray-700">
+                    <button onClick={handleLogout} className="w-full flex items-center justify-center p-3 rounded-lg bg-red-600 hover:bg-red-700 text-white font-medium">
                         Cerrar Sesión
                     </button>
                 </div>
             </aside>
 
-            <div className="flex-1 flex flex-col overflow-hidden">
-                <header className="flex items-center justify-between px-6 py-4 bg-white border-b border-gray-200 shadow-sm">
+            <div className="flex-1 min-h-0 flex flex-col overflow-hidden">
+                <header className="flex-shrink-0 flex items-center justify-between px-6 py-4 bg-white border-b border-gray-200 shadow-sm">
                     <button onClick={() => setIsSidebarOpen(true)} className="md:hidden text-gray-500 focus:outline-none">
                         <svg className="h-6 w-6" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
                             <path d="M4 6H20M4 12H20M4 18H20" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
@@ -183,7 +161,7 @@ const Layout: React.FC = () => {
                     </div>
                 </header>
                 
-                <main className="flex-1 overflow-x-hidden overflow-y-auto bg-gray-100 p-4 md:p-6">
+                <main className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden bg-gray-100 p-4 md:p-6">
                     <Outlet />
                 </main>
             </div>
