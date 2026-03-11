@@ -1,17 +1,59 @@
 /**
  * Módulo de Monitoreo de Equipos en Tiempo Real
- * Consume el endpoint n8n para obtener latidos/estado de equipos.
+ * Dashboard de Control Center - Consume webhook n8n.
  */
-import React, { useState, useEffect, useCallback } from 'react';
-import { Activity } from 'lucide-react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import { Activity, Wifi, WifiOff, Server } from 'lucide-react';
 
 const MONITORING_URL = 'https://autbacar.dnsalias.com/webhook/b176be3d-9eec-4c45-a89f-94460dee1461';
 const POLL_INTERVAL_MS = 30_000;
 
+interface EquipmentItem {
+    name: string;
+    ip: string;
+    status: 'ONLINE' | 'OFFLINE';
+    packetLoss: number;
+    latencyMs: number;
+    checkedAt: string;
+}
+
+const normalizeData = (raw: unknown): EquipmentItem[] => {
+    if (Array.isArray(raw)) return raw as EquipmentItem[];
+    if (raw && typeof raw === 'object') {
+        const obj = raw as Record<string, unknown>;
+        const arr = obj.body ?? obj.data ?? obj.payload ?? obj.items ?? obj.equipos ?? obj.results;
+        if (Array.isArray(arr)) return arr as EquipmentItem[];
+    }
+    return [];
+};
+
+const formatCheckedAt = (iso: string): string => {
+    try {
+        const d = new Date(iso);
+        return d.toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false });
+    } catch {
+        return '—';
+    }
+};
+
+const getLatencyColor = (ms: number): string => {
+    if (ms > 150) return 'text-red-600 font-semibold';
+    if (ms > 50) return 'text-amber-600 font-medium';
+    return 'text-green-600';
+};
+
 const MonitoringPage: React.FC = () => {
-    const [data, setData] = useState<any>(null);
+    const [data, setData] = useState<unknown>(null);
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
+
+    const equipos = useMemo(() => normalizeData(data), [data]);
+
+    const metrics = useMemo(() => ({
+        total: equipos.length,
+        online: equipos.filter((e) => String(e?.status).toUpperCase() === 'ONLINE').length,
+        offline: equipos.filter((e) => String(e?.status).toUpperCase() === 'OFFLINE').length,
+    }), [equipos]);
 
     const fetchData = useCallback(async () => {
         try {
@@ -43,7 +85,6 @@ const MonitoringPage: React.FC = () => {
 
     useEffect(() => {
         fetchData();
-
         const interval = setInterval(fetchData, POLL_INTERVAL_MS);
         return () => clearInterval(interval);
     }, [fetchData]);
@@ -94,9 +135,93 @@ const MonitoringPage: React.FC = () => {
                     </div>
                 </div>
             ) : (
-                <pre className="bg-gray-800 text-green-400 p-4 rounded-lg overflow-auto text-sm font-mono max-h-[calc(100vh-280px)]">
-                    {data != null ? JSON.stringify(data, null, 2) : 'Sin datos'}
-                </pre>
+                <>
+                    {/* Panel de métricas */}
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-8">
+                        <div className="bg-white rounded-xl shadow-md border border-gray-200 p-5 flex items-center gap-4">
+                            <div className="p-3 bg-gray-100 rounded-lg">
+                                <Server className="w-8 h-8 text-gray-600" />
+                            </div>
+                            <div>
+                                <p className="text-sm text-gray-500 font-medium">Total de Equipos</p>
+                                <p className="text-2xl font-bold text-gray-800">{metrics.total}</p>
+                            </div>
+                        </div>
+                        <div className="bg-white rounded-xl shadow-md border border-gray-200 p-5 flex items-center gap-4">
+                            <div className="p-3 bg-green-50 rounded-lg">
+                                <Wifi className="w-8 h-8 text-green-600" />
+                            </div>
+                            <div>
+                                <p className="text-sm text-gray-500 font-medium">Equipos Online</p>
+                                <p className="text-2xl font-bold text-green-600">{metrics.online}</p>
+                            </div>
+                        </div>
+                        <div className="bg-white rounded-xl shadow-md border border-gray-200 p-5 flex items-center gap-4">
+                            <div className="p-3 bg-red-50 rounded-lg">
+                                <WifiOff className="w-8 h-8 text-red-600" />
+                            </div>
+                            <div>
+                                <p className="text-sm text-gray-500 font-medium">Equipos Offline</p>
+                                <p className="text-2xl font-bold text-red-600">{metrics.offline}</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Grilla de equipos */}
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+                        {equipos.length === 0 ? (
+                            <div className="col-span-full text-center py-16 bg-white rounded-xl shadow-md border border-gray-200">
+                                <Server className="w-16 h-16 text-gray-300 mx-auto mb-4" />
+                                <p className="text-gray-500">No hay equipos para mostrar</p>
+                            </div>
+                        ) : (
+                            equipos.map((eq, idx) => {
+                                const isOnline = String(eq?.status ?? '').toUpperCase() === 'ONLINE';
+                                const latency = typeof eq?.latencyMs === 'number' ? eq.latencyMs : 0;
+                                const packetLoss = typeof eq?.packetLoss === 'number' ? eq.packetLoss : 0;
+                                return (
+                                    <div
+                                        key={eq?.ip ?? eq?.name ?? idx}
+                                        className="bg-white rounded-xl shadow-md border border-gray-200 p-5 hover:shadow-lg transition-shadow"
+                                    >
+                                        <div className="flex items-start justify-between gap-2 mb-3">
+                                            <div className="flex items-center gap-2 min-w-0">
+                                                <span
+                                                    className={`flex-shrink-0 w-3 h-3 rounded-full animate-pulse ${
+                                                        isOnline ? 'bg-green-500' : 'bg-red-500'
+                                                    }`}
+                                                    title={isOnline ? 'Online' : 'Offline'}
+                                                />
+                                                <h3 className="font-bold text-gray-800 truncate" title={eq?.name ?? '—'}>
+                                                    {eq?.name ?? 'Sin nombre'}
+                                                </h3>
+                                            </div>
+                                        </div>
+                                        <p className="text-sm text-gray-500 font-mono mb-4">{eq?.ip ?? '—'}</p>
+                                        <div className="space-y-2 text-sm">
+                                            <div className="flex justify-between items-center">
+                                                <span className="text-gray-500">Latencia</span>
+                                                <span className={getLatencyColor(latency)}>{latency} ms</span>
+                                            </div>
+                                            <div className="flex justify-between items-center">
+                                                <span className="text-gray-500">Pérdida paquetes</span>
+                                                <span className={packetLoss > 0 ? 'text-amber-600 font-medium' : 'text-gray-700'}>
+                                                    {packetLoss}%
+                                                </span>
+                                            </div>
+                                            <div className="flex justify-between items-center pt-2 border-t border-gray-100">
+                                                <span className="text-gray-500">Última verificación</span>
+                                                <span className="text-gray-600 font-mono text-xs">
+                                                    {formatCheckedAt(eq?.checkedAt ?? '')}
+                                                </span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                );
+                            })
+                        )}
+                    </div>
+                </>
             )}
         </div>
     );
