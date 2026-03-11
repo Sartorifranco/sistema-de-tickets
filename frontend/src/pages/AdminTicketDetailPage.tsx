@@ -184,7 +184,7 @@ const AdminTicketDetailPage: React.FC = () => {
                         <div className="bg-white p-6 rounded-lg shadow-md">
                             <h2 className="text-xl font-bold text-gray-800 mb-4 border-b pb-2">Conversación</h2>
                             <div className="space-y-4 mb-6 max-h-[60vh] overflow-y-auto pr-2">
-                                {ticket.comments?.map(comment => (
+                                {ticket.comments && ticket.comments.length > 0 ? ticket.comments.map(comment => (
                                     <div key={comment.id} className={`p-4 rounded-lg ${comment.is_internal ? 'bg-yellow-50 border border-yellow-200' : 'bg-gray-50'}`}>
                                         <div className="flex justify-between items-center text-xs text-gray-500">
                                             <span className="font-bold">{comment.username || 'Sistema'}</span>
@@ -193,7 +193,9 @@ const AdminTicketDetailPage: React.FC = () => {
                                         <p className="text-gray-800 mt-2">{comment.comment_text}</p>
                                         {comment.is_internal && <span className="text-xs font-bold text-yellow-600 mt-2 block">NOTA INTERNA</span>}
                                     </div>
-                                ))}
+                                )) : (
+                                    <p className="text-center text-gray-500 py-8">No hay comentarios aún.</p>
+                                )}
                             </div>
                             {ticket.status !== 'closed' && user && <CommentForm onAddComment={handleAddComment} userRole={user.role} />}
                         </div>

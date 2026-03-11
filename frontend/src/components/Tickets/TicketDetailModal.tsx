@@ -142,12 +142,14 @@ const TicketDetailModal: React.FC<TicketDetailModalProps> = ({ isOpen, onClose, 
 
                     <h3 className="text-lg font-bold text-gray-800 mb-2 mt-6 border-t pt-4">Comentarios</h3>
                     <div className="max-h-48 overflow-y-auto border rounded-md p-2 bg-gray-50 space-y-2">
-                        {loadingComments ? <p>Cargando...</p> : comments.map((comment: TicketComment) => (
+                        {loadingComments ? <p>Cargando...</p> : comments.length > 0 ? comments.map((comment: TicketComment) => (
                             <div key={comment.id} className="p-2 bg-white rounded shadow-sm">
                                 <p className="text-sm font-semibold">{comment.user_username} <span className="text-gray-500 text-xs">- {formatLocalDate(comment.created_at)}</span></p>
                                 <p className="text-gray-800 mt-1">{comment.comment_text}</p>
                             </div>
-                        ))}
+                        )) : (
+                            <p className="text-sm text-gray-500 text-center py-4">No hay comentarios aún.</p>
+                        )}
                     </div>
 
                     <form onSubmit={handleAddComment} className="mt-4">

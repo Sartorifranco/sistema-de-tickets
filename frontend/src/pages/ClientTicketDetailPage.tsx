@@ -141,7 +141,7 @@ const ClientTicketDetailPage: React.FC = () => {
                 <div className="lg:col-span-3 bg-white p-6 rounded-lg shadow-md">
                     <h2 className="text-xl font-bold text-gray-800 mb-4 border-b pb-2">Conversación</h2>
                     <div className="space-y-4 mb-6 max-h-[50vh] overflow-y-auto pr-2">
-                        {ticket.comments &&
+                        {ticket.comments && ticket.comments.filter(c => !c.is_internal).length > 0 ? (
                             ticket.comments
                                 .filter(comment => !comment.is_internal)
                                 .map(comment => (
@@ -152,7 +152,10 @@ const ClientTicketDetailPage: React.FC = () => {
                                             <p className="text-xs text-gray-500 mt-1 text-right">{formatLocalDate(comment.created_at)}</p>
                                         </div>
                                     </div>
-                                ))}
+                                ))
+                        ) : (
+                            <p className="text-center text-gray-500 py-8">No hay comentarios aún.</p>
+                        )}
                     </div>
                     
                     {ticket.status !== 'closed' && user && <CommentForm onAddComment={handleAddComment} userRole={user.role} />}

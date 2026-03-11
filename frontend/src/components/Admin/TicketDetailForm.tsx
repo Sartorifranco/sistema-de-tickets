@@ -134,13 +134,15 @@ const TicketDetailForm: React.FC<TicketDetailFormProps> = ({ ticket, onSave, onC
                 <div className="pt-4 border-t">
                     <h3 className="text-lg font-semibold">Comentarios</h3>
                     <div className="max-h-48 overflow-y-auto my-2 space-y-2 bg-gray-50 p-2 rounded">
-                        {comments.map(comment => (
+                        {comments.length > 0 ? comments.map(comment => (
                             <div key={comment.id} className="text-sm bg-white p-2 rounded border">
                                 <p className="font-bold">{comment.user_username}</p>
                                 <p>{comment.comment_text}</p>
                                 <p className="text-xs text-gray-400 text-right">{formatLocalDate(comment.created_at)}</p>
                             </div>
-                        ))}
+                        )) : (
+                            <p className="text-sm text-gray-500 text-center py-4">No hay comentarios aún.</p>
+                        )}
                     </div>
                     <div className="flex gap-2">
                         <textarea value={newCommentText} onChange={e => setNewCommentText(e.target.value)} className="flex-grow p-2 border rounded" placeholder="Añadir comentario..."></textarea>

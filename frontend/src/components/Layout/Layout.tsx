@@ -2,9 +2,12 @@ import React, { useState } from 'react';
 import { NavLink, Outlet } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { toast } from 'react-toastify';
+import { FaHome, FaUser, FaUsers, FaBuilding, FaMapMarkerAlt, FaExclamationTriangle, FaTicketAlt, FaChartBar, FaCashRegister, FaDesktop, FaShoppingCart, FaFileInvoice, FaCheckCircle, FaPlusCircle, FaClipboardList } from 'react-icons/fa';
 import NotificationBell from '../NotificationBell/NotificationBell';
 import FcmTokenHandler from '../FcmTokenHandler/FcmTokenHandler';
 import { canAccessPurchasingModule } from '../../config/purchasingFeatureFlag';
+
+const iconClass = 'w-5 h-5 flex-shrink-0';
 
 const Layout: React.FC = () => {
     const { user, logout, refreshSession } = useAuth();
@@ -25,7 +28,7 @@ const Layout: React.FC = () => {
     };
 
     const getLinkClassName = ({ isActive }: { isActive: boolean }) =>
-        `flex items-center p-3 rounded-lg transition-colors duration-200 ${
+        `flex items-center gap-3 p-3 rounded-lg transition-colors duration-200 ${
             isActive ? 'bg-red-600 text-white shadow-md' : 'hover:bg-gray-700 text-gray-300'
         }`;
 
@@ -35,23 +38,20 @@ const Layout: React.FC = () => {
                 return (
                     <>
                         <li className="text-xs uppercase text-gray-400 mt-2 mb-2 px-3">Admin</li>
-                        <li><NavLink to="/admin" end className={getLinkClassName}>Dashboard</NavLink></li>
-                        <li><NavLink to="/profile" className={getLinkClassName}>Mi Perfil</NavLink></li>
-                        <li><NavLink to="/admin/users" className={getLinkClassName}>Usuarios</NavLink></li>
-                        <li><NavLink to="/admin/companies" className={getLinkClassName}>Empresas</NavLink></li>
-                        
-                        {/* ✅ NUEVO: Enlace a Gestión de Depositarios */}
-                        <li><NavLink to="/admin/depositarios" className={getLinkClassName}>🏧 Gestión de Depositarios</NavLink></li>
-                        <li><NavLink to="/admin/equipos" className={getLinkClassName}>🖥️ Monitoreo Equipos</NavLink></li>
-
-                        <li><NavLink to="/admin/ubicaciones" className={getLinkClassName}>Ubicaciones</NavLink></li>
-                        <li><NavLink to="/admin/problemas" className={getLinkClassName}>Problemáticas</NavLink></li>
-                        <li><NavLink to="/admin/tickets" className={getLinkClassName}>Tickets</NavLink></li>
-                        <li><NavLink to="/admin/reports" className={getLinkClassName}>Reportes</NavLink></li>
+                        <li><NavLink to="/admin" end className={getLinkClassName}><FaHome className={iconClass} />Dashboard</NavLink></li>
+                        <li><NavLink to="/profile" className={getLinkClassName}><FaUser className={iconClass} />Mi Perfil</NavLink></li>
+                        <li><NavLink to="/admin/users" className={getLinkClassName}><FaUsers className={iconClass} />Usuarios</NavLink></li>
+                        <li><NavLink to="/admin/companies" className={getLinkClassName}><FaBuilding className={iconClass} />Empresas</NavLink></li>
+                        <li><NavLink to="/admin/depositarios" className={getLinkClassName}><FaCashRegister className={iconClass} />Gestión de Depositarios</NavLink></li>
+                        <li><NavLink to="/admin/equipos" className={getLinkClassName}><FaDesktop className={iconClass} />Monitoreo Equipos</NavLink></li>
+                        <li><NavLink to="/admin/ubicaciones" className={getLinkClassName}><FaMapMarkerAlt className={iconClass} />Ubicaciones</NavLink></li>
+                        <li><NavLink to="/admin/problemas" className={getLinkClassName}><FaExclamationTriangle className={iconClass} />Problemáticas</NavLink></li>
+                        <li><NavLink to="/admin/tickets" className={getLinkClassName}><FaTicketAlt className={iconClass} />Tickets</NavLink></li>
+                        <li><NavLink to="/admin/reports" className={getLinkClassName}><FaChartBar className={iconClass} />Reportes</NavLink></li>
                         {canAccessPurchasingModule(user?.email) && (
                             <>
-                                <li><NavLink to="/purchases" end className={getLinkClassName}>🛒 Compras</NavLink></li>
-                                <li><NavLink to="/purchases/invoices" className={getLinkClassName}>📄 Facturas</NavLink></li>
+                                <li><NavLink to="/purchases" end className={getLinkClassName}><FaShoppingCart className={iconClass} />Compras</NavLink></li>
+                                <li><NavLink to="/purchases/invoices" className={getLinkClassName}><FaFileInvoice className={iconClass} />Facturas</NavLink></li>
                             </>
                         )}
                     </>
@@ -60,15 +60,13 @@ const Layout: React.FC = () => {
                 return (
                     <>
                         <li className="text-xs uppercase text-gray-400 mt-2 mb-2 px-3">Agente</li>
-                        <li><NavLink to="/agent" end className={getLinkClassName}>Dashboard</NavLink></li>
-                        <li><NavLink to="/profile" className={getLinkClassName}>Mi Perfil</NavLink></li>
-                        <li><NavLink to="/agent/tickets" className={getLinkClassName}>Mis Tickets</NavLink></li>
-                        
-                        {/* ✅ NUEVO: Enlace a Mantenimiento para Agentes */}
-                        <li><NavLink to="/agent/depositarios" className={getLinkClassName}>🏧 Mantenimiento Equipos</NavLink></li>
-                        <li><NavLink to="/agent/equipos" className={getLinkClassName}>🖥️ Monitoreo Equipos</NavLink></li>
+                        <li><NavLink to="/agent" end className={getLinkClassName}><FaHome className={iconClass} />Dashboard</NavLink></li>
+                        <li><NavLink to="/profile" className={getLinkClassName}><FaUser className={iconClass} />Mi Perfil</NavLink></li>
+                        <li><NavLink to="/agent/tickets" className={getLinkClassName}><FaTicketAlt className={iconClass} />Mis Tickets</NavLink></li>
+                        <li><NavLink to="/agent/depositarios" className={getLinkClassName}><FaCashRegister className={iconClass} />Mantenimiento Equipos</NavLink></li>
+                        <li><NavLink to="/agent/equipos" className={getLinkClassName}><FaDesktop className={iconClass} />Monitoreo Equipos</NavLink></li>
                         {canAccessPurchasingModule(user?.email) && (
-                            <li><NavLink to="/purchases" end className={getLinkClassName}>🛒 Compras</NavLink></li>
+                            <li><NavLink to="/purchases" end className={getLinkClassName}><FaShoppingCart className={iconClass} />Compras</NavLink></li>
                         )}
                     </>
                 );
@@ -77,11 +75,11 @@ const Layout: React.FC = () => {
                 return (
                     <>
                         <li className="text-xs uppercase text-gray-400 mt-2 mb-2 px-3">Cliente</li>
-                        <li><NavLink to="/client" end className={getLinkClassName}>Dashboard</NavLink></li>
-                        <li><NavLink to="/profile" className={getLinkClassName}>Mi Perfil</NavLink></li>
-                        <li><NavLink to="/client/tickets" className={getLinkClassName}>Mis Tickets</NavLink></li>
+                        <li><NavLink to="/client" end className={getLinkClassName}><FaHome className={iconClass} />Dashboard</NavLink></li>
+                        <li><NavLink to="/profile" className={getLinkClassName}><FaUser className={iconClass} />Mi Perfil</NavLink></li>
+                        <li><NavLink to="/client/tickets" className={getLinkClassName}><FaTicketAlt className={iconClass} />Mis Tickets</NavLink></li>
                         {isBacar && canAccessPurchasingModule(user?.email) && (
-                            <li><NavLink to="/purchases" end className={getLinkClassName}>🛒 Compras</NavLink></li>
+                            <li><NavLink to="/purchases" end className={getLinkClassName}><FaShoppingCart className={iconClass} />Compras</NavLink></li>
                         )}
                     </>
                 );
@@ -90,14 +88,14 @@ const Layout: React.FC = () => {
                 return (
                     <>
                         <li className="text-xs uppercase text-gray-400 mt-2 mb-2 px-3">Jefe</li>
-                        <li><NavLink to="/client" end className={getLinkClassName}>Dashboard</NavLink></li>
-                        <li><NavLink to="/profile" className={getLinkClassName}>Mi Perfil</NavLink></li>
-                        <li><NavLink to="/client/tickets" className={getLinkClassName}>Mis Tickets</NavLink></li>
+                        <li><NavLink to="/client" end className={getLinkClassName}><FaHome className={iconClass} />Dashboard</NavLink></li>
+                        <li><NavLink to="/profile" className={getLinkClassName}><FaUser className={iconClass} />Mi Perfil</NavLink></li>
+                        <li><NavLink to="/client/tickets" className={getLinkClassName}><FaTicketAlt className={iconClass} />Mis Tickets</NavLink></li>
                         {canAccessPurchasingModule(user?.email) && (
                             <>
-                                <li><NavLink to="/purchases" end className={getLinkClassName}>🛒 Mis solicitudes</NavLink></li>
-                                <li><NavLink to="/purchases/new" className={getLinkClassName}>+ Nueva solicitud</NavLink></li>
-                                <li><NavLink to="/purchases/approvals" className={getLinkClassName}>✓ Aprobar solicitudes</NavLink></li>
+                                <li><NavLink to="/purchases" end className={getLinkClassName}><FaClipboardList className={iconClass} />Mis solicitudes</NavLink></li>
+                                <li><NavLink to="/purchases/new" className={getLinkClassName}><FaPlusCircle className={iconClass} />Nueva solicitud</NavLink></li>
+                                <li><NavLink to="/purchases/approvals" className={getLinkClassName}><FaCheckCircle className={iconClass} />Aprobar solicitudes</NavLink></li>
                             </>
                         )}
                     </>
@@ -106,14 +104,14 @@ const Layout: React.FC = () => {
                 return (
                     <>
                         <li className="text-xs uppercase text-gray-400 mt-2 mb-2 px-3">Compras</li>
-                        <li><NavLink to="/client" end className={getLinkClassName}>Dashboard</NavLink></li>
-                        <li><NavLink to="/profile" className={getLinkClassName}>Mi Perfil</NavLink></li>
-                        <li><NavLink to="/client/tickets" className={getLinkClassName}>Mis Tickets</NavLink></li>
+                        <li><NavLink to="/client" end className={getLinkClassName}><FaHome className={iconClass} />Dashboard</NavLink></li>
+                        <li><NavLink to="/profile" className={getLinkClassName}><FaUser className={iconClass} />Mi Perfil</NavLink></li>
+                        <li><NavLink to="/client/tickets" className={getLinkClassName}><FaTicketAlt className={iconClass} />Mis Tickets</NavLink></li>
                         {canAccessPurchasingModule(user?.email) && (
                             <>
-                                <li><NavLink to="/purchases" end className={getLinkClassName}>🛒 Mis solicitudes</NavLink></li>
-                                <li><NavLink to="/purchases/management" className={getLinkClassName}>📋 Gestión de compras</NavLink></li>
-                                <li><NavLink to="/purchases/invoices" className={getLinkClassName}>📄 Facturas</NavLink></li>
+                                <li><NavLink to="/purchases" end className={getLinkClassName}><FaClipboardList className={iconClass} />Mis solicitudes</NavLink></li>
+                                <li><NavLink to="/purchases/management" className={getLinkClassName}><FaChartBar className={iconClass} />Gestión de compras</NavLink></li>
+                                <li><NavLink to="/purchases/invoices" className={getLinkClassName}><FaFileInvoice className={iconClass} />Facturas</NavLink></li>
                             </>
                         )}
                     </>
@@ -122,9 +120,9 @@ const Layout: React.FC = () => {
                 return (
                     <>
                         <li className="text-xs uppercase text-gray-400 mt-2 mb-2 px-3">Proveedor</li>
-                        <li><NavLink to="/profile" className={getLinkClassName}>Mi Perfil</NavLink></li>
+                        <li><NavLink to="/profile" className={getLinkClassName}><FaUser className={iconClass} />Mi Perfil</NavLink></li>
                         {canAccessPurchasingModule(user?.email) && (
-                            <li><NavLink to="/purchases" end className={getLinkClassName}>🛒 Presupuestos</NavLink></li>
+                            <li><NavLink to="/purchases" end className={getLinkClassName}><FaClipboardList className={iconClass} />Presupuestos</NavLink></li>
                         )}
                     </>
                 );
