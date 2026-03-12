@@ -45,6 +45,12 @@ app.use(cors(corsOptions));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
+// FUERZA BRUTA: ruta directa para verificar que el servidor responde (ANTES de routers y catch-all)
+app.post('/api/notifications/register-token', async (req, res) => {
+    console.log('✅ [URGENTE] ¡Endpoint alcanzado! Token recibido:', req.body);
+    return res.status(200).json({ success: true, message: 'Ruta funcionando' });
+});
+
 // CRÍTICO: /api/notifications lo más arriba posible para register-token (evitar 404)
 const notificationRoutes = require('./routes/notificationRoutes');
 app.use('/api/notifications', notificationRoutes);
