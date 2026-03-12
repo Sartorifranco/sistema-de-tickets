@@ -1,10 +1,14 @@
 /**
- * Botón para activar notificaciones Web Push (requiere User Gesture)
+ * Botón interactivo para activar notificaciones Web Push (requiere User Gesture)
+ * Estados según Notification.permission: default | granted | denied
  */
 import React, { useState } from 'react';
-import { Bell, BellRing, CheckCircle } from 'lucide-react';
+import { Bell, BellRing } from 'lucide-react';
 import { toast } from 'react-toastify';
 import { subscribeUserToPush } from '../../utils/pushNotifications';
+
+const baseButtonClass =
+    'flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium cursor-pointer transition-all duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-offset-2';
 
 const PushNotificationButton: React.FC = () => {
     const [loading, setLoading] = useState(false);
@@ -13,8 +17,14 @@ const PushNotificationButton: React.FC = () => {
     );
 
     const handleClick = async () => {
-        if (permission === 'denied') return;
-        if (permission === 'granted') return;
+        if (permission === 'granted') {
+            toast.info('Las notificaciones ya están configuradas en este dispositivo.');
+            return;
+        }
+        if (permission === 'denied') {
+            toast.warn('Por favor, haz clic en el candado junto a la URL para permitir las notificaciones.');
+            return;
+        }
 
         setLoading(true);
         try {
@@ -34,30 +44,44 @@ const PushNotificationButton: React.FC = () => {
 
     if (typeof Notification === 'undefined') return null;
 
+    // ESTADO ACEPTADO ('granted')
     if (permission === 'granted') {
         return (
-            <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-green-50 text-green-700 border border-green-200">
+            <button
+                type="button"
+                onClick={handleClick}
+                className={`${baseButtonClass} bg-green-100 text-green-800 border border-green-300 hover:bg-green-200 focus:ring-green-500`}
+                aria-label="Notificaciones activadas"
+            >
                 <BellRing className="w-5 h-5 flex-shrink-0" />
-                <span className="text-sm font-medium hidden sm:inline">Notificaciones Activadas</span>
-                <CheckCircle className="w-4 h-4 text-green-600 sm:hidden" />
-            </div>
+                <span className="hidden sm:inline">Notificaciones Activadas</span>
+            </button>
         );
     }
 
+    // ESTADO BLOQUEADO ('denied')
     if (permission === 'denied') {
         return (
-            <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-amber-50 text-amber-800 border border-amber-200" title="Habilitar desde el candado del navegador">
+            <button
+                type="button"
+                onClick={handleClick}
+                className={`${baseButtonClass} bg-red-50 text-red-700 border border-red-200 hover:bg-red-100 focus:ring-red-500`}
+                aria-label="Notificaciones bloqueadas"
+            >
                 <Bell className="w-5 h-5 flex-shrink-0" />
-                <span className="text-sm font-medium hidden sm:inline">Habilitar desde el candado del navegador</span>
-            </div>
+                <span className="hidden sm:inline">Notificaciones Bloqueadas</span>
+            </button>
         );
     }
 
+    // ESTADO POR DEFECTO ('default')
     return (
         <button
+            type="button"
             onClick={handleClick}
             disabled={loading}
-            className="flex items-center gap-2 px-3 py-2 rounded-lg bg-red-600 hover:bg-red-700 text-white text-sm font-medium transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
+            className={`${baseButtonClass} bg-white text-blue-700 border border-blue-300 hover:bg-blue-50 hover:border-blue-400 focus:ring-blue-500 disabled:opacity-60 disabled:cursor-not-allowed`}
+            aria-label="Activar notificaciones"
         >
             <Bell className="w-5 h-5 flex-shrink-0" />
             <span className="hidden sm:inline">{loading ? 'Activando...' : 'Activar Notificaciones'}</span>
