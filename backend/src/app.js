@@ -45,6 +45,10 @@ app.use(cors(corsOptions));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
+// CRÍTICO: /api/notifications lo más arriba posible para register-token (evitar 404)
+const notificationRoutes = require('./routes/notificationRoutes');
+app.use('/api/notifications', notificationRoutes);
+
 // Servir archivos estáticos
 app.use('/uploads', express.static(path.join(__dirname, '../uploads')));
 
@@ -68,7 +72,6 @@ const authRoutes = require('./routes/authRoutes');
 const userRoutes = require('./routes/userRoutes');
 const ticketRoutes = require('./routes/ticketRoutes');
 const departmentRoutes = require('./routes/departmentRoutes');
-const notificationRoutes = require('./routes/notificationRoutes');
 const dashboardRoutes = require('./routes/dashboardRoutes');
 const reportRoutes = require('./routes/reportRoutes');
 const companyRoutes = require('./routes/companyRoutes');
@@ -78,9 +81,6 @@ const { startCronJobs } = require('./services/cronJobs');
 const { startPurchaseCrons } = require('./cron/purchaseCron');
 
 // --- 6. DEFINICIÓN DE ENDPOINTS (API) ---
-// CRÍTICO: /api/notifications PRIMERO (antes de catch-all y static) para register-token, subscribe, test
-app.use('/api/notifications', notificationRoutes);
-console.log('[Routes] /api/notifications montado (register-token, subscribe, test, etc.)');
 app.use('/api/auth', authRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/tickets', ticketRoutes);
@@ -123,6 +123,7 @@ io.on('connection', (socket) => {
 });
 
 // --- 8. SERVIR FRONTEND (PRODUCCIÓN) ---
+// NOTA: app.use('/api/notifications', ...) está ARRIBA para que POST /register-token no caiga aquí
 app.use(express.static(path.join(__dirname, '../../frontend/build')));
 app.get('*', (req, res) => {
   if (req.url.startsWith('/api')) {
