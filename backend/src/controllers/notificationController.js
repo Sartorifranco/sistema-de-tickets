@@ -38,6 +38,7 @@ const subscribeWebPush = asyncHandler(async (req, res) => {
 // @route   POST /api/notifications/register-token
 // @access  Private
 const registerToken = asyncHandler(async (req, res) => {
+    console.log('🚨 [REGISTER-TOKEN] Endpoint alcanzado por el usuario:', req.user?.id);
     const { fcmToken } = req.body;
     if (!fcmToken || typeof fcmToken !== 'string') {
         res.status(400);
