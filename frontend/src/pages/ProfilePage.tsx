@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '../context/AuthContext';
 import api from '../config/axiosConfig';
 import { toast } from 'react-toastify';
+import PushNotificationButton from '../components/PushNotificationButton/PushNotificationButton';
 
 const ProfilePage: React.FC = () => {
     const { user } = useAuth();
@@ -201,6 +202,12 @@ const ProfilePage: React.FC = () => {
                     </div>
                 </div>
             )}
+
+            <div className="bg-white p-6 rounded-lg shadow-lg">
+                <h2 className="text-xl font-semibold mb-4 text-gray-700">Notificaciones Push</h2>
+                <p className="text-sm text-gray-600 mb-4">Activa las notificaciones para recibir alertas incluso con el navegador cerrado.</p>
+                <PushNotificationButton />
+            </div>
 
             {canEditNotificationPrefs && (
                 <div className="bg-white p-6 rounded-lg shadow-lg">

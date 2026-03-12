@@ -5,7 +5,7 @@ import { toast } from 'react-toastify';
 import { Home, User, Users, Building, MapPin, AlertTriangle, Ticket, BarChart3, Landmark, Monitor, Activity, ShoppingCart, FileText, CheckCircle, PlusCircle, ClipboardList } from 'lucide-react';
 import NotificationBell from '../NotificationBell/NotificationBell';
 import FcmTokenHandler from '../FcmTokenHandler/FcmTokenHandler';
-import WebPushHandler from '../WebPushHandler/WebPushHandler';
+import PushNotificationButton from '../PushNotificationButton/PushNotificationButton';
 import { canAccessPurchasingModule } from '../../config/purchasingFeatureFlag';
 
 const iconClass = 'w-5 h-5 flex-shrink-0';
@@ -128,7 +128,6 @@ const Layout: React.FC = () => {
     return (
         <>
             <FcmTokenHandler />
-            <WebPushHandler />
         <div className="flex h-screen overflow-hidden bg-gray-100 font-sans">
             <aside className={`fixed inset-y-0 left-0 z-40 w-64 h-full bg-gray-800 text-white flex flex-col shadow-lg 
                                 transform transition-transform duration-300 ease-in-out 
@@ -157,7 +156,8 @@ const Layout: React.FC = () => {
                         </svg>
                     </button>
 
-                    <div className="flex items-center space-x-4 ml-auto">
+                    <div className="flex items-center gap-3 ml-auto">
+                        <PushNotificationButton />
                         <span className="text-md font-semibold text-gray-700 hidden sm:block">
                             Bienvenido, {user?.username || 'Invitado'}!
                         </span>
