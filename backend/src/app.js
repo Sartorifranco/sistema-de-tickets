@@ -79,10 +79,10 @@ const { startPurchaseCrons } = require('./cron/purchaseCron');
 
 // --- 6. DEFINICIÓN DE ENDPOINTS (API) ---
 app.use('/api/auth', authRoutes);
+app.use('/api/notifications', notificationRoutes); // POST /api/notifications/subscribe - PRIMERO para evitar 404
 app.use('/api/users', userRoutes);
 app.use('/api/tickets', ticketRoutes);
 app.use('/api/departments', departmentRoutes);
-app.use('/api/notifications', notificationRoutes);
 app.use('/api/dashboard', dashboardRoutes);
 app.use('/api/reports', reportRoutes);
 app.use('/api/companies', companyRoutes);

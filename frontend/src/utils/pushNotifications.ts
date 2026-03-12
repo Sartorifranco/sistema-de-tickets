@@ -3,8 +3,6 @@
  */
 import api from '../config/axiosConfig';
 
-const VAPID_PUBLIC_KEY = 'BFGJT3QJNAj6Zibb8ZNCvXJMo4pqQvz0jqdu2gJvmb_HN2hrwYF0i7RA8rNt7cU30qt3Ij8RIBhlusSIKluF3ig';
-
 function urlBase64ToUint8Array(base64String: string): Uint8Array {
     const padding = '='.repeat((4 - (base64String.length % 4)) % 4);
     const base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');
@@ -16,38 +14,36 @@ function urlBase64ToUint8Array(base64String: string): Uint8Array {
     return outputArray;
 }
 
-export async function subscribeUserToPush(): Promise<boolean> {
-    if (typeof window === 'undefined' || !('serviceWorker' in navigator) || !('PushManager' in window)) {
-        console.warn('[WebPush] Navegador no soporta Service Worker o PushManager');
-        return false;
+export const subscribeUserToPush = async () => {
+    if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
+        throw new Error('El navegador no soporta notificaciones Push.');
     }
 
     try {
+        // 1. Registrar y ESPERAR a que el SW esté activo
         const registration = await navigator.serviceWorker.register('/sw.js');
         await navigator.serviceWorker.ready;
 
-        const permission = await Notification.requestPermission();
-        if (permission !== 'granted') {
-            console.warn('[WebPush] Permiso de notificaciones denegado');
-            return false;
+        // 2. Comprobar si ya existe una suscripción
+        let subscription = await registration.pushManager.getSubscription();
+
+        if (!subscription) {
+            // 3. Suscribir si no existe
+            const publicVapidKey = process.env.REACT_APP_VAPID_PUBLIC_KEY;
+            if (!publicVapidKey) throw new Error('VAPID Key no configurada');
+
+            subscription = await registration.pushManager.subscribe({
+                userVisibleOnly: true,
+                applicationServerKey: urlBase64ToUint8Array(publicVapidKey),
+            });
         }
 
-        const subscription = await registration.pushManager.subscribe({
-            userVisibleOnly: true,
-            applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY),
-        });
-
+        // 4. Enviar al backend (subscription.toJSON() para serialización correcta)
         const subJson = subscription.toJSON();
-        await api.post('/api/notifications/subscribe', {
-            subscription: subJson,
-            endpoint: subscription.endpoint,
-            keys: subJson.keys,
-        });
-
-        console.log('[WebPush] Suscripción enviada al backend');
-        return true;
-    } catch (err) {
-        console.error('[WebPush] Error al suscribir:', err);
-        return false;
+        await api.post('/api/notifications/subscribe', subJson);
+        return subscription;
+    } catch (error) {
+        console.error('[WebPush] Error al suscribir:', error);
+        throw error;
     }
-}
+};

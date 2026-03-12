@@ -28,13 +28,9 @@ const PushNotificationButton: React.FC = () => {
 
         setLoading(true);
         try {
-            const ok = await subscribeUserToPush();
+            await subscribeUserToPush();
             setPermission(typeof Notification !== 'undefined' ? Notification.permission : null);
-            if (ok) {
-                toast.success('Notificaciones activadas correctamente.');
-            } else {
-                toast.warn('No se pudieron activar las notificaciones.');
-            }
+            toast.success('Notificaciones activadas correctamente.');
         } catch {
             toast.error('Error al activar notificaciones.');
         } finally {
