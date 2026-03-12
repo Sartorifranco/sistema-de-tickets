@@ -1,12 +1,14 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import { toast } from 'react-toastify';
+import { LayoutGrid, List } from 'lucide-react';
 import api from '../config/axiosConfig';
 import { useAuth } from '../context/AuthContext';
 import { TicketData, User, Department, Company, TicketStatus } from '../types';
 import TicketFormModal from '../components/Tickets/TicketFormModal';
 import StatusBadge from '../components/Tickets/StatusBadge';
-import { formatLocalDate } from '../utils/dateFormatter'; // Importar formateador de fecha
+import KanbanBoard from '../components/Tickets/KanbanBoard';
+import { formatLocalDate } from '../utils/dateFormatter';
 
 // Interfaces para los datos de los filtros
 interface FilterData {
@@ -14,10 +16,13 @@ interface FilterData {
     agents: User[];
 }
 
+type ViewMode = 'table' | 'kanban';
+
 const AdminTicketsPage: React.FC = () => {
     const { user } = useAuth();
     const [tickets, setTickets] = useState<TicketData[]>([]);
     const [loading, setLoading] = useState(true);
+    const [viewMode, setViewMode] = useState<ViewMode>('table');
     
     // Estados para el modal
     const [isModalOpen, setIsModalOpen] = useState(false);
@@ -98,6 +103,22 @@ const AdminTicketsPage: React.FC = () => {
         setFilters({ companyId: '', agentId: '', status: '', priority: '', startDate: '', endDate: '' });
     };
     
+    const handleUpdateTicketStatus = useCallback(async (ticketId: number, newStatus: TicketStatus) => {
+        setTickets((prev) => {
+            const updated = prev.map((t) => (t.id === ticketId ? { ...t, status: newStatus } : t));
+            return updated;
+        });
+        const prevTickets = tickets;
+        try {
+            await api.put(`/api/tickets/${ticketId}/status`, { status: newStatus });
+            toast.success('Estado actualizado correctamente.');
+        } catch (err: unknown) {
+            setTickets(prevTickets);
+            const msg = (err as { response?: { data?: { message?: string } } })?.response?.data?.message;
+            toast.error(msg || 'Error al actualizar el estado del ticket.');
+        }
+    }, [tickets]);
+
     const handleSaveTicket = async (ticketData: Partial<TicketData>, attachments: File[]) => {
         try {
             const formData = new FormData();
@@ -123,11 +144,35 @@ const AdminTicketsPage: React.FC = () => {
     return (
         <>
             <div className="container mx-auto p-4 sm:p-6 lg:p-8">
-                <div className="flex justify-between items-center mb-6">
+                <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
                     <h1 className="text-3xl font-bold text-gray-800">Panel de Tickets</h1>
-                    <button onClick={() => setIsModalOpen(true)} className="bg-red-600 hover:bg-red-700 text-white font-bold py-2 px-4 rounded-lg">
-                        Crear Nuevo Ticket
-                    </button>
+                    <div className="flex items-center gap-3">
+                        <div className="flex bg-gray-200 rounded-lg p-1">
+                            <button
+                                onClick={() => setViewMode('table')}
+                                className={`flex items-center gap-2 px-3 py-2 rounded-md transition-colors ${
+                                    viewMode === 'table' ? 'bg-white shadow text-gray-800' : 'text-gray-600 hover:text-gray-800'
+                                }`}
+                                title="Vista tabla"
+                            >
+                                <List className="w-5 h-5" />
+                                <span className="hidden sm:inline text-sm font-medium">Tabla</span>
+                            </button>
+                            <button
+                                onClick={() => setViewMode('kanban')}
+                                className={`flex items-center gap-2 px-3 py-2 rounded-md transition-colors ${
+                                    viewMode === 'kanban' ? 'bg-white shadow text-gray-800' : 'text-gray-600 hover:text-gray-800'
+                                }`}
+                                title="Vista Kanban"
+                            >
+                                <LayoutGrid className="w-5 h-5" />
+                                <span className="hidden sm:inline text-sm font-medium">Kanban</span>
+                            </button>
+                        </div>
+                        <button onClick={() => setIsModalOpen(true)} className="bg-red-600 hover:bg-red-700 text-white font-bold py-2 px-4 rounded-lg">
+                            Crear Nuevo Ticket
+                        </button>
+                    </div>
                 </div>
 
                 <div className="bg-white p-4 rounded-lg shadow-md mb-6">
@@ -173,6 +218,8 @@ const AdminTicketsPage: React.FC = () => {
                         <div className="text-center py-8">Cargando tickets...</div>
                     ) : tickets.length === 0 ? (
                         <div className="text-center text-gray-500 py-8">No se encontraron tickets con los filtros seleccionados.</div>
+                    ) : viewMode === 'kanban' ? (
+                        <KanbanBoard tickets={tickets} onUpdateTicketStatus={handleUpdateTicketStatus} />
                     ) : (
                         <table className="min-w-full divide-y divide-gray-200">
                             <thead className="bg-gray-50">
