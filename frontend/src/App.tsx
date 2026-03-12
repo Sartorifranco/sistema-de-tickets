@@ -5,6 +5,7 @@ import 'react-toastify/dist/ReactToastify.css';
 import io from 'socket.io-client';
 
 import { AuthProvider, AuthContext } from './context/AuthContext';
+import { API_BASE_URL } from './config/axiosConfig';
 import { NotificationProvider } from './context/NotificationContext';
 import Layout from './components/Layout/Layout';
 
@@ -56,11 +57,7 @@ const SocketConnectionManager: React.FC<{ children: React.ReactNode }> = ({ chil
 
     useEffect(() => {
         if (isAuthenticated && token) {
-            const apiPort = process.env.REACT_APP_API_PORT || '5040';
-            const explicitUrl = process.env.REACT_APP_BACKEND_URL;
-            const currentHost = window.location.hostname;
-            const isHttps = window.location.protocol === 'https:';
-            const socketUrl = explicitUrl || (isHttps ? `https://${currentHost}` : `http://${currentHost}:${apiPort}`);
+            const socketUrl = API_BASE_URL;
 
             const newSocket = io(socketUrl, {
                 auth: { token },

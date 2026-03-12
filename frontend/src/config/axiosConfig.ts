@@ -1,11 +1,33 @@
 import axios, { InternalAxiosRequestConfig, AxiosError } from 'axios';
 
-const apiPort = process.env.REACT_APP_API_PORT || '5040';
-const explicitUrl = process.env.REACT_APP_BACKEND_URL;
-const currentHost = window.location.hostname;
-const isHttps = window.location.protocol === 'https:';
-// Producción (HTTPS): mismo origen sin puerto (proxy reverso). Desarrollo: http + puerto.
-const API_BASE_URL = explicitUrl || (isHttps ? `https://${currentHost}` : `http://${currentHost}:${apiPort}`);
+const PRODUCTION_HOST = 'bacarsa.dyndns.org';
+const PRODUCTION_URL = `https://${PRODUCTION_HOST}`;
+
+function getApiBaseUrl(): string {
+    const currentHost = typeof window !== 'undefined' ? window.location.hostname : '';
+    const explicitUrl = process.env.REACT_APP_BACKEND_URL;
+
+    // Producción: siempre https://bacarsa.dyndns.org (sin puerto)
+    if (currentHost === PRODUCTION_HOST) return PRODUCTION_URL;
+    if (explicitUrl && (explicitUrl.includes(PRODUCTION_HOST) || explicitUrl.includes('bacarsa'))) {
+        return PRODUCTION_URL;
+    }
+
+    // Si hay URL explícita, normalizar: https y sin puerto 5040
+    if (explicitUrl) {
+        let url = explicitUrl.trim();
+        if (url.startsWith('http://')) url = 'https://' + url.slice(7);
+        url = url.replace(/:5040\/?$/, '').replace(/:5040$/, '');
+        return url;
+    }
+
+    // Desarrollo local
+    const apiPort = process.env.REACT_APP_API_PORT || '5040';
+    const isHttps = typeof window !== 'undefined' && window.location.protocol === 'https:';
+    return isHttps ? `https://${currentHost}` : `http://${currentHost}:${apiPort}`;
+}
+
+const API_BASE_URL = getApiBaseUrl();
 
 console.log(`[Axios] Configurado apuntando a: ${API_BASE_URL}`);
 export { API_BASE_URL };
