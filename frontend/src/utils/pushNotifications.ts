@@ -23,12 +23,8 @@ export async function subscribeUserToPush(): Promise<boolean> {
     }
 
     try {
-        const registration = await navigator.serviceWorker.getRegistration('/sw.js');
-        let swRegistration = registration;
-        if (!swRegistration) {
-            swRegistration = await navigator.serviceWorker.register('/sw.js');
-            await navigator.serviceWorker.ready;
-        }
+        const registration = await navigator.serviceWorker.register('/sw.js');
+        await navigator.serviceWorker.ready;
 
         const permission = await Notification.requestPermission();
         if (permission !== 'granted') {
@@ -36,7 +32,7 @@ export async function subscribeUserToPush(): Promise<boolean> {
             return false;
         }
 
-        const subscription = await swRegistration.pushManager.subscribe({
+        const subscription = await registration.pushManager.subscribe({
             userVisibleOnly: true,
             applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY),
         });

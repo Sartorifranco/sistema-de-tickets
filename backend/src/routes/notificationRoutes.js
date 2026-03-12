@@ -19,8 +19,9 @@ const {
 
 router.use(authenticateToken);
 
-router.post('/register-token', registerToken);
+// Rutas POST primero (evitar conflicto con /:id)
 router.post('/subscribe', subscribeWebPush);
+router.post('/register-token', registerToken);
 router.get('/config-status', authorize(['admin', 'purchasing']), getConfigStatus);
 router.get('/whatsapp-help', authorize(['admin', 'purchasing', 'supplier', 'boss']), getWhatsAppHelp);
 router.post('/test-whatsapp', testWhatsApp);
