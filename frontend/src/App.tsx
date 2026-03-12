@@ -59,7 +59,8 @@ const SocketConnectionManager: React.FC<{ children: React.ReactNode }> = ({ chil
             const apiPort = process.env.REACT_APP_API_PORT || '5040';
             const explicitUrl = process.env.REACT_APP_BACKEND_URL;
             const currentHost = window.location.hostname;
-            const socketUrl = explicitUrl || `http://${currentHost}:${apiPort}`;
+            const isHttps = window.location.protocol === 'https:';
+            const socketUrl = explicitUrl || (isHttps ? `https://${currentHost}` : `http://${currentHost}:${apiPort}`);
 
             const newSocket = io(socketUrl, {
                 auth: { token },
@@ -90,6 +91,8 @@ const App: React.FC = () => {
             <AuthProvider>
                 <SocketConnectionManager>
                     <Routes>
+                        {/* Redirección raíz a login */}
+                        <Route path="/" element={<Navigate to="/login" replace />} />
                         {/* Rutas públicas sin Layout */}
                         <Route path="/login" element={<LoginPage />} />
                         <Route path="/register" element={<RegisterPage />} />
@@ -100,7 +103,6 @@ const App: React.FC = () => {
 
                         {/* Rutas privadas que usan el Layout */}
                         <Route element={<Layout />}>
-                            <Route path="/" element={<Navigate to="/profile" replace />} />
                             <Route path="/profile" element={<PrivateRoute><ProfilePage /></PrivateRoute>} />
 
                             {/* Rutas de Admin */}

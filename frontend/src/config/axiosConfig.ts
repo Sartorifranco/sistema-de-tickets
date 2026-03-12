@@ -3,7 +3,9 @@ import axios, { InternalAxiosRequestConfig, AxiosError } from 'axios';
 const apiPort = process.env.REACT_APP_API_PORT || '5040';
 const explicitUrl = process.env.REACT_APP_BACKEND_URL;
 const currentHost = window.location.hostname;
-const API_BASE_URL = explicitUrl || `http://${currentHost}:${apiPort}`;
+const isHttps = window.location.protocol === 'https:';
+// Producción (HTTPS): mismo origen sin puerto (proxy reverso). Desarrollo: http + puerto.
+const API_BASE_URL = explicitUrl || (isHttps ? `https://${currentHost}` : `http://${currentHost}:${apiPort}`);
 
 console.log(`[Axios] Configurado apuntando a: ${API_BASE_URL}`);
 export { API_BASE_URL };
