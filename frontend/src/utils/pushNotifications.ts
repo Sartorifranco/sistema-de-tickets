@@ -20,15 +20,20 @@ export const subscribeUserToPush = async () => {
     }
 
     try {
-        // 1. Registrar y ESPERAR a que el SW esté activo
+        // 1. PEDIR PERMISO EXPLÍCITO PRIMERO
+        const permission = await Notification.requestPermission();
+        if (permission !== 'granted') {
+            throw new Error('Permiso de notificaciones denegado por el usuario.');
+        }
+
+        // 2. Si dio permiso, registramos el Service Worker
         const registration = await navigator.serviceWorker.register('/sw.js');
         await navigator.serviceWorker.ready;
 
-        // 2. Comprobar si ya existe una suscripción
+        // 3. Obtener suscripción existente o crear una nueva
         let subscription = await registration.pushManager.getSubscription();
 
         if (!subscription) {
-            // 3. Suscribir si no existe
             const publicVapidKey = process.env.REACT_APP_VAPID_PUBLIC_KEY;
             if (!publicVapidKey) throw new Error('VAPID Key no configurada');
 
