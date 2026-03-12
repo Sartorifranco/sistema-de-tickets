@@ -7,6 +7,7 @@ require('dotenv').config();
 const nodemailer = require('nodemailer');
 const pool = require('../config/db');
 const { admin } = require('../config/firebase');
+const { sendWebPushToUsers } = require('./webPushService');
 
 let twilioClient = null;
 const twilioFrom = process.env.TWILIO_WHATSAPP_FROM || 'whatsapp:+14155238886';
@@ -318,6 +319,7 @@ const notifyUserWithPrefs = async (userId, { emailTemplate, emailData, pushTitle
     }
     if (prefs.push_enabled && pushTitle && pushBody) {
         promises.push(sendPushToUser(userId, pushTitle, pushBody));
+        promises.push(sendWebPushToUsers([userId], pushTitle, pushBody, {}).catch(() => {}));
     }
     if (prefs.whatsapp_number && whatsappMessage) {
         setImmediate(() => sendWhatsApp(prefs.whatsapp_number, whatsappMessage).catch(() => {}));
@@ -335,6 +337,7 @@ const notifyUser = async (userId, { emailTo, emailTemplate, emailData, pushTitle
     }
     if (pushTitle && pushBody) {
         promises.push(sendPushToUser(userId, pushTitle, pushBody));
+        promises.push(sendWebPushToUsers([userId], pushTitle, pushBody, {}).catch(() => {}));
     }
     if (promises.length > 0) {
         Promise.all(promises).catch(() => {});

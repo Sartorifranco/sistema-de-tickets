@@ -105,19 +105,15 @@ export const NotificationProvider: React.FC<{ children: ReactNode; socket?: Sock
     useEffect(() => {
         if (socket) { 
             const handleNewNotification = (notification: Notification) => {
-                toast.info(`🔔 ${notification.message}`);
-                
                 setNotifications((prev: Notification[]) => [notification, ...prev]); 
                 setUnreadCount((prev) => prev + 1);
             };
 
-            const handleDashboardUpdate = (data: { message: string }) => {
-                toast.info(`🔔 ${data?.message || 'Actualización'}`);
+            const handleDashboardUpdate = () => {
                 fetchNotifications();
             };
 
-            const handleLegacyNotification = (payload?: { message?: string }) => {
-                if (payload?.message) toast.info(`🔔 ${payload.message}`);
+            const handleLegacyNotification = () => {
                 fetchNotifications();
             };
 

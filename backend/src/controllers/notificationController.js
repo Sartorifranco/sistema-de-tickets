@@ -3,28 +3,30 @@ const pool = require('../config/db');
 const { logActivity } = require('../services/activityLogService');
 const { getNotificationConfigStatus, sendTestWhatsApp, sendTestEmail, getUserNotificationPrefs } = require('../services/notificationService');
 
-// Almacén temporal en memoria para suscripciones Web Push (para pruebas)
-const webPushSubscriptions = [];
-
-// @desc    Suscribir usuario a Web Push nativas
+// @desc    Suscribir usuario a Web Push nativas (guarda PushSubscription en BD)
 // @route   POST /api/notifications/subscribe
 // @access  Private
 const subscribeWebPush = asyncHandler(async (req, res) => {
     const { subscription, endpoint, keys } = req.body;
-    if (!subscription || !endpoint) {
+    const sub = subscription || {};
+    const endpointUrl = endpoint || sub.endpoint;
+    const k = keys || sub.keys || {};
+    const p256dh = k.p256dh || k.p256dh;
+    const auth = k.auth;
+
+    if (!endpointUrl || !p256dh || !auth) {
         res.status(400);
-        throw new Error('Se requiere subscription y endpoint.');
+        throw new Error('Se requiere subscription con endpoint y keys (p256dh, auth).');
     }
     const userId = req.user.id;
-    const subData = {
-        userId,
-        subscription,
-        endpoint,
-        keys: keys || subscription.keys,
-        createdAt: new Date().toISOString(),
-    };
-    webPushSubscriptions.push(subData);
-    console.log('[WebPush] Suscripción recibida:', { userId, endpoint, total: webPushSubscriptions.length });
+
+    await pool.execute(
+        `INSERT INTO user_web_push_subscriptions (user_id, endpoint, p256dh, auth)
+         VALUES (?, ?, ?, ?)
+         ON DUPLICATE KEY UPDATE user_id = VALUES(user_id), p256dh = VALUES(p256dh), auth = VALUES(auth), created_at = NOW()`,
+        [userId, endpointUrl, p256dh, auth]
+    );
+    console.log('[WebPush] Suscripción guardada en BD:', { userId, endpoint: endpointUrl.substring(0, 60) + '...' });
     res.status(200).json({
         success: true,
         message: 'Suscripción Web Push registrada.',

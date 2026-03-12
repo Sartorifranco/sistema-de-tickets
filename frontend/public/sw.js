@@ -1,28 +1,31 @@
 /**
- * Service Worker para Web Push nativas
- * Escucha el evento 'push' y muestra notificaciones.
+ * Service Worker para Web Push nativas del SO.
+ * Solo usa self.registration.showNotification() - sin DOM ni librerías UI.
  */
 self.addEventListener('push', (event) => {
-    let data = { title: 'Nueva notificación', body: '', icon: '/logo192.png', url: '/' };
+    let title = 'Nueva notificación';
+    let body = '';
+    let icon = '/logo192.png';
+    let url = '/';
+
     if (event.data) {
         try {
             const json = event.data.json();
-            data = {
-                title: json.title || json.notification?.title || data.title,
-                body: json.body || json.notification?.body || json.message || data.body,
-                icon: json.icon || json.notification?.icon || data.icon,
-                url: json.url || json.data?.url || data.url,
-            };
+            title = json.title || json.notification?.title || title;
+            body = json.body || json.notification?.body || json.message || body;
+            icon = json.icon || json.notification?.icon || icon;
+            url = json.url || json.data?.url || json.data?.ticketId ? `/admin/tickets/${json.data.ticketId}` : url;
         } catch {
-            data.body = event.data.text() || data.body;
+            body = event.data.text() || body;
         }
     }
+
     const options = {
-        body: data.body,
-        icon: data.icon,
-        data: { url: data.url },
+        body,
+        icon,
+        data: { url },
     };
-    event.waitUntil(self.registration.showNotification(data.title, options));
+    event.waitUntil(self.registration.showNotification(title, options));
 });
 
 self.addEventListener('notificationclick', (event) => {

@@ -1,6 +1,7 @@
 const asyncHandler = require('express-async-handler');
 const pool = require('../config/db');
 const { sendPushToUsers } = require('../services/pushNotificationService');
+const { sendWebPushToUsers } = require('../services/webPushService');
 
 // @desc    Crear un nuevo ticket y notificar a los admins/agentes
 // @route   POST /api/tickets
@@ -56,6 +57,7 @@ const createTicket = asyncHandler(async (req, res) => {
     const adminAgentIds = adminsAndAgents.map(u => u.id).filter(id => id !== loggedInUser.id);
     if (adminAgentIds.length > 0) {
         sendPushToUsers(adminAgentIds, 'Nuevo Ticket Creado', `Nuevo Ticket Creado: ${title}`, { ticketId: String(newTicketId) }).catch(() => {});
+        sendWebPushToUsers(adminAgentIds, 'Nuevo Ticket Creado', `Nuevo Ticket Creado: ${title}`, { ticketId: String(newTicketId) }).catch(() => {});
     }
 
     for (const user of adminsAndAgents) {
@@ -327,6 +329,7 @@ const updateTicketStatus = asyncHandler(async (req, res) => {
     }
     if (pushUserIds.length > 0) {
         sendPushToUsers(pushUserIds, 'Actualización en Ticket', `Actualización en Ticket #${ticketId}`, { ticketId }).catch(() => {});
+        sendWebPushToUsers(pushUserIds, 'Actualización en Ticket', `Actualización en Ticket #${ticketId}`, { ticketId }).catch(() => {});
     }
 
     req.io.to('admin').to('agent').emit('dashboard_update', { message: `Estado del ticket #${ticketId} actualizado` });
@@ -350,6 +353,8 @@ const assignTicketToSelf = asyncHandler(async (req, res) => {
         if (newNotification) {
             req.io.to(`user-${ticket.user_id}`).emit('new_notification', newNotification);
         }
+        sendPushToUsers([ticket.user_id], 'Ticket asignado', messageToClient, { ticketId }).catch(() => {});
+        sendWebPushToUsers([ticket.user_id], 'Ticket asignado', messageToClient, { ticketId }).catch(() => {});
 
         req.io.to('admin').to('agent').emit('dashboard_update', { message: `Ticket #${ticketId} auto-asignado por ${agentName}` });
         res.status(200).json({ success: true, message: `Ticket #${ticketId} asignado a tu usuario.` });
@@ -386,6 +391,8 @@ const reassignTicket = asyncHandler(async (req, res) => {
     if (newNotifForClient) {
         req.io.to(`user-${ticket.user_id}`).emit('new_notification', newNotifForClient);
     }
+    sendPushToUsers([newAgentId, ticket.user_id], 'Ticket reasignado', `Ticket #${ticketId}: "${ticket.title}"`, { ticketId }).catch(() => {});
+    sendWebPushToUsers([newAgentId, ticket.user_id], 'Ticket reasignado', `Ticket #${ticketId}: "${ticket.title}"`, { ticketId }).catch(() => {});
 
     req.io.to('admin').to('agent').emit('dashboard_update', { message: `Ticket #${ticketId} reasignado` });
     res.status(200).json({ success: true, message: `Ticket #${ticketId} reasignado exitosamente.` });
@@ -432,6 +439,7 @@ const addCommentToTicket = asyncHandler(async (req, res) => {
         }
         if (pushUserIds.length > 0) {
             sendPushToUsers(pushUserIds, 'Actualización en Ticket', `Actualización en Ticket #${ticketId}`, { ticketId }).catch(() => {});
+            sendWebPushToUsers(pushUserIds, 'Actualización en Ticket', `Actualización en Ticket #${ticketId}`, { ticketId }).catch(() => {});
         }
     }
     
