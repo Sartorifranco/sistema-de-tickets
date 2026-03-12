@@ -3,6 +3,34 @@ const pool = require('../config/db');
 const { logActivity } = require('../services/activityLogService');
 const { getNotificationConfigStatus, sendTestWhatsApp, sendTestEmail, getUserNotificationPrefs } = require('../services/notificationService');
 
+// Almacén temporal en memoria para suscripciones Web Push (para pruebas)
+const webPushSubscriptions = [];
+
+// @desc    Suscribir usuario a Web Push nativas
+// @route   POST /api/notifications/subscribe
+// @access  Private
+const subscribeWebPush = asyncHandler(async (req, res) => {
+    const { subscription, endpoint, keys } = req.body;
+    if (!subscription || !endpoint) {
+        res.status(400);
+        throw new Error('Se requiere subscription y endpoint.');
+    }
+    const userId = req.user.id;
+    const subData = {
+        userId,
+        subscription,
+        endpoint,
+        keys: keys || subscription.keys,
+        createdAt: new Date().toISOString(),
+    };
+    webPushSubscriptions.push(subData);
+    console.log('[WebPush] Suscripción recibida:', { userId, endpoint, total: webPushSubscriptions.length });
+    res.status(200).json({
+        success: true,
+        message: 'Suscripción Web Push registrada.',
+    });
+});
+
 // @desc    Registrar token FCM para Push Notifications (multi-dispositivo)
 // @route   POST /api/notifications/register-token
 // @access  Private
@@ -319,4 +347,5 @@ module.exports = {
     markAllNotificationsAsRead,
     deleteAllNotifications,
     registerToken,
+    subscribeWebPush,
 };

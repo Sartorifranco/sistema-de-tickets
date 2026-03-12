@@ -14,11 +14,13 @@ const {
     markAllNotificationsAsRead,
     deleteAllNotifications,
     registerToken,
+    subscribeWebPush,
 } = require('../controllers/notificationController');
 
 router.use(authenticateToken);
 
 router.post('/register-token', registerToken);
+router.post('/subscribe', subscribeWebPush);
 router.get('/config-status', authorize(['admin', 'purchasing']), getConfigStatus);
 router.get('/whatsapp-help', authorize(['admin', 'purchasing', 'supplier', 'boss']), getWhatsAppHelp);
 router.post('/test-whatsapp', testWhatsApp);
