@@ -2,6 +2,7 @@ const asyncHandler = require('express-async-handler');
 const pool = require('../config/db');
 const { logActivity } = require('../services/activityLogService');
 const { getNotificationConfigStatus, sendTestWhatsApp, sendTestEmail, getUserNotificationPrefs } = require('../services/notificationService');
+const { sendWebPushToUsers } = require('../services/webPushService');
 
 // @desc    Suscribir usuario a Web Push nativas (guarda PushSubscription en BD)
 // @route   POST /api/notifications/subscribe
@@ -55,6 +56,33 @@ const registerToken = asyncHandler(async (req, res) => {
         success: true,
         message: 'Token de notificaciones registrado.',
     });
+});
+
+// @desc    Enviar notificación Push de prueba al usuario actual
+// @route   POST /api/notifications/test
+// @access  Private
+const testPush = asyncHandler(async (req, res) => {
+    console.log('🚨 [TEST PUSH] Endpoint alcanzado por el usuario:', req.user?.id);
+    if (!req.user) {
+        res.status(401);
+        throw new Error('No autorizado');
+    }
+    try {
+        await sendWebPushToUsers(
+            [req.user.id],
+            'Prueba de notificación',
+            'Si ves esto, las notificaciones Push están funcionando correctamente.',
+            {}
+        );
+        console.log('✅ [TEST PUSH] Notificación enviada con éxito');
+        res.status(200).json({
+            success: true,
+            message: 'Notificación de prueba enviada. Revisa tu sistema operativo.',
+        });
+    } catch (error) {
+        console.error('❌ [TEST PUSH] Error al enviar:', error);
+        throw error;
+    }
 });
 
 // @desc    Enviar mensaje de prueba por WhatsApp al número del usuario
@@ -342,6 +370,7 @@ module.exports = {
     getUnreadNotificationCount,
     getConfigStatus,
     getWhatsAppHelp,
+    testPush,
     testWhatsApp,
     testEmail,
     markNotificationAsRead,

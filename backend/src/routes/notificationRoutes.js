@@ -7,6 +7,7 @@ const {
     getUnreadNotificationCount,
     getConfigStatus,
     getWhatsAppHelp,
+    testPush,
     testWhatsApp,
     testEmail,
     markNotificationAsRead,
@@ -22,6 +23,7 @@ router.use(authenticateToken);
 // Rutas POST primero (evitar conflicto con /:id)
 router.post('/subscribe', subscribeWebPush);
 router.post('/register-token', registerToken);
+router.post('/test', testPush);
 router.get('/config-status', authorize(['admin', 'purchasing']), getConfigStatus);
 router.get('/whatsapp-help', authorize(['admin', 'purchasing', 'supplier', 'boss']), getWhatsAppHelp);
 router.post('/test-whatsapp', testWhatsApp);

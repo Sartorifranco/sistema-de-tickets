@@ -78,8 +78,9 @@ const { startCronJobs } = require('./services/cronJobs');
 const { startPurchaseCrons } = require('./cron/purchaseCron');
 
 // --- 6. DEFINICIÓN DE ENDPOINTS (API) ---
+// IMPORTANTE: /api/notifications ANTES de static y 404 para POST /subscribe, /test, etc.
 app.use('/api/auth', authRoutes);
-app.use('/api/notifications', notificationRoutes); // POST /api/notifications/subscribe - PRIMERO para evitar 404
+app.use('/api/notifications', notificationRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/tickets', ticketRoutes);
 app.use('/api/departments', departmentRoutes);

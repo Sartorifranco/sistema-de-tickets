@@ -26,6 +26,7 @@ const ProfilePage: React.FC = () => {
     const [whatsappHelp, setWhatsappHelp] = useState<{ sandboxNumber?: string; sandboxJoinCode?: string | null } | null>(null);
     const [testingWhatsApp, setTestingWhatsApp] = useState(false);
     const [testingEmail, setTestingEmail] = useState(false);
+    const [testingPush, setTestingPush] = useState(false);
 
     const fetchDetails = useCallback(async () => {
         if (!user) return;
@@ -90,6 +91,26 @@ const ProfilePage: React.FC = () => {
             toast.error(msg);
         } finally {
             setTestingWhatsApp(false);
+        }
+    };
+
+    const handleTestPush = async () => {
+        setTestingPush(true);
+        try {
+            const res = await api.post('/api/notifications/test');
+            if (res.data.success) {
+                console.log('✅ [TEST PUSH] Notificación de prueba enviada correctamente');
+                toast.success('Notificación de prueba enviada. Revisa tu sistema operativo.');
+            } else {
+                console.error('❌ [TEST PUSH] Respuesta sin éxito:', res.data);
+                toast.error(res.data.message || 'Error al enviar prueba.');
+            }
+        } catch (err: unknown) {
+            const msg = (err as { response?: { data?: { message?: string } } })?.response?.data?.message || 'Error al enviar prueba.';
+            console.error('❌ [TEST PUSH] Error en petición Axios:', err);
+            toast.error(msg);
+        } finally {
+            setTestingPush(false);
         }
     };
 
@@ -206,7 +227,17 @@ const ProfilePage: React.FC = () => {
             <div className="bg-white p-6 rounded-lg shadow-lg">
                 <h2 className="text-xl font-semibold mb-4 text-gray-700">Notificaciones Push</h2>
                 <p className="text-sm text-gray-600 mb-4">Activa las notificaciones para recibir alertas incluso con el navegador cerrado.</p>
-                <PushNotificationButton />
+                <div className="flex flex-wrap items-center gap-3">
+                    <PushNotificationButton />
+                    <button
+                        type="button"
+                        onClick={handleTestPush}
+                        disabled={testingPush}
+                        className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-medium rounded-md disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                        {testingPush ? 'Enviando...' : '🔔 Probar Alerta'}
+                    </button>
+                </div>
             </div>
 
             {canEditNotificationPrefs && (
