@@ -1,35 +1,41 @@
 import axios, { InternalAxiosRequestConfig, AxiosError } from 'axios';
 
 const PRODUCTION_HOST = 'bacarsa.dyndns.org';
-const PRODUCTION_URL = `https://${PRODUCTION_HOST}`;
 
 function getApiBaseUrl(): string {
-    const currentHost = typeof window !== 'undefined' ? window.location.hostname : '';
-    const explicitUrl = process.env.REACT_APP_BACKEND_URL;
+    if (typeof window === 'undefined') return '';
 
-    // Producción: siempre https://bacarsa.dyndns.org (sin puerto)
-    if (currentHost === PRODUCTION_HOST) return PRODUCTION_URL;
+    const currentHost = window.location.hostname;
+    const explicitUrl = process.env.REACT_APP_BACKEND_URL?.trim();
+
+    // Producción: ruta relativa (mismo origen) - Caddy/proxy maneja /api. Evita Mixed Content.
+    if (currentHost === PRODUCTION_HOST) return '';
     if (explicitUrl && (explicitUrl.includes(PRODUCTION_HOST) || explicitUrl.includes('bacarsa'))) {
-        return PRODUCTION_URL;
+        return '';
     }
 
-    // Si hay URL explícita, normalizar: https y sin puerto 5040
+    // Si hay URL explícita: forzar HTTPS, eliminar puerto 5040
     if (explicitUrl) {
-        let url = explicitUrl.trim();
+        let url = explicitUrl;
         if (url.startsWith('http://')) url = 'https://' + url.slice(7);
         url = url.replace(/:5040\/?$/, '').replace(/:5040$/, '');
         return url;
     }
 
-    // Desarrollo local
+    // Desarrollo local (solo localhost)
     const apiPort = process.env.REACT_APP_API_PORT || '5040';
-    const isHttps = typeof window !== 'undefined' && window.location.protocol === 'https:';
-    return isHttps ? `https://${currentHost}` : `http://${currentHost}:${apiPort}`;
+    return `http://${currentHost}:${apiPort}`;
 }
 
 const API_BASE_URL = getApiBaseUrl();
 
-console.log(`[Axios] Configurado apuntando a: ${API_BASE_URL}`);
+/** Para Socket.IO: mismo origen en producción (baseURL vacío), URL explícita en dev */
+export function getSocketUrl(): string {
+    const base = getApiBaseUrl();
+    return base === '' && typeof window !== 'undefined' ? window.location.origin : base;
+}
+
+console.log(`[Axios] Configurado apuntando a: ${API_BASE_URL || '(mismo origen)'}`);
 export { API_BASE_URL };
 
 const api = axios.create({
@@ -123,7 +129,7 @@ api.interceptors.response.use(
 
     async (error: AxiosError) => {
         if (error.code === 'ERR_NETWORK') {
-            console.error('❌ Error de red: no se puede conectar al backend en', API_BASE_URL);
+            console.error('❌ Error de red: no se puede conectar al backend en', API_BASE_URL || '(mismo origen)');
             return Promise.reject(error);
         }
 

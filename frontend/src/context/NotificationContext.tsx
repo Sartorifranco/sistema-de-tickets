@@ -2,7 +2,7 @@ import React, { createContext, useContext, useState, useEffect, useCallback, Rea
 import { toast } from 'react-toastify';
 // 🛑 Importamos 'io' y el namespace completo para los tipos
 import io, * as SocketIOClient from 'socket.io-client'; 
-import api, { API_BASE_URL } from '../config/axiosConfig'; 
+import api, { getSocketUrl } from '../config/axiosConfig'; 
 import { useAuth } from './AuthContext'; 
 
 // 1. DEFINICIÓN DE TIPOS CLAVE
@@ -34,7 +34,7 @@ interface NotificationContextType {
 
 const NotificationContext = createContext<NotificationContextType | undefined>(undefined);
 
-const SOCKET_SERVER_URL = API_BASE_URL;
+const SOCKET_SERVER_URL = getSocketUrl();
 
 // 2. COMPONENTE PROVIDER
 export const NotificationProvider: React.FC<{ children: ReactNode; socket?: SocketIOClient.Socket | null }> = ({ children, socket: externalSocket }) => {
