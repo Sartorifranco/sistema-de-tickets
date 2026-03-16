@@ -100,7 +100,7 @@ const ProfilePage: React.FC = () => {
             const res = await api.post('/api/notifications/test');
             if (res.data.success) {
                 console.log('✅ [TEST PUSH] Notificación de prueba enviada correctamente');
-                toast.success('Notificación de prueba enviada. Revisa tu sistema operativo.');
+                toast.success('Enviado. Debería aparecer la notificación de WINDOWS (esquina de la pantalla). Si no la ves, revisa notificaciones del navegador y de Windows.');
             } else {
                 console.error('❌ [TEST PUSH] Respuesta sin éxito:', res.data);
                 toast.error(res.data.message || 'Error al enviar prueba.');

@@ -28,7 +28,10 @@ function ensureVapid() {
 async function sendWebPushToUsers(userIds, title, body, data = {}) {
     if (!userIds || userIds.length === 0) return;
     ensureVapid();
-    if (!initialized) return;
+    if (!initialized) {
+        console.warn('[WebPush] No enviado: configure VAPID_PRIVATE_KEY en .env');
+        return;
+    }
 
     try {
         const placeholders = userIds.map(() => '?').join(',');
@@ -36,7 +39,10 @@ async function sendWebPushToUsers(userIds, title, body, data = {}) {
             `SELECT endpoint, p256dh, auth FROM user_web_push_subscriptions WHERE user_id IN (${placeholders})`,
             userIds
         );
-        if (rows.length === 0) return;
+        if (rows.length === 0) {
+            console.warn('[WebPush] No enviado: ningún usuario tiene suscripción Web Push (activa "Notificaciones Activadas" en Mi Perfil).');
+            return;
+        }
 
         const payload = JSON.stringify({
             title,
