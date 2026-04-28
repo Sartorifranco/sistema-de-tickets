@@ -80,3 +80,9 @@ export function mergeAssignableStaff(users: User[], currentUser: User | null | u
     }
     return base;
 }
+
+/** Opciones del select "Asignado a" a partir de la lista de usuarios de la app + siempre el operador logueado si aplica. */
+export function staffAssignableUsers(allUsers: User[], currentUser: User | null | undefined): User[] {
+    const staff = allUsers.filter((u) => ASSIGNABLE_ROLES.includes(u.role));
+    return mergeAssignableStaff(staff, currentUser);
+}

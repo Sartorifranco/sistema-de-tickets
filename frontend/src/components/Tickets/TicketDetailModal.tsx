@@ -8,7 +8,7 @@ import { isAxiosErrorTypeGuard, ApiResponseError } from '../../utils/typeGuards'
 import { ticketStatusTranslations, ticketPriorityTranslations } from '../../utils/traslations';
 import { formatLocalDate } from '../../utils/dateFormatter'; // Asegúrate de tener este helper
 import { InternalTaskBadge, isTicketInternalTask } from './InternalTaskBadge';
-import { mergeAssignableStaff } from '../../utils/ticketAccess';
+import { staffAssignableUsers } from '../../utils/ticketAccess';
 
 interface TicketDetailModalProps {
     isOpen: boolean;
@@ -38,7 +38,7 @@ const TicketDetailModal: React.FC<TicketDetailModalProps> = ({ isOpen, onClose, 
     const canEditTicket = isAdmin || (isAgent && ticket.assigned_to_user_id === currentUser?.id);
 
     const assignableUsers = useMemo(
-        () => mergeAssignableStaff(users, currentUser ?? undefined),
+        () => staffAssignableUsers(users, currentUser ?? undefined),
         [users, currentUser]
     );
 

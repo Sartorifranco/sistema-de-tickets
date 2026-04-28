@@ -35,6 +35,7 @@ const createTicket = asyncHandler(async (req, res) => {
         es_tarea_interna,
         horas_estimadas,
         horas_reales,
+        assigned_to_user_id: assignedToBody,
     } = req.body;
     const loggedInUser = req.user;
 
@@ -63,12 +64,29 @@ const createTicket = asyncHandler(async (req, res) => {
     const finalHorasEstimadas = parseOptionalDecimal(horas_estimadas);
     const finalHorasReales = parseOptionalDecimal(horas_reales);
 
+    let finalAssignedTo = null;
+    if (assignedToBody !== undefined && assignedToBody !== null && assignedToBody !== '') {
+        const aid = parseInt(assignedToBody, 10);
+        if (!Number.isNaN(aid)) {
+            const [assignRows] = await pool.execute('SELECT id, role FROM users WHERE id = ?', [aid]);
+            if (
+                assignRows.length > 0 &&
+                ['agent', 'admin', 'boss', 'purchasing'].includes(assignRows[0].role)
+            ) {
+                finalAssignedTo = aid;
+            }
+        }
+    }
+
+    const initialStatus = finalAssignedTo ? 'in-progress' : 'open';
+
     const [result] = await pool.execute(
         `INSERT INTO tickets (
             user_id, title, description, priority, category_id, department_id, status,
             location_id, depositario_id,
-            subcategoria, es_tarea_interna, horas_estimadas, horas_reales
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+            subcategoria, es_tarea_interna, horas_estimadas, horas_reales,
+            assigned_to_user_id
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         [
             finalUserId,
             title,
@@ -76,13 +94,14 @@ const createTicket = asyncHandler(async (req, res) => {
             priority,
             category_id,
             department_id,
-            'open',
+            initialStatus,
             finalLocationId,
             finalDepositarioId,
             finalSubcategoria,
             finalEsTareaInterna,
             finalHorasEstimadas,
             finalHorasReales,
+            finalAssignedTo,
         ]
     );
     
@@ -316,6 +335,7 @@ const updateTicket = asyncHandler(async (req, res) => {
         es_tarea_interna,
         horas_estimadas,
         horas_reales,
+        assigned_to_user_id,
     } = req.body;
     const fieldsToUpdate = [];
     const params = [];
@@ -338,6 +358,25 @@ const updateTicket = asyncHandler(async (req, res) => {
     if (horas_reales !== undefined) {
         fieldsToUpdate.push('horas_reales = ?');
         params.push(parseOptionalDecimal(horas_reales));
+    }
+    if (assigned_to_user_id !== undefined) {
+        const raw = assigned_to_user_id;
+        if (raw === null || raw === '') {
+            fieldsToUpdate.push('assigned_to_user_id = ?');
+            params.push(null);
+        } else {
+            const aid = parseInt(raw, 10);
+            if (!Number.isNaN(aid)) {
+                const [rows] = await pool.execute('SELECT id, role FROM users WHERE id = ?', [aid]);
+                if (
+                    rows.length > 0 &&
+                    ['agent', 'admin', 'boss', 'purchasing'].includes(rows[0].role)
+                ) {
+                    fieldsToUpdate.push('assigned_to_user_id = ?');
+                    params.push(aid);
+                }
+            }
+        }
     }
     if (fieldsToUpdate.length === 0) { res.status(400); throw new Error("Debes proporcionar al menos un campo para actualizar."); }
     params.push(ticketId);

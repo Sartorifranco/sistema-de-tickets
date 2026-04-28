@@ -8,7 +8,7 @@ import { ticketStatusTranslations, ticketPriorityTranslations } from '../utils/t
 import { formatLocalDate } from '../utils/dateFormatter';
 import CommentForm from '../components/Common/CommentForm';
 import { InternalTaskBadge, isTicketInternalTask } from '../components/Tickets/InternalTaskBadge';
-import { mergeAssignableStaff } from '../utils/ticketAccess';
+import { staffAssignableUsers } from '../utils/ticketAccess';
 
 type DetailedTicketData = TicketData & {
     ticket_category_name?: string;
@@ -36,7 +36,7 @@ const AdminTicketDetailPage: React.FC = () => {
     const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
 
     const agentsForReassign = useMemo(
-        () => mergeAssignableStaff(agents, user ?? undefined),
+        () => staffAssignableUsers(agents, user ?? undefined),
         [agents, user]
     );
 

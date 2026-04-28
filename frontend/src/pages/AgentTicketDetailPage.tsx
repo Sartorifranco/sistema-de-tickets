@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { toast } from 'react-toastify';
 import api from '../config/axiosConfig';
@@ -8,6 +8,7 @@ import { TicketData, Comment as TicketComment, TicketStatus, User, Attachment, T
 import { ticketStatusTranslations, ticketPriorityTranslations } from '../utils/traslations';
 import { formatLocalDate } from '../utils/dateFormatter';
 import CommentForm from '../components/Common/CommentForm';
+import { staffAssignableUsers } from '../utils/ticketAccess';
 
 // ✅ AÑADIDO: Icono de Archivo Genérico
 const FileIcon: React.FC<{ className?: string }> = ({ className = "w-16 h-16" }) => (
@@ -56,6 +57,11 @@ const AgentTicketDetailPage: React.FC = () => {
     useEffect(() => {
         fetchAllData();
     }, [fetchAllData]);
+
+    const agentsForReassign = useMemo(
+        () => staffAssignableUsers(agents, user ?? undefined),
+        [agents, user]
+    );
 
     // Maneja la confirmación para reasignar el ticket a un nuevo agente.
     const handleConfirmReassign = async () => {
@@ -257,7 +263,7 @@ const AgentTicketDetailPage: React.FC = () => {
                                     className="w-full p-2 border rounded-md bg-white"
                                 >
                                     <option value="">-- Selecciona un agente --</option>
-                                    {agents.map(agent => (
+                                    {agentsForReassign.map((agent) => (
                                         <option key={agent.id} value={agent.id}>
                                             {agent.first_name && agent.last_name ? `${agent.first_name} ${agent.last_name}` : agent.username}
                                         </option>
