@@ -3,13 +3,39 @@ const pool = require('../config/db');
 const { sendPushToUsers } = require('../services/pushNotificationService');
 const { sendWebPushToUsers } = require('../services/webPushService');
 
+function parseOptionalDecimal(value) {
+    if (value === undefined || value === null || value === '') return null;
+    const n = parseFloat(String(value).replace(',', '.'));
+    return Number.isFinite(n) ? n : null;
+}
+
+function parseCreateBool(value, defaultValue = false) {
+    if (value === undefined || value === null || value === '') return defaultValue;
+    if (typeof value === 'boolean') return value;
+    const s = String(value).toLowerCase();
+    return s === 'true' || s === '1' || value === 1;
+}
+
 // @desc    Crear un nuevo ticket y notificar a los admins/agentes
 // @route   POST /api/tickets
 // @access  Private
 // @desc    Crear un nuevo ticket y notificar
 const createTicket = asyncHandler(async (req, res) => {
     // 1. Agregamos depositario_id a la desestructuración
-    const { title, description, priority, category_id, department_id, user_id: clientUserId, location_id, depositario_id } = req.body;
+    const {
+        title,
+        description,
+        priority,
+        category_id,
+        department_id,
+        user_id: clientUserId,
+        location_id,
+        depositario_id,
+        subcategoria,
+        es_tarea_interna,
+        horas_estimadas,
+        horas_reales,
+    } = req.body;
     const loggedInUser = req.user;
 
     let finalUserId;
@@ -32,10 +58,32 @@ const createTicket = asyncHandler(async (req, res) => {
     // Nota: Convertimos a null si viene vacío o undefined
     const finalDepositarioId = depositario_id ? parseInt(depositario_id) : null;
     const finalLocationId = location_id ? parseInt(location_id) : null;
+    const finalSubcategoria = subcategoria != null && String(subcategoria).trim() !== '' ? String(subcategoria).trim() : null;
+    const finalEsTareaInterna = parseCreateBool(es_tarea_interna, false) ? 1 : 0;
+    const finalHorasEstimadas = parseOptionalDecimal(horas_estimadas);
+    const finalHorasReales = parseOptionalDecimal(horas_reales);
 
     const [result] = await pool.execute(
-        'INSERT INTO tickets (user_id, title, description, priority, category_id, department_id, status, location_id, depositario_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
-        [finalUserId, title, description, priority, category_id, department_id, 'open', finalLocationId, finalDepositarioId]
+        `INSERT INTO tickets (
+            user_id, title, description, priority, category_id, department_id, status,
+            location_id, depositario_id,
+            subcategoria, es_tarea_interna, horas_estimadas, horas_reales
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        [
+            finalUserId,
+            title,
+            description,
+            priority,
+            category_id,
+            department_id,
+            'open',
+            finalLocationId,
+            finalDepositarioId,
+            finalSubcategoria,
+            finalEsTareaInterna,
+            finalHorasEstimadas,
+            finalHorasReales,
+        ]
     );
     
     const newTicketId = result.insertId;
@@ -72,7 +120,12 @@ const createTicket = asyncHandler(async (req, res) => {
         }
     }
 
-    res.status(201).json({ success: true, message: 'Ticket creado exitosamente.', data: { id: newTicketId } });
+    const [[createdTicket]] = await pool.execute('SELECT * FROM tickets WHERE id = ?', [newTicketId]);
+    res.status(201).json({
+        success: true,
+        message: 'Ticket creado exitosamente.',
+        data: { id: newTicketId, ...createdTicket },
+    });
 });
 
 // @desc    Obtener tickets
@@ -254,18 +307,44 @@ const getDepartments = asyncHandler(async (req, res) => {
 
 const updateTicket = asyncHandler(async (req, res) => {
     const { id: ticketId } = req.params;
-    const { title, description, priority, category_id } = req.body;
-    const fieldsToUpdate = []; 
+    const {
+        title,
+        description,
+        priority,
+        category_id,
+        subcategoria,
+        es_tarea_interna,
+        horas_estimadas,
+        horas_reales,
+    } = req.body;
+    const fieldsToUpdate = [];
     const params = [];
     if (title) { fieldsToUpdate.push('title = ?'); params.push(title); }
     if (description) { fieldsToUpdate.push('description = ?'); params.push(description); }
     if (priority) { fieldsToUpdate.push('priority = ?'); params.push(priority); }
     if (category_id) { fieldsToUpdate.push('category_id = ?'); params.push(category_id); }
+    if (subcategoria !== undefined) {
+        fieldsToUpdate.push('subcategoria = ?');
+        params.push(subcategoria != null && String(subcategoria).trim() !== '' ? String(subcategoria).trim() : null);
+    }
+    if (es_tarea_interna !== undefined) {
+        fieldsToUpdate.push('es_tarea_interna = ?');
+        params.push(parseCreateBool(es_tarea_interna, false) ? 1 : 0);
+    }
+    if (horas_estimadas !== undefined) {
+        fieldsToUpdate.push('horas_estimadas = ?');
+        params.push(parseOptionalDecimal(horas_estimadas));
+    }
+    if (horas_reales !== undefined) {
+        fieldsToUpdate.push('horas_reales = ?');
+        params.push(parseOptionalDecimal(horas_reales));
+    }
     if (fieldsToUpdate.length === 0) { res.status(400); throw new Error("Debes proporcionar al menos un campo para actualizar."); }
     params.push(ticketId);
     const query = `UPDATE tickets SET ${fieldsToUpdate.join(', ')} WHERE id = ?`;
     await pool.execute(query, params);
-    res.status(200).json({ success: true, message: 'Ticket actualizado correctamente.' });
+    const [[updatedTicket]] = await pool.execute('SELECT * FROM tickets WHERE id = ?', [ticketId]);
+    res.status(200).json({ success: true, message: 'Ticket actualizado correctamente.', data: updatedTicket });
 });
 
 const deleteTicket = asyncHandler(async (req, res) => {

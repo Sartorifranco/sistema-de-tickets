@@ -7,6 +7,7 @@ import { TicketData, Comment as TicketComment, User, Department, TicketStatus, T
 import { isAxiosErrorTypeGuard, ApiResponseError } from '../../utils/typeGuards';
 import { ticketStatusTranslations, ticketPriorityTranslations } from '../../utils/traslations';
 import { formatLocalDate } from '../../utils/dateFormatter'; // Asegúrate de tener este helper
+import { InternalTaskBadge, isTicketInternalTask } from './InternalTaskBadge';
 
 interface TicketDetailModalProps {
     isOpen: boolean;
@@ -97,7 +98,24 @@ const TicketDetailModal: React.FC<TicketDetailModalProps> = ({ isOpen, onClose, 
     return (
         <div className="fixed inset-0 bg-black bg-opacity-60 flex justify-center items-center z-50 p-4">
             <div className="bg-white p-6 rounded-lg shadow-xl w-full max-w-4xl max-h-[90vh] flex flex-col">
-                <h2 className="text-xl sm:text-2xl font-bold mb-4 text-gray-800 border-b pb-2">Detalles del Ticket #{ticket.id}</h2>
+                <div className="flex flex-wrap items-center gap-2 mb-4 border-b pb-2">
+                    <h2 className="text-xl sm:text-2xl font-bold text-gray-800">Detalles del Ticket #{ticket.id}</h2>
+                    {isTicketInternalTask(ticket) && <InternalTaskBadge />}
+                </div>
+                {isAdmin &&
+                    [ticket.horas_estimadas, ticket.horas_reales].some((h) => h !== undefined && h !== null && h !== '') && (
+                        <p className="text-xs text-gray-500 mb-4">
+                            {ticket.horas_estimadas !== undefined && ticket.horas_estimadas !== null && ticket.horas_estimadas !== '' && (
+                                <>Est. {Number(ticket.horas_estimadas)} h</>
+                            )}
+                            {ticket.horas_estimadas !== undefined && ticket.horas_estimadas !== null && ticket.horas_estimadas !== '' &&
+                                ticket.horas_reales !== undefined && ticket.horas_reales !== null && ticket.horas_reales !== '' &&
+                                ' · '}
+                            {ticket.horas_reales !== undefined && ticket.horas_reales !== null && ticket.horas_reales !== '' && (
+                                <>Reales {Number(ticket.horas_reales)} h</>
+                            )}
+                        </p>
+                    )}
                 
                 <div className="flex-grow overflow-y-auto pr-2">
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">

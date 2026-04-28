@@ -29,6 +29,7 @@ interface DashboardMetrics {
         'Soporte - IT'?: number;
         'Implementaciones'?: number;
         'Mantenimiento'?: number;
+        'Desarrollo'?: number;
     };
     agentWorkload: {
         agentId: number;
@@ -236,7 +237,7 @@ const AdminDashboard: React.FC = () => {
                 <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
                     <div className="lg:col-span-3 bg-white p-6 rounded-lg shadow-md">
                         <h2 className="text-xl font-semibold mb-4 border-b pb-2">Estado por Área (Tickets Activos)</h2>
-                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
                              <button onClick={() => handleCardClick('department', 'Soporte - IT')} className="text-center p-4 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors cursor-pointer">
                                 <h4 className="font-bold text-gray-700">Soporte - IT</h4>
                                 <p className="text-4xl font-bold text-red-600 mt-2">{metrics.departmentCounts['Soporte - IT'] || 0}</p>
@@ -248,6 +249,10 @@ const AdminDashboard: React.FC = () => {
                             <button onClick={() => handleCardClick('department', 'Mantenimiento')} className="text-center p-4 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors cursor-pointer">
                                 <h4 className="font-bold text-gray-700">Mantenimiento</h4>
                                 <p className="text-4xl font-bold text-red-600 mt-2">{metrics.departmentCounts['Mantenimiento'] || 0}</p>
+                            </button>
+                            <button onClick={() => handleCardClick('department', 'Desarrollo')} className="text-center p-4 rounded-lg border border-violet-300/80 bg-gradient-to-br from-violet-50 to-indigo-50 hover:from-violet-100 hover:to-indigo-100 transition-colors cursor-pointer shadow-sm">
+                                <h4 className="font-bold text-indigo-950">Desarrollo</h4>
+                                <p className="text-4xl font-bold text-violet-700 mt-2">{metrics.departmentCounts['Desarrollo'] || 0}</p>
                             </button>
                         </div>
                     </div>

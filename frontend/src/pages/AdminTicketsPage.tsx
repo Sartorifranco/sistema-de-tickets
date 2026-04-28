@@ -9,6 +9,7 @@ import TicketFormModal from '../components/Tickets/TicketFormModal';
 import StatusBadge from '../components/Tickets/StatusBadge';
 import KanbanBoard from '../components/Tickets/KanbanBoard';
 import { formatLocalDate } from '../utils/dateFormatter';
+import { InternalTaskBadge, isTicketInternalTask } from '../components/Tickets/InternalTaskBadge';
 
 // Interfaces para los datos de los filtros
 interface FilterData {
@@ -20,6 +21,7 @@ type ViewMode = 'table' | 'kanban';
 
 const AdminTicketsPage: React.FC = () => {
     const { user } = useAuth();
+    const isAdmin = user?.role === 'admin';
     const [tickets, setTickets] = useState<TicketData[]>([]);
     const [loading, setLoading] = useState(true);
     const [viewMode, setViewMode] = useState<ViewMode>('table');
@@ -238,7 +240,25 @@ const AdminTicketsPage: React.FC = () => {
                                     <tr key={ticket.id} className="hover:bg-gray-50">
                                         <td className="px-6 py-4 whitespace-nowrap">{ticket.id}</td>
                                         <td className="px-6 py-4 whitespace-nowrap">{ticket.client_name}</td>
-                                        <td className="px-6 py-4 font-medium">{ticket.title}</td>
+                                        <td className="px-6 py-4 font-medium">
+                                            <div className="flex flex-wrap items-center gap-2">
+                                                <span>{ticket.title}</span>
+                                                {isTicketInternalTask(ticket) && <InternalTaskBadge />}
+                                            </div>
+                                            {isAdmin && [ticket.horas_estimadas, ticket.horas_reales].some((h) => h !== undefined && h !== null && h !== '') && (
+                                                <p className="text-xs text-gray-500 mt-1 font-normal">
+                                                    {ticket.horas_estimadas !== undefined && ticket.horas_estimadas !== null && ticket.horas_estimadas !== '' && (
+                                                        <>Est. {Number(ticket.horas_estimadas)} h</>
+                                                    )}
+                                                    {ticket.horas_estimadas !== undefined && ticket.horas_estimadas !== null && ticket.horas_estimadas !== '' &&
+                                                        ticket.horas_reales !== undefined && ticket.horas_reales !== null && ticket.horas_reales !== '' &&
+                                                        ' · '}
+                                                    {ticket.horas_reales !== undefined && ticket.horas_reales !== null && ticket.horas_reales !== '' && (
+                                                        <>Reales {Number(ticket.horas_reales)} h</>
+                                                    )}
+                                                </p>
+                                            )}
+                                        </td>
                                         <td className="px-6 py-4 whitespace-nowrap">{ticket.agent_name || 'Sin Asignar'}</td>
                                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                                             {formatLocalDate(ticket.created_at)}

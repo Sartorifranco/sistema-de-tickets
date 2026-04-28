@@ -7,9 +7,11 @@ import { isAxiosErrorTypeGuard } from '../../utils/typeGuards';
 import { ticketStatusTranslations, ticketPriorityTranslations } from '../../utils/traslations';
 import TicketDetailModal from './TicketDetailModal'; 
 import { formatLocalDate } from '../../utils/dateFormatter';
+import { InternalTaskBadge, isTicketInternalTask } from './InternalTaskBadge';
 
 const MyTicketsList: React.FC = () => {
     const { user, token } = useAuth();
+    const isAdmin = user?.role === 'admin';
     const { addNotification } = useNotification();
 
     const [tickets, setTickets] = useState<TicketData[]>([]);
@@ -91,7 +93,25 @@ const MyTicketsList: React.FC = () => {
                                     {tickets.map((ticket) => (
                                         <tr key={ticket.id} className="hover:bg-gray-50">
                                             <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{ticket.id}</td>
-                                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{ticket.title}</td>
+                                            <td className="px-6 py-4 text-sm text-gray-900">
+                                                <div className="flex flex-wrap items-center gap-2">
+                                                    <span className="break-words">{ticket.title}</span>
+                                                    {isTicketInternalTask(ticket) && <InternalTaskBadge />}
+                                                </div>
+                                                {isAdmin && [ticket.horas_estimadas, ticket.horas_reales].some((h) => h !== undefined && h !== null && h !== '') && (
+                                                    <p className="text-xs text-gray-500 mt-1">
+                                                        {ticket.horas_estimadas !== undefined && ticket.horas_estimadas !== null && ticket.horas_estimadas !== '' && (
+                                                            <>Est. {Number(ticket.horas_estimadas)} h</>
+                                                        )}
+                                                        {ticket.horas_estimadas !== undefined && ticket.horas_estimadas !== null && ticket.horas_estimadas !== '' &&
+                                                            ticket.horas_reales !== undefined && ticket.horas_reales !== null && ticket.horas_reales !== '' &&
+                                                            ' · '}
+                                                        {ticket.horas_reales !== undefined && ticket.horas_reales !== null && ticket.horas_reales !== '' && (
+                                                            <>Reales {Number(ticket.horas_reales)} h</>
+                                                        )}
+                                                    </p>
+                                                )}
+                                            </td>
                                             <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{ticketStatusTranslations[ticket.status]}</td>
                                             <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{ticketPriorityTranslations[ticket.priority]}</td>
                                             <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{formatLocalDate(ticket.created_at)}</td>
@@ -113,10 +133,26 @@ const MyTicketsList: React.FC = () => {
                             <div className="md:hidden space-y-4">
                                 {tickets.map(ticket => (
                                     <div key={ticket.id} className="bg-gray-50 p-4 rounded-lg border">
-                                        <div className="flex justify-between items-start">
-                                            <span className="font-bold text-gray-800 break-all pr-2">#{ticket.id} - {ticket.title}</span>
+                                        <div className="flex justify-between items-start gap-2">
+                                            <span className="font-bold text-gray-800 break-words pr-2 flex flex-wrap items-center gap-2">
+                                                #{ticket.id} - {ticket.title}
+                                                {isTicketInternalTask(ticket) && <InternalTaskBadge />}
+                                            </span>
                                             <span className="text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded-full flex-shrink-0">{ticketStatusTranslations[ticket.status]}</span>
                                         </div>
+                                        {isAdmin && [ticket.horas_estimadas, ticket.horas_reales].some((h) => h !== undefined && h !== null && h !== '') && (
+                                            <p className="text-xs text-gray-500 mt-1">
+                                                {ticket.horas_estimadas !== undefined && ticket.horas_estimadas !== null && ticket.horas_estimadas !== '' && (
+                                                    <>Est. {Number(ticket.horas_estimadas)} h</>
+                                                )}
+                                                {ticket.horas_estimadas !== undefined && ticket.horas_estimadas !== null && ticket.horas_estimadas !== '' &&
+                                                    ticket.horas_reales !== undefined && ticket.horas_reales !== null && ticket.horas_reales !== '' &&
+                                                    ' · '}
+                                                {ticket.horas_reales !== undefined && ticket.horas_reales !== null && ticket.horas_reales !== '' && (
+                                                    <>Reales {Number(ticket.horas_reales)} h</>
+                                                )}
+                                            </p>
+                                        )}
                                         <div className="text-sm text-gray-600 mt-2 space-y-1">
                                             <p><strong>Prioridad:</strong> {ticketPriorityTranslations[ticket.priority]}</p>
                                             <p><strong>Creado:</strong> {formatLocalDate(ticket.created_at)}</p>

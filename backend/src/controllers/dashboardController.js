@@ -26,7 +26,7 @@ const getAdminDashboardMetrics = asyncHandler(async (req, res) => {
             FROM tickets t
             JOIN departments d ON t.department_id = d.id
             WHERE t.status IN ('open', 'in-progress')
-              AND UPPER(d.name) IN ('SOPORTE - IT', 'IMPLEMENTACIONES', 'MANTENIMIENTO')
+              AND UPPER(d.name) IN ('SOPORTE - IT', 'IMPLEMENTACIONES', 'MANTENIMIENTO', 'DESARROLLO')
             GROUP BY d.name;
         `),
         pool.execute(`
@@ -44,6 +44,7 @@ const getAdminDashboardMetrics = asyncHandler(async (req, res) => {
         if (row.departmentName.toUpperCase().includes('SOPORTE - IT')) acc['Soporte - IT'] = row.ticketCount;
         else if (row.departmentName.toUpperCase().includes('IMPLEMENTACIONES')) acc['Implementaciones'] = row.ticketCount;
         else if (row.departmentName.toUpperCase().includes('MANTENIMIENTO')) acc['Mantenimiento'] = row.ticketCount;
+        else if (row.departmentName.toUpperCase().includes('DESARROLLO')) acc['Desarrollo'] = row.ticketCount;
         return acc;
     }, {});
 

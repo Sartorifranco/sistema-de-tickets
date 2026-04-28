@@ -7,6 +7,7 @@ import { TicketData, TicketStatus, User, Attachment, TicketPriority } from '../t
 import { ticketStatusTranslations, ticketPriorityTranslations } from '../utils/traslations';
 import { formatLocalDate } from '../utils/dateFormatter';
 import CommentForm from '../components/Common/CommentForm';
+import { InternalTaskBadge, isTicketInternalTask } from '../components/Tickets/InternalTaskBadge';
 
 type DetailedTicketData = TicketData & {
     ticket_category_name?: string;
@@ -128,9 +129,14 @@ const AdminTicketDetailPage: React.FC = () => {
     return (
         <>
             <div className="container mx-auto p-4 sm:p-6 lg:p-8">
-                <div className="flex justify-between items-center mb-6">
-                    <h1 className="text-3xl font-bold text-gray-800">Ticket #{ticket.id}: {ticket.title}</h1>
-                    <button onClick={() => navigate(-1)} className="bg-gray-300 hover:bg-gray-400 text-gray-800 font-bold py-2 px-4 rounded-lg">Volver</button>
+                <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-4 mb-6">
+                    <div className="min-w-0 flex flex-wrap items-center gap-3">
+                        <h1 className="text-2xl sm:text-3xl font-bold text-gray-800 break-words">
+                            Ticket #{ticket.id}: {ticket.title}
+                        </h1>
+                        {isTicketInternalTask(ticket) && <InternalTaskBadge />}
+                    </div>
+                    <button onClick={() => navigate(-1)} className="bg-gray-300 hover:bg-gray-400 text-gray-800 font-bold py-2 px-4 rounded-lg shrink-0 self-start">Volver</button>
                 </div>
 
                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -138,12 +144,30 @@ const AdminTicketDetailPage: React.FC = () => {
                     <div className="lg:col-span-2 space-y-6">
                         <div className="bg-white p-6 rounded-lg shadow-md">
                             <h2 className="text-xl font-bold text-gray-800 mb-4 border-b pb-2">Detalles del Ticket</h2>
-                            <div className="grid grid-cols-2 gap-4 text-sm">
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
                                 <div><strong className="block text-gray-500">Cliente:</strong> {ticket.client_name}</div>
                                 <div><strong className="block text-gray-500">Departamento:</strong> {ticket.ticket_department_name ? `${ticket.ticket_department_name} (${ticket.department_id})` : ticket.department_id}</div>
                                 <div><strong className="block text-gray-500">Categoría:</strong> {ticket.ticket_category_name || 'N/A'}</div>
+                                {ticket.subcategoria ? (
+                                    <div><strong className="block text-gray-500">Sub-categoría:</strong> {ticket.subcategoria}</div>
+                                ) : null}
                                 <div><strong className="block text-gray-500">Creado:</strong> {formatLocalDate(ticket.created_at)}</div>
                             </div>
+                            {user?.role === 'admin' &&
+                                [ticket.horas_estimadas, ticket.horas_reales].some((h) => h !== undefined && h !== null && h !== '') && (
+                                    <p className="mt-4 text-sm text-gray-600 border-t pt-3">
+                                        <strong className="text-gray-700">Horas:</strong>{' '}
+                                        {ticket.horas_estimadas !== undefined && ticket.horas_estimadas !== null && ticket.horas_estimadas !== '' && (
+                                            <>Estimadas {Number(ticket.horas_estimadas)} h</>
+                                        )}
+                                        {ticket.horas_estimadas !== undefined && ticket.horas_estimadas !== null && ticket.horas_estimadas !== '' &&
+                                            ticket.horas_reales !== undefined && ticket.horas_reales !== null && ticket.horas_reales !== '' &&
+                                            ' · '}
+                                        {ticket.horas_reales !== undefined && ticket.horas_reales !== null && ticket.horas_reales !== '' && (
+                                            <>Reales {Number(ticket.horas_reales)} h</>
+                                        )}
+                                    </p>
+                                )}
                             <h3 className="text-lg font-semibold mt-6 mb-2">Descripción</h3>
                             <p className="text-gray-700 whitespace-pre-wrap">{ticket.description}</p>
                         </div>

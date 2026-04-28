@@ -7,6 +7,7 @@ import { TicketData, Department, User, ApiResponseError } from '../types';
 import { isAxiosErrorTypeGuard } from '../utils/typeGuards';
 import TicketFormModal from '../components/Tickets/TicketFormModal';
 import { ticketStatusTranslations, ticketPriorityTranslations } from '../utils/traslations';
+import { InternalTaskBadge, isTicketInternalTask } from '../components/Tickets/InternalTaskBadge';
 
 const AdminTicketsListPage: React.FC = () => {
     const { user, token } = useAuth();
@@ -157,7 +158,26 @@ const AdminTicketsListPage: React.FC = () => {
                             {tickets.map((ticket) => (
                                 <tr key={ticket.id}>
                                     <td className="px-6 py-4">{ticket.id}</td>
-                                    <td className="px-6 py-4">{ticket.title}</td>
+                                    <td className="px-6 py-4">
+                                        <div className="flex flex-wrap items-center gap-2">
+                                            <span>{ticket.title}</span>
+                                            {isTicketInternalTask(ticket) && <InternalTaskBadge />}
+                                        </div>
+                                        {user?.role === 'admin' &&
+                                            [ticket.horas_estimadas, ticket.horas_reales].some((h) => h !== undefined && h !== null && h !== '') && (
+                                                <p className="text-xs text-gray-500 mt-1">
+                                                    {ticket.horas_estimadas !== undefined && ticket.horas_estimadas !== null && ticket.horas_estimadas !== '' && (
+                                                        <>Est. {Number(ticket.horas_estimadas)} h</>
+                                                    )}
+                                                    {ticket.horas_estimadas !== undefined && ticket.horas_estimadas !== null && ticket.horas_estimadas !== '' &&
+                                                        ticket.horas_reales !== undefined && ticket.horas_reales !== null && ticket.horas_reales !== '' &&
+                                                        ' · '}
+                                                    {ticket.horas_reales !== undefined && ticket.horas_reales !== null && ticket.horas_reales !== '' && (
+                                                        <>Reales {Number(ticket.horas_reales)} h</>
+                                                    )}
+                                                </p>
+                                            )}
+                                    </td>
                                     <td className="px-6 py-4">{ticketStatusTranslations[ticket.status] || ticket.status}</td>
                                     <td className="px-6 py-4">{ticketPriorityTranslations[ticket.priority] || ticket.priority}</td>
                                     <td className="px-6 py-4">{ticket.user_username}</td>

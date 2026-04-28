@@ -1,6 +1,28 @@
 const natural = require('natural');
 const classifier = new natural.BayesClassifier();
 
+/** Coincidencias para sugerir el área (departamento) "Desarrollo" — ver predictDepartment */
+const DESARROLLO_KEYWORDS = [
+    'bug',
+    'error de código',
+    'nueva funcionalidad',
+    'desarrollo',
+    'servidores',
+    'base de datos',
+    'api',
+    'reunión de planificación',
+    'deploy',
+    'error de codigo',
+    'reunion de planificacion',
+];
+
+function normalizeForKeywordMatch(s) {
+    return String(s)
+        .toLowerCase()
+        .normalize('NFD')
+        .replace(/\p{M}/gu, '');
+}
+
 // --- FASE 1: ENTRENAMIENTO BÁSICO ---
 // En el futuro, esto podría leerse de tu base de datos de tickets históricos.
 // Por ahora, le enseñamos manualmente.
@@ -39,6 +61,11 @@ const trainAI = () => {
 
     classifier.train();
     console.log("🧠 IA Entrenada y lista.");
+    console.log(
+        "   Área Desarrollo (sugerencia por texto): palabras clave en predictDepartment →",
+        DESARROLLO_KEYWORDS.slice(0, 9).join(', '),
+        '…'
+    );
 };
 
 // Entrenamos apenas inicia el servicio
@@ -48,6 +75,18 @@ trainAI();
 const predictCategory = (text) => {
     if (!text) return null;
     return classifier.classify(text);
+};
+
+/**
+ * Sugiere el nombre de área/departamento "Desarrollo" si el texto contiene las palabras clave acordadas.
+ */
+const predictDepartment = (text) => {
+    if (!text) return null;
+    const normalized = normalizeForKeywordMatch(text);
+    const hit = DESARROLLO_KEYWORDS.some((kw) =>
+        normalized.includes(normalizeForKeywordMatch(kw))
+    );
+    return hit ? 'Desarrollo' : null;
 };
 
 // Función simple para detectar urgencia (basada en palabras clave)
@@ -63,5 +102,6 @@ const predictPriority = (text) => {
 
 module.exports = {
     predictCategory,
-    predictPriority
+    predictPriority,
+    predictDepartment,
 };

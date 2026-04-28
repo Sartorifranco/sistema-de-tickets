@@ -4,6 +4,30 @@ import api from '../../config/axiosConfig';
 import { useAuth } from '../../context/AuthContext';
 import { Department, User, TicketData, UserRole } from '../../types';
 
+/** Valores enviados al backend en `subcategoria` */
+export const DESARROLLO_SUBCATEGORIAS = [
+    'Bug / Error',
+    'Mejora / Nueva Funcionalidad',
+    'Mantenimiento de Servidores / BD',
+    'Reunión / Planificación',
+] as const;
+
+const EMPTY_FORM_BASE = {
+    title: '',
+    description: '',
+    priority: 'medium' as const,
+    department_id: undefined as number | undefined,
+    category_id: undefined as number | undefined,
+    user_id: undefined as number | undefined,
+    location_id: undefined as number | undefined,
+    depositario_id: undefined as number | string | undefined,
+    predefined_problem_id: undefined as number | string | undefined,
+    subcategoria: '' as string | undefined,
+    es_tarea_interna: false,
+    horas_estimadas: undefined as number | undefined,
+    horas_reales: undefined as number | undefined,
+};
+
 // --- INTERFACES LOCALES ---
 interface Location {
     id: number;
@@ -31,7 +55,14 @@ interface TicketCategoryLocal {
     name: string;
 }
 
-type FormDataType = Partial<TicketData> & { predefined_problem_id?: number | string, depositario_id?: number | string };
+type FormDataType = Partial<TicketData> & {
+    predefined_problem_id?: number | string;
+    depositario_id?: number | string;
+    subcategoria?: string;
+    es_tarea_interna?: boolean;
+    horas_estimadas?: number;
+    horas_reales?: number;
+};
 
 interface TicketFormModalProps {
     isOpen: boolean;
@@ -43,22 +74,10 @@ interface TicketFormModalProps {
     currentUserRole: UserRole;
 }
 
-const TicketFormModal: React.FC<TicketFormModalProps> = ({ isOpen, onClose, onSave, departments, users, currentUserRole }) => {
+const TicketFormModal: React.FC<TicketFormModalProps> = ({ isOpen, onClose, onSave, initialData, departments, users, currentUserRole }) => {
     const { user: loggedInUser } = useAuth();
-    
-    const initialFormData: FormDataType = {
-        title: '',
-        description: '',
-        priority: 'medium',
-        department_id: undefined,
-        category_id: undefined,
-        user_id: undefined,
-        location_id: undefined,
-        depositario_id: undefined, 
-        predefined_problem_id: undefined,
-    };
 
-    const [formData, setFormData] = useState<FormDataType>(initialFormData);
+    const [formData, setFormData] = useState<FormDataType>({ ...EMPTY_FORM_BASE });
     const [attachments, setAttachments] = useState<File[]>([]);
     const [loading, setLoading] = useState(false);
     
@@ -129,7 +148,7 @@ const TicketFormModal: React.FC<TicketFormModalProps> = ({ isOpen, onClose, onSa
         }
         if (!isOpen) {
             // Reset al cerrar
-            setFormData(initialFormData);
+            setFormData({ ...EMPTY_FORM_BASE });
             setLocations([]);
             setDepositarios([]);
             setCategories([]);
@@ -139,6 +158,32 @@ const TicketFormModal: React.FC<TicketFormModalProps> = ({ isOpen, onClose, onSa
             setIsAnalyzing(false);
         }
     }, [isOpen, targetCompanyId, currentUserRole]);
+
+    // Edición: cargar ticket existente
+    useEffect(() => {
+        if (!isOpen) return;
+        if (initialData?.id) {
+            const hEst = initialData.horas_estimadas;
+            const hReal = initialData.horas_reales;
+            setFormData({
+                ...EMPTY_FORM_BASE,
+                title: initialData.title ?? '',
+                description: initialData.description ?? '',
+                priority: initialData.priority ?? 'medium',
+                department_id: initialData.department_id ?? undefined,
+                category_id: initialData.category_id ?? undefined,
+                user_id: initialData.user_id ?? undefined,
+                location_id: initialData.location_id ?? undefined,
+                depositario_id: initialData.depositario_id ?? undefined,
+                subcategoria: initialData.subcategoria ? String(initialData.subcategoria) : '',
+                es_tarea_interna: !!(initialData.es_tarea_interna === true || initialData.es_tarea_interna === 1 || String(initialData.es_tarea_interna ?? '') === '1'),
+                horas_estimadas: hEst !== undefined && hEst !== null && hEst !== '' ? Number(hEst) : undefined,
+                horas_reales: hReal !== undefined && hReal !== null && hReal !== '' ? Number(hReal) : undefined,
+            });
+        } else if (isOpen) {
+            setFormData({ ...EMPTY_FORM_BASE });
+        }
+    }, [isOpen, initialData?.id]);
     
     // 2. CARGA DINÁMICA DE PROBLEMAS ESPECÍFICOS
     useEffect(() => {
@@ -169,11 +214,21 @@ const TicketFormModal: React.FC<TicketFormModalProps> = ({ isOpen, onClose, onSa
             setIsAnalyzing(true);
             try {
                 const res = await api.post('/api/ai/predict', { text: formData.description });
-                const { suggestedCategory, suggestedPriority } = res.data.data;
+                const { suggestedCategory, suggestedPriority, suggestedDepartment } = res.data.data;
                 const priorityMap: Record<string, string> = { 'Crítica': 'urgent', 'Alta': 'high', 'Media': 'medium', 'Baja': 'low' };
-                
+
                 if (suggestedPriority && priorityMap[suggestedPriority]) {
-                    setFormData(prev => ({ ...prev, priority: priorityMap[suggestedPriority] as any }));
+                    setFormData(prev => ({ ...prev, priority: priorityMap[suggestedPriority] as TicketData['priority'] }));
+                }
+                if (suggestedDepartment === 'Desarrollo') {
+                    const targetCo = targetCompanyId && targetCompanyId !== '0' ? Number(targetCompanyId) : undefined;
+                    const devDept =
+                        (targetCo !== undefined
+                            ? departments.find(d => d.name === 'Desarrollo' && Number(d.company_id) === targetCo)
+                            : undefined) || departments.find(d => d.name === 'Desarrollo');
+                    if (devDept) {
+                        setFormData(prev => (!prev.department_id ? { ...prev, department_id: devDept.id } : prev));
+                    }
                 }
                 if (suggestedCategory) {
                     const foundCat = categories.find(c => c.name.toLowerCase().includes(suggestedCategory.toLowerCase()));
@@ -193,9 +248,9 @@ const TicketFormModal: React.FC<TicketFormModalProps> = ({ isOpen, onClose, onSa
                     }
                 }
             } catch (error) { console.error("Error IA:", error); } finally { setIsAnalyzing(false); }
-        }, 1200); 
+        }, 1200);
         return () => { if (analysisTimeoutRef.current) clearTimeout(analysisTimeoutRef.current); };
-    }, [formData.description, categories, isOpen]);
+    }, [formData.description, categories, isOpen, departments, targetCompanyId, formData.predefined_problem_id]);
 
     
     const filteredDepartments = useMemo(() => {
@@ -206,12 +261,12 @@ const TicketFormModal: React.FC<TicketFormModalProps> = ({ isOpen, onClose, onSa
         } else {
             targetUserForFiltering = loggedInUser;
         }
-        const bacarDepartments = ['Mantenimiento', 'Implementaciones', 'SOPORTE - IT'];
+        const bacarDepartments = ['Mantenimiento', 'Implementaciones', 'SOPORTE - IT', 'Desarrollo'];
         let filtered;
         if (targetUserForFiltering?.company_id === 1) {
             filtered = departments.filter(d => bacarDepartments.includes(d.name));
         } else {
-            filtered = departments.filter(d => d.name === 'SOPORTE - IT');
+            filtered = departments.filter(d => d.name === 'SOPORTE - IT' || d.name === 'Desarrollo');
         }
         // Deduplicar por nombre: si hay varios "SOPORTE - IT" etc., mostrar solo uno (priorizar el de la empresa del usuario)
         const targetCompanyId = targetUserForFiltering?.company_id;
@@ -227,14 +282,50 @@ const TicketFormModal: React.FC<TicketFormModalProps> = ({ isOpen, onClose, onSa
         return Array.from(byName.values()).sort((a, b) => (a.name || '').localeCompare(b.name || ''));
     }, [departments, loggedInUser, formData.user_id, users, currentUserRole]);
 
+    const selectedDepartment = useMemo(() => {
+        const id = formData.department_id;
+        if (!id) return undefined;
+        return departments.find(d => d.id === id) || filteredDepartments.find(d => d.id === id);
+    }, [formData.department_id, departments, filteredDepartments]);
+
+    const isDesarrolloArea = selectedDepartment?.name === 'Desarrollo';
+
     const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
         const { name, value } = e.target;
         const numValue = parseInt(value, 10);
+
+        if (e.target instanceof HTMLInputElement && e.target.type === 'checkbox') {
+            const checked = e.target.checked;
+            if (name === 'es_tarea_interna') {
+                setFormData(prev => ({ ...prev, es_tarea_interna: checked }));
+            }
+            return;
+        }
+
+        if (name === 'horas_estimadas' || name === 'horas_reales') {
+            const v = value.trim();
+            setFormData(prev => ({
+                ...prev,
+                [name]: v === '' ? undefined : Number(v),
+            }));
+            return;
+        }
         
         if (name === 'user_id') {
-            setFormData({ ...initialFormData, user_id: numValue || undefined });
+            setFormData({ ...EMPTY_FORM_BASE, user_id: numValue || undefined });
             setIsCustomCategory(false);
             setIsOther(false);
+            return;
+        }
+
+        if (name === 'department_id') {
+            const newDepId = numValue || undefined;
+            const dept = departments.find(d => d.id === newDepId);
+            setFormData(prev => ({
+                ...prev,
+                department_id: newDepId,
+                ...(dept?.name !== 'Desarrollo' ? { subcategoria: '' } : {}),
+            }));
             return;
         }
         
@@ -279,16 +370,33 @@ const TicketFormModal: React.FC<TicketFormModalProps> = ({ isOpen, onClose, onSa
             toast.warn("Por favor, selecciona el cliente para quien es este ticket.");
             return;
         }
-        const requiredFields = [formData.title, formData.description, formData.department_id, formData.category_id];
+        const requiredFields: unknown[] = [formData.title, formData.description, formData.department_id, formData.category_id];
         if (locations.length > 0) {
             requiredFields.push(formData.location_id);
+        }
+        if (isDesarrolloArea && (!formData.subcategoria || !String(formData.subcategoria).trim())) {
+            toast.warn("Seleccioná una sub-categoría para el área Desarrollo.");
+            return;
         }
         if (requiredFields.some(field => !field)) {
             toast.warn("Por favor, complete todos los campos requeridos.");
             return;
         }
+        const payload: Partial<TicketData> = { ...formData };
+        if (!isDesarrolloArea) {
+            delete payload.subcategoria;
+        } else if (payload.subcategoria) {
+            payload.subcategoria = String(payload.subcategoria).trim();
+        }
+        if (currentUserRole !== 'admin') {
+            delete payload.es_tarea_interna;
+            delete payload.horas_estimadas;
+            delete payload.horas_reales;
+        } else {
+            payload.es_tarea_interna = !!formData.es_tarea_interna;
+        }
         setLoading(true);
-        await onSave(formData, attachments);
+        await onSave(payload, attachments);
         setLoading(false);
     };
 
@@ -298,7 +406,7 @@ const TicketFormModal: React.FC<TicketFormModalProps> = ({ isOpen, onClose, onSa
         <div className="fixed inset-0 bg-black bg-opacity-60 flex justify-center items-center z-50 p-4">
             <div className="bg-white p-6 rounded-lg shadow-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
                 <div className="flex justify-between items-center mb-4 border-b pb-2">
-                    <h2 className="text-2xl font-bold text-gray-800">Crear Nuevo Ticket</h2>
+                    <h2 className="text-2xl font-bold text-gray-800">{initialData?.id ? 'Editar Ticket' : 'Crear Nuevo Ticket'}</h2>
                     {isAnalyzing && (
                         <span className="text-sm font-bold text-blue-600 animate-pulse bg-blue-50 px-3 py-1 rounded-full border border-blue-200">🤖 IA Analizando...</span>
                     )}
@@ -483,6 +591,73 @@ const TicketFormModal: React.FC<TicketFormModalProps> = ({ isOpen, onClose, onSa
                             </select>
                         </div>
                     </div>
+
+                    {isDesarrolloArea && (
+                        <div className="rounded-lg border border-violet-200 bg-violet-50/50 p-4 space-y-2">
+                            <label className="block text-gray-800 font-medium">
+                                Sub-categoría <span className="text-red-600">*</span>
+                            </label>
+                            <select
+                                name="subcategoria"
+                                value={formData.subcategoria || ''}
+                                onChange={handleChange}
+                                className="w-full p-2 border border-violet-200 rounded mt-1 bg-white"
+                                style={hardStyle}
+                                required
+                            >
+                                <option value="">-- Seleccioná una opción --</option>
+                                {DESARROLLO_SUBCATEGORIAS.map(opt => (
+                                    <option key={opt} value={opt}>{opt}</option>
+                                ))}
+                            </select>
+                        </div>
+                    )}
+
+                    {currentUserRole === 'admin' && (
+                        <div className="rounded-lg border border-slate-200 bg-slate-50 p-4 space-y-4">
+                            <p className="text-sm font-semibold text-slate-700">Control (solo administración)</p>
+                            <label className="flex items-center gap-2 cursor-pointer text-gray-800">
+                                <input
+                                    type="checkbox"
+                                    name="es_tarea_interna"
+                                    checked={!!formData.es_tarea_interna}
+                                    onChange={handleChange}
+                                    className="rounded border-gray-400 text-red-600 focus:ring-red-500"
+                                />
+                                Marcar como Tarea Interna
+                            </label>
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                <div>
+                                    <label className="block text-gray-700 text-sm font-medium">Horas Estimadas</label>
+                                    <input
+                                        type="number"
+                                        name="horas_estimadas"
+                                        step={0.5}
+                                        min={0}
+                                        value={formData.horas_estimadas === undefined || formData.horas_estimadas === null ? '' : formData.horas_estimadas}
+                                        onChange={handleChange}
+                                        className="w-full p-2 border rounded mt-1"
+                                        style={hardStyle}
+                                        placeholder="0"
+                                    />
+                                </div>
+                                <div>
+                                    <label className="block text-gray-700 text-sm font-medium">Horas Reales</label>
+                                    <input
+                                        type="number"
+                                        name="horas_reales"
+                                        step={0.5}
+                                        min={0}
+                                        value={formData.horas_reales === undefined || formData.horas_reales === null ? '' : formData.horas_reales}
+                                        onChange={handleChange}
+                                        className="w-full p-2 border rounded mt-1"
+                                        style={hardStyle}
+                                        placeholder="0"
+                                    />
+                                </div>
+                            </div>
+                        </div>
+                    )}
 
                     <div>
                         <label className="block text-gray-700 font-medium">Adjuntar Archivos:</label>

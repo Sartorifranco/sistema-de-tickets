@@ -15,6 +15,7 @@ import {
 } from '@dnd-kit/core';
 import { TicketData, TicketStatus } from '../../types';
 import { ticketPriorityTranslations } from '../../utils/traslations';
+import { InternalTaskBadge, isTicketInternalTask } from './InternalTaskBadge';
 
 const KANBAN_COLUMNS: { id: TicketStatus; label: string }[] = [
     { id: 'open', label: 'Abierto' },
@@ -91,10 +92,11 @@ const KanbanCard: React.FC<{
                 <h4 className="font-bold text-gray-800 truncate mb-2" title={ticket.title}>
                     {ticket.title}
                 </h4>
-                <div className="flex flex-wrap gap-1 mb-2">
+                <div className="flex flex-wrap gap-1 mb-2 items-center">
                     <span className={`px-2 py-0.5 rounded text-xs font-medium ${getPriorityBadgeClass(priority)}`}>
                         {priorityLabel}
                     </span>
+                    {isTicketInternalTask(ticket) && <InternalTaskBadge />}
                 </div>
                 <p className="text-sm text-gray-500 truncate mb-1">{ticket.client_name || '—'}</p>
                 <p className="text-xs text-gray-400">{formatShortDate(ticket.created_at)}</p>

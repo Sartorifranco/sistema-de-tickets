@@ -96,6 +96,7 @@ export interface TicketData {
     created_at: string;
     updated_at: string;
     location_id?: number | null;
+    depositario_id?: number | string | null;
     
     // Nombres que vienen de los JOINs en el backend
     client_name: string; 
@@ -110,6 +111,14 @@ export interface TicketData {
     closed_at?: string | null;
     resolved_at?: string | null;
     feedback?: Feedback | null;
+
+    /** Flujo Desarrollo */
+    subcategoria?: string | null;
+    es_tarea_interna?: boolean | number | null;
+    horas_estimadas?: number | string | null;
+    horas_reales?: number | string | null;
+    /** Lista GET: join departments */
+    department_name?: string | null;
 }
 
 // ====================================================================
