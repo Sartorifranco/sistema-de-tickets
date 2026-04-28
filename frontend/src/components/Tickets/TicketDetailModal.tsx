@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import api from '../../config/axiosConfig';
 import { useAuth } from '../../context/AuthContext';
 import { useNotification } from '../../context/NotificationContext';
@@ -8,6 +8,7 @@ import { isAxiosErrorTypeGuard, ApiResponseError } from '../../utils/typeGuards'
 import { ticketStatusTranslations, ticketPriorityTranslations } from '../../utils/traslations';
 import { formatLocalDate } from '../../utils/dateFormatter'; // Asegúrate de tener este helper
 import { InternalTaskBadge, isTicketInternalTask } from './InternalTaskBadge';
+import { mergeAssignableStaff } from '../../utils/ticketAccess';
 
 interface TicketDetailModalProps {
     isOpen: boolean;
@@ -35,6 +36,11 @@ const TicketDetailModal: React.FC<TicketDetailModalProps> = ({ isOpen, onClose, 
     const isAdmin = currentUser?.role === 'admin';
     const isAgent = currentUser?.role === 'agent';
     const canEditTicket = isAdmin || (isAgent && ticket.assigned_to_user_id === currentUser?.id);
+
+    const assignableUsers = useMemo(
+        () => mergeAssignableStaff(users, currentUser ?? undefined),
+        [users, currentUser]
+    );
 
     const fetchComments = useCallback(async () => {
         setLoadingComments(true);
@@ -145,7 +151,13 @@ const TicketDetailModal: React.FC<TicketDetailModalProps> = ({ isOpen, onClose, 
                             <label className="block text-sm font-medium text-gray-700">Asignado a:</label>
                             <select value={editedAgentId || ''} onChange={(e) => setEditedAgentId(Number(e.target.value))} className="w-full p-2 border rounded mt-1" disabled={!isAdmin}>
                                 <option value="">Sin Asignar</option>
-                                {users.filter(u => u.role === 'agent' || u.role === 'admin').map(agent => <option key={agent.id} value={agent.id}>{agent.username}</option>)}
+                                {assignableUsers.map((agent) => (
+                                    <option key={agent.id} value={agent.id}>
+                                        {agent.first_name && agent.last_name
+                                            ? `${agent.first_name} ${agent.last_name}`
+                                            : agent.username}
+                                    </option>
+                                ))}
                             </select>
                         </div>
                         <div>

@@ -3,6 +3,12 @@ import { toast } from 'react-toastify';
 import api from '../../config/axiosConfig';
 import { useAuth } from '../../context/AuthContext';
 import { Department, User, TicketData, UserRole } from '../../types';
+import {
+    canUseTicketInternalControlBlock,
+    isDesarrolloDepartmentName,
+    matchesBacarDepartmentDropdownOption,
+    matchesStandardDepartmentDropdownOption,
+} from '../../utils/ticketAccess';
 
 /** Valores enviados al backend en `subcategoria` */
 export const DESARROLLO_SUBCATEGORIAS = [
@@ -224,8 +230,10 @@ const TicketFormModal: React.FC<TicketFormModalProps> = ({ isOpen, onClose, onSa
                     const targetCo = targetCompanyId && targetCompanyId !== '0' ? Number(targetCompanyId) : undefined;
                     const devDept =
                         (targetCo !== undefined
-                            ? departments.find(d => d.name === 'Desarrollo' && Number(d.company_id) === targetCo)
-                            : undefined) || departments.find(d => d.name === 'Desarrollo');
+                            ? departments.find(
+                                  (d) => isDesarrolloDepartmentName(d.name) && Number(d.company_id) === targetCo
+                              )
+                            : undefined) || departments.find((d) => isDesarrolloDepartmentName(d.name));
                     if (devDept) {
                         setFormData(prev => (!prev.department_id ? { ...prev, department_id: devDept.id } : prev));
                     }
@@ -261,12 +269,11 @@ const TicketFormModal: React.FC<TicketFormModalProps> = ({ isOpen, onClose, onSa
         } else {
             targetUserForFiltering = loggedInUser;
         }
-        const bacarDepartments = ['Mantenimiento', 'Implementaciones', 'SOPORTE - IT', 'Desarrollo'];
         let filtered;
         if (targetUserForFiltering?.company_id === 1) {
-            filtered = departments.filter(d => bacarDepartments.includes(d.name));
+            filtered = departments.filter((d) => matchesBacarDepartmentDropdownOption(d));
         } else {
-            filtered = departments.filter(d => d.name === 'SOPORTE - IT' || d.name === 'Desarrollo');
+            filtered = departments.filter((d) => matchesStandardDepartmentDropdownOption(d));
         }
         // Deduplicar por nombre: si hay varios "SOPORTE - IT" etc., mostrar solo uno (priorizar el de la empresa del usuario)
         const targetCompanyId = targetUserForFiltering?.company_id;
@@ -282,13 +289,18 @@ const TicketFormModal: React.FC<TicketFormModalProps> = ({ isOpen, onClose, onSa
         return Array.from(byName.values()).sort((a, b) => (a.name || '').localeCompare(b.name || ''));
     }, [departments, loggedInUser, formData.user_id, users, currentUserRole]);
 
-    const selectedDepartment = useMemo(() => {
+    const isDesarrolloArea = useMemo(() => {
         const id = formData.department_id;
-        if (!id) return undefined;
-        return departments.find(d => d.id === id) || filteredDepartments.find(d => d.id === id);
+        if (!id) return false;
+        const d =
+            departments.find((x) => x.id === id) || filteredDepartments.find((x) => x.id === id);
+        return d ? isDesarrolloDepartmentName(d.name) : false;
     }, [formData.department_id, departments, filteredDepartments]);
 
-    const isDesarrolloArea = selectedDepartment?.name === 'Desarrollo';
+    const mayUseControlBlock = useMemo(
+        () => canUseTicketInternalControlBlock(loggedInUser ?? undefined, departments),
+        [loggedInUser, departments]
+    );
 
     const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
         const { name, value } = e.target;
@@ -324,7 +336,7 @@ const TicketFormModal: React.FC<TicketFormModalProps> = ({ isOpen, onClose, onSa
             setFormData(prev => ({
                 ...prev,
                 department_id: newDepId,
-                ...(dept?.name !== 'Desarrollo' ? { subcategoria: '' } : {}),
+                ...(dept && !isDesarrolloDepartmentName(dept.name) ? { subcategoria: '' } : {}),
             }));
             return;
         }
@@ -388,7 +400,7 @@ const TicketFormModal: React.FC<TicketFormModalProps> = ({ isOpen, onClose, onSa
         } else if (payload.subcategoria) {
             payload.subcategoria = String(payload.subcategoria).trim();
         }
-        if (currentUserRole !== 'admin') {
+        if (!mayUseControlBlock) {
             delete payload.es_tarea_interna;
             delete payload.horas_estimadas;
             delete payload.horas_reales;
@@ -613,7 +625,7 @@ const TicketFormModal: React.FC<TicketFormModalProps> = ({ isOpen, onClose, onSa
                         </div>
                     )}
 
-                    {currentUserRole === 'admin' && (
+                    {mayUseControlBlock && (
                         <div className="rounded-lg border border-slate-200 bg-slate-50 p-4 space-y-4">
                             <p className="text-sm font-semibold text-slate-700">Control (solo administración)</p>
                             <label className="flex items-center gap-2 cursor-pointer text-gray-800">

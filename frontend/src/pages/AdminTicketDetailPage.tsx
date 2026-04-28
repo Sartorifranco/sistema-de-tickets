@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { toast } from 'react-toastify';
 import api from '../config/axiosConfig';
@@ -8,6 +8,7 @@ import { ticketStatusTranslations, ticketPriorityTranslations } from '../utils/t
 import { formatLocalDate } from '../utils/dateFormatter';
 import CommentForm from '../components/Common/CommentForm';
 import { InternalTaskBadge, isTicketInternalTask } from '../components/Tickets/InternalTaskBadge';
+import { mergeAssignableStaff } from '../utils/ticketAccess';
 
 type DetailedTicketData = TicketData & {
     ticket_category_name?: string;
@@ -25,6 +26,7 @@ const AdminTicketDetailPage: React.FC = () => {
     const { id } = useParams<{ id: string }>();
     const navigate = useNavigate();
     const { user } = useAuth();
+
     const [ticket, setTicket] = useState<DetailedTicketData | null>(null);
     const [agents, setAgents] = useState<User[]>([]);
     const [loading, setLoading] = useState(true);
@@ -32,6 +34,11 @@ const AdminTicketDetailPage: React.FC = () => {
 
     // ✅ AÑADIDO: Estado para el modal de confirmación de borrado
     const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+
+    const agentsForReassign = useMemo(
+        () => mergeAssignableStaff(agents, user ?? undefined),
+        [agents, user]
+    );
 
     const fetchTicketDetails = useCallback(async () => {
         if (!id) return;
@@ -273,7 +280,7 @@ const AdminTicketDetailPage: React.FC = () => {
                             <form onSubmit={handleReassignTicket}>
                                 <select name="agentId" className="w-full p-2 border border-gray-300 rounded-md" defaultValue="">
                                     <option value="" disabled>-- Selecciona un agente --</option>
-                                    {agents.map(agent => (
+                                    {agentsForReassign.map((agent) => (
                                         <option key={agent.id} value={agent.id}>
                                             {agent.first_name && agent.last_name ? `${agent.first_name} ${agent.last_name}` : agent.username}
                                         </option>
