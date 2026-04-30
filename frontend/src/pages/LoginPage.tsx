@@ -37,73 +37,95 @@ const LoginPage: React.FC = () => {
     };
 
     return (
-        <div className="min-h-screen flex items-center justify-center bg-gray-100 bg-gradient-to-br from-gray-100 via-white to-gray-100 py-12 px-4 sm:px-6 lg:px-8">
-            <div className="w-full max-w-md">
-                <div className="bg-white rounded-2xl shadow-[0_25px_50px_-12px_rgba(0,0,0,0.18)] border border-gray-100/90 px-8 py-10 sm:px-10 sm:py-12">
-                    <div className="flex flex-col items-center text-center">
-                        <img
-                            className="h-28 sm:h-32 w-auto max-w-full object-contain drop-shadow-sm"
-                            src="/images/logo-grupo-bacar-horizontal.png"
-                            alt="Grupo BACAR"
-                        />
-                        <p className="mt-2 text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">Bacar OS</p>
-                        <h1 className="mt-6 text-2xl sm:text-3xl font-bold text-slate-900 leading-tight">Bienvenido</h1>
-                        <p className="mt-2 text-sm font-medium text-slate-600">Ingresá con tu cuenta corporativa</p>
-                    </div>
+        <div className="flex h-screen min-h-0 w-full flex-col lg:flex-row font-medium">
+            {/* Video — mitad izquierda (desktop); arriba en móvil */}
+            <div className="relative h-[38vh] w-full shrink-0 overflow-hidden bg-slate-900 lg:h-full lg:w-1/2">
+                <video
+                    autoPlay
+                    muted
+                    loop
+                    playsInline
+                    className="h-full w-full object-cover"
+                    src="/assets/video/it-systems.mp4"
+                />
+                <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/40 to-transparent lg:bg-gradient-to-r lg:from-transparent lg:to-black/20" />
+            </div>
 
-                    <form className="mt-10 space-y-6" onSubmit={handleSubmit} noValidate>
-                        <div className="space-y-5">
-                            <div>
-                                <label htmlFor="email-address" className="block text-sm font-semibold text-slate-900 mb-1.5">
-                                    Correo electrónico
-                                </label>
-                                <input
-                                    id="email-address"
-                                    name="email"
-                                    type="email"
-                                    autoComplete="email"
-                                    required
-                                    className={`${clInput} rounded-xl border-gray-200 text-slate-900 placeholder:text-slate-400`}
-                                    placeholder="nombre@empresa.com"
-                                    value={email}
-                                    onChange={(e) => setEmail(e.target.value)}
-                                    disabled={loading}
-                                />
-                            </div>
-                            <div>
-                                <label htmlFor="password" className="block text-sm font-semibold text-slate-900 mb-1.5">
-                                    Contraseña
-                                </label>
-                                <input
-                                    id="password"
-                                    name="password"
-                                    type="password"
-                                    autoComplete="current-password"
-                                    required
-                                    className={`${clInput} rounded-xl border-gray-200 text-slate-900 placeholder:text-slate-400`}
-                                    placeholder="••••••••"
-                                    value={password}
-                                    onChange={(e) => setPassword(e.target.value)}
-                                    disabled={loading}
-                                />
-                            </div>
+            {/* Formulario — mitad derecha */}
+            <div className="flex min-h-0 flex-1 flex-col items-center justify-center overflow-y-auto bg-gradient-to-br from-gray-100 via-white to-gray-50 px-4 py-10 sm:px-8 lg:w-1/2 lg:py-12">
+                <div className="w-full max-w-md">
+                    <div
+                        className="rounded-2xl border border-white/60 bg-white/75 px-8 py-10 shadow-[0_8px_40px_rgba(0,0,0,0.08)] backdrop-blur-md sm:px-10 sm:py-12"
+                        style={{ fontFamily: "'Urbanist', ui-sans-serif, system-ui, sans-serif" }}
+                    >
+                        <div className="flex flex-col items-center text-center">
+                            <img
+                                className="h-24 w-auto max-w-full object-contain drop-shadow-sm sm:h-28"
+                                src="/images/logo-grupo-bacar-horizontal.png"
+                                alt="Grupo BACAR"
+                            />
+                            <p className="mt-2 text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">Bacar OS</p>
+                            <h1 className="mt-6 text-2xl font-bold leading-tight text-slate-900 sm:text-3xl">Bienvenido</h1>
+                            <p className="mt-2 text-sm text-slate-600">Ingresá con tu cuenta corporativa</p>
                         </div>
 
-                        <button
-                            type="submit"
-                            className="w-full flex justify-center py-3 px-4 rounded-xl text-white bg-red-600 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-600 disabled:bg-gray-400 font-semibold text-sm shadow-sm transition-colors"
-                            disabled={loading}
-                        >
-                            {loading ? 'Iniciando sesión...' : 'Iniciar sesión'}
-                        </button>
-                    </form>
+                        <form className="mt-10 space-y-6" onSubmit={handleSubmit} noValidate>
+                            <div className="space-y-5">
+                                <div>
+                                    <label htmlFor="email-address" className="mb-1.5 block text-sm font-semibold text-slate-900">
+                                        Correo electrónico
+                                    </label>
+                                    <input
+                                        id="email-address"
+                                        name="email"
+                                        type="email"
+                                        autoComplete="email"
+                                        required
+                                        className={`${clInput} rounded-xl border-gray-200/90 text-slate-900 placeholder:text-slate-400`}
+                                        placeholder="nombre@empresa.com"
+                                        value={email}
+                                        onChange={(e) => setEmail(e.target.value)}
+                                        disabled={loading}
+                                    />
+                                </div>
+                                <div>
+                                    <label htmlFor="password" className="mb-1.5 block text-sm font-semibold text-slate-900">
+                                        Contraseña
+                                    </label>
+                                    <input
+                                        id="password"
+                                        name="password"
+                                        type="password"
+                                        autoComplete="current-password"
+                                        required
+                                        className={`${clInput} rounded-xl border-gray-200/90 text-slate-900 placeholder:text-slate-400`}
+                                        placeholder="••••••••"
+                                        value={password}
+                                        onChange={(e) => setPassword(e.target.value)}
+                                        disabled={loading}
+                                    />
+                                </div>
+                            </div>
 
-                    <p className="mt-8 text-center text-sm font-medium text-slate-600">
-                        ¿No tenés cuenta?{' '}
-                        <Link to="/register" className="font-semibold text-red-600 hover:text-red-700 underline-offset-2 hover:underline">
-                            Registrate aquí
-                        </Link>
-                    </p>
+                            <button
+                                type="submit"
+                                className="flex w-full justify-center rounded-xl bg-red-600 px-4 py-3 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-600 focus:ring-offset-2 disabled:bg-gray-400"
+                                disabled={loading}
+                            >
+                                {loading ? 'Iniciando sesión...' : 'Iniciar sesión'}
+                            </button>
+                        </form>
+
+                        <p className="mt-8 text-center text-sm text-slate-600">
+                            ¿No tenés cuenta?{' '}
+                            <Link
+                                to="/register"
+                                className="font-semibold text-red-600 underline-offset-2 hover:text-red-700 hover:underline"
+                            >
+                                Registrate aquí
+                            </Link>
+                        </p>
+                    </div>
                 </div>
             </div>
         </div>
