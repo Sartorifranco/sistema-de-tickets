@@ -5,8 +5,8 @@ import { useNotification } from '../context/NotificationContext';
 import { toast } from 'react-toastify';
 import { clInput } from '../utils/cleanLightUi';
 
-const MIXKIT_VIDEO =
-    'https://assets.mixkit.co/videos/preview/mixkit-abstract-technology-network-loops-2-99-large.mp4';
+/** CDN directo .mp4 (alta disponibilidad) */
+const LOGIN_HERO_VIDEO = 'https://v1.exhibit.com/videos/exhibit-hero-v1.mp4';
 
 const LoginPage: React.FC = () => {
     const [email, setEmail] = useState('');
@@ -44,21 +44,25 @@ const LoginPage: React.FC = () => {
             className="flex h-screen min-h-0 w-full flex-col overflow-hidden font-medium md:flex-row"
             style={{ fontFamily: "'Urbanist', ui-sans-serif, system-ui, sans-serif" }}
         >
-            {/* Video — 50% desktop; bloque superior en móvil */}
-            <div className="relative h-[36vh] w-full shrink-0 overflow-hidden bg-slate-950 md:h-full md:w-1/2">
-                <video
-                    autoPlay
-                    muted
-                    loop
-                    playsInline
-                    className="h-full w-full object-cover"
-                    src={MIXKIT_VIDEO}
-                />
-                <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/50 via-transparent to-transparent md:bg-gradient-to-r md:from-transparent md:via-black/10 md:to-black/25" />
+            {/* Video — 50% desktop; bloque superior en móvil (z-index por encima del panel derecho en el stack local) */}
+            <div className="relative z-10 isolate h-[36vh] w-full min-h-0 shrink-0 overflow-hidden bg-slate-950 md:h-full md:w-1/2">
+                <div className="relative z-[1] h-full w-full min-h-0">
+                    <video
+                        autoPlay
+                        muted
+                        loop
+                        playsInline
+                        preload="auto"
+                        className="w-full h-full object-cover"
+                        src={LOGIN_HERO_VIDEO}
+                    />
+                </div>
+                {/* Gradiente muy suave solo para legibilidad en el borde; no tapa el video */}
+                <div className="pointer-events-none absolute inset-0 z-[2] bg-gradient-to-t from-black/25 via-transparent to-transparent md:bg-gradient-to-r md:from-transparent md:via-transparent md:to-black/15" />
             </div>
 
-            {/* Formulario — 50% Clean & Light, fondo blanco */}
-            <div className="flex min-h-0 flex-1 flex-col items-center justify-center overflow-y-auto bg-white px-4 py-8 sm:px-8 md:w-1/2 md:py-12">
+            {/* Formulario — 50% Clean & Light; z-0 para no superponerse al panel del video */}
+            <div className="relative z-0 flex min-h-0 flex-1 flex-col items-center justify-center overflow-y-auto bg-white px-4 py-8 sm:px-8 md:w-1/2 md:py-12">
                 <div className="w-full max-w-md">
                     <div className="rounded-2xl border border-gray-100 bg-white px-6 py-9 shadow-sm sm:px-10 sm:py-11">
                         <div className="flex flex-col items-center text-center">
