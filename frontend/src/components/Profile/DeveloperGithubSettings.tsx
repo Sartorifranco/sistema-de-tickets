@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import api from '../../config/axiosConfig';
 import { toast } from 'react-toastify';
+import { clCard, clInput } from '../../utils/cleanLightUi';
 
 type Props = {
     /** Mostrar la tarjeta (admin o departamento Desarrollo) */
@@ -93,8 +94,8 @@ const DeveloperGithubSettings: React.FC<Props> = ({ visible }) => {
     };
 
     return (
-        <div className="bg-white p-6 rounded-lg shadow-lg border border-slate-200">
-            <h2 className="text-xl font-semibold mb-1 text-gray-800">Configuración de Desarrollador</h2>
+        <div className={`${clCard} p-6`}>
+            <h2 className="text-xl font-semibold mb-1 text-gray-900 border-b border-gray-100 pb-2">Configuración de Desarrollador</h2>
             <p className="text-sm text-gray-600 mb-6">
                 Conectá tu cuenta de GitHub para ver commits vinculados a tickets de desarrollo. El token se guarda
                 cifrado en el servidor.
@@ -112,7 +113,7 @@ const DeveloperGithubSettings: React.FC<Props> = ({ visible }) => {
                             onChange={(e) => setGithubUsername(e.target.value)}
                             placeholder="ej: octocat"
                             autoComplete="username"
-                            className="mt-1 block w-full rounded-md border border-gray-300 shadow-sm px-3 py-2"
+                            className={`mt-1 block w-full ${clInput}`}
                         />
                     </div>
                     <div>
@@ -129,7 +130,7 @@ const DeveloperGithubSettings: React.FC<Props> = ({ visible }) => {
                                     : 'ghp_… o fine-grained token'
                             }
                             autoComplete="off"
-                            className="mt-1 block w-full rounded-md border border-gray-300 shadow-sm px-3 py-2 font-mono text-sm"
+                            className={`mt-1 block w-full ${clInput} font-mono text-sm`}
                         />
                         {hasToken && (
                             <p className="mt-1 text-xs text-green-700">Hay un token guardado de forma segura.</p>
@@ -139,7 +140,7 @@ const DeveloperGithubSettings: React.FC<Props> = ({ visible }) => {
                         <button
                             type="submit"
                             disabled={saving}
-                            className="bg-gray-900 hover:bg-gray-800 text-white font-medium py-2 px-4 rounded-lg disabled:opacity-50"
+                            className="bg-gray-900 hover:bg-gray-800 text-white font-semibold py-2.5 px-5 rounded-xl shadow-sm disabled:opacity-50"
                         >
                             {saving ? 'Guardando…' : 'Guardar configuración'}
                         </button>
@@ -148,7 +149,7 @@ const DeveloperGithubSettings: React.FC<Props> = ({ visible }) => {
                                 type="button"
                                 onClick={handleClearToken}
                                 disabled={saving}
-                                className="border border-red-300 text-red-700 hover:bg-red-50 font-medium py-2 px-4 rounded-lg disabled:opacity-50"
+                                className="border border-red-300 text-red-700 hover:bg-red-50 font-semibold py-2.5 px-5 rounded-xl disabled:opacity-50"
                             >
                                 Quitar token
                             </button>

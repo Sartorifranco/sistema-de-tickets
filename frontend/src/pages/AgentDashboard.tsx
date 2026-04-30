@@ -9,13 +9,14 @@ import { toast } from 'react-toastify';
 import { formatLocalDate } from '../utils/dateFormatter';
 // ✅ IMPORTAR WIDGET
 import DepositariosWidget from '../components/Dashboard/DepositariosWidget';
+import { clCard, clInput, clModalPanel } from '../utils/cleanLightUi';
 
 // --- Componente genérico para el Modal de Detalles (DISEÑO MEJORADO) ---
 const DetailsModal: React.FC<{ title: string; items: Partial<TicketData>[]; onClose: () => void; loading: boolean; role: 'agent' | 'admin' | 'client' }> = ({ title, items, onClose, loading, role }) => {
     return (
         <div className="fixed inset-0 bg-black bg-opacity-60 flex justify-center items-center z-50 p-4">
-            <div className="bg-white p-6 rounded-lg shadow-xl w-full max-w-2xl">
-                <h2 className="text-2xl font-bold mb-4 border-b pb-3">{title}</h2>
+            <div className={`${clModalPanel} max-w-2xl p-6`}>
+                <h2 className="text-2xl font-bold mb-4 border-b border-gray-100 pb-3 text-gray-900">{title}</h2>
                 <div className="max-h-96 overflow-y-auto">
                     {loading ? (
                         <p className="text-center text-gray-500 py-8">Cargando...</p>
@@ -35,7 +36,7 @@ const DetailsModal: React.FC<{ title: string; items: Partial<TicketData>[]; onCl
                         <p className="text-center text-gray-500 py-8">No hay tickets para mostrar en esta categoría.</p>
                     )}
                 </div>
-                <button onClick={onClose} className="mt-6 bg-gray-200 hover:bg-gray-300 text-gray-800 font-bold py-2 px-4 rounded w-full">Cerrar</button>
+                <button type="button" onClick={onClose} className="mt-6 bg-gray-200 hover:bg-gray-300 text-gray-800 font-semibold py-2.5 px-5 rounded-xl w-full">Cerrar</button>
             </div>
         </div>
     );
@@ -44,8 +45,8 @@ const DetailsModal: React.FC<{ title: string; items: Partial<TicketData>[]; onCl
 // --- Componente interno: TicketList ---
 const TicketList: React.FC<{ tickets: TicketData[], title: string, onTicketClick: (id: number) => void }> = ({ tickets, title, onTicketClick }) => {
     return (
-        <div className="bg-white p-6 rounded-lg shadow-md h-full flex flex-col">
-            <h2 className="text-xl font-semibold text-gray-700 mb-4 border-b pb-2">{title}</h2>
+        <div className={`${clCard} p-6 h-full flex flex-col`}>
+            <h2 className="text-xl font-semibold text-gray-800 mb-4 border-b border-gray-100 pb-2">{title}</h2>
             {tickets.length === 0 ? (
                  <p className="text-gray-600 flex-grow flex items-center justify-center">No hay tickets recientes.</p>
             ) : (
@@ -70,7 +71,7 @@ const TicketList: React.FC<{ tickets: TicketData[], title: string, onTicketClick
                     </table>
                     <div className="sm:hidden space-y-3">
                         {tickets.map((ticket) => (
-                             <div key={ticket.id} className="bg-gray-50 p-3 rounded-md border" onClick={() => onTicketClick(ticket.id)}>
+                             <div key={ticket.id} className="bg-gray-50 p-3 rounded-xl border border-gray-100" onClick={() => onTicketClick(ticket.id)}>
                                  <p className="font-bold text-gray-800">#{ticket.id} - {ticket.title}</p>
                                  <p className="text-sm text-gray-600 mt-1">Prioridad: {ticket.priority}</p>
                              </div>
@@ -85,8 +86,8 @@ const TicketList: React.FC<{ tickets: TicketData[], title: string, onTicketClick
 // --- Componente interno: ActivityLogList ---
 const ActivityLogList: React.FC<{ logs: ActivityLog[], title: string }> = ({ logs, title }) => {
     return (
-        <div className="bg-white p-6 rounded-lg shadow-md h-full flex flex-col">
-            <h2 className="text-xl font-semibold text-gray-700 mb-4 border-b pb-2">{title}</h2>
+        <div className={`${clCard} p-6 h-full flex flex-col`}>
+            <h2 className="text-xl font-semibold text-gray-800 mb-4 border-b border-gray-100 pb-2">{title}</h2>
             {logs.length === 0 ? (
                 <p className="text-gray-600 flex-grow flex items-center justify-center">No hay actividad reciente.</p>
             ) : (
@@ -232,20 +233,20 @@ const AgentDashboard: React.FC = () => {
 
     return (
         <>
-            <div className="container mx-auto p-4 sm:p-6 lg:p-8 bg-gray-50 min-h-screen">
-                <h1 className="text-2xl sm:text-3xl font-bold text-gray-800 mb-6 border-b pb-4">Dashboard de Agente</h1>
+            <div className="container mx-auto p-4 sm:p-6 lg:p-8">
+                <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 mb-6 border-b border-gray-100 pb-4">Dashboard de Agente</h1>
 
                 {/* ✅ GRILA DE MÉTRICAS + WIDGET */}
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-                    <button onClick={() => handleCardClick('assigned')} className="bg-white p-6 rounded-lg shadow-md text-center hover:shadow-xl transition-shadow text-left cursor-pointer">
+                    <button type="button" onClick={() => handleCardClick('assigned')} className={`${clCard} p-6 text-left hover:shadow-md transition-shadow cursor-pointer`}>
                         <h3 className="text-lg font-semibold text-gray-600">Tickets Asignados</h3>
                         <p className="text-3xl sm:text-4xl font-bold text-indigo-600 mt-2">{agentMetrics?.assignedTickets ?? 0}</p>
                     </button>
-                    <button onClick={() => handleCardClick('unassigned')} className="bg-white p-6 rounded-lg shadow-md text-center hover:shadow-xl transition-shadow text-left cursor-pointer">
+                    <button type="button" onClick={() => handleCardClick('unassigned')} className={`${clCard} p-6 text-left hover:shadow-md transition-shadow cursor-pointer`}>
                         <h3 className="text-lg font-semibold text-gray-600">Tickets Sin Asignar</h3>
                         <p className="text-3xl sm:text-4xl font-bold text-yellow-600 mt-2">{agentMetrics?.unassignedTickets ?? 0}</p>
                     </button>
-                    <button onClick={() => handleCardClick('resolved')} className="bg-white p-6 rounded-lg shadow-md text-center hover:shadow-xl transition-shadow text-left cursor-pointer">
+                    <button type="button" onClick={() => handleCardClick('resolved')} className={`${clCard} p-6 text-left hover:shadow-md transition-shadow cursor-pointer`}>
                         <h3 className="text-lg font-semibold text-gray-600">Tickets Resueltos</h3>
                         <p className="text-3xl sm:text-4xl font-bold text-green-600 mt-2">{agentMetrics?.resolvedByMe ?? 0}</p>
                     </button>
@@ -260,36 +261,36 @@ const AgentDashboard: React.FC = () => {
                 </div>
 
                 <div className="flex justify-center mb-8">
-                    <button onClick={() => navigate('/agent/tickets')} className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 px-6 rounded-lg shadow-lg">
+                    <button type="button" onClick={() => navigate('/agent/tickets')} className="bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-3 px-6 rounded-xl shadow-md">
                         Gestionar Todos Mis Tickets
                     </button>
                 </div>
                 
-                <div id="quick-notes" className="bg-white p-6 rounded-lg shadow-md">
-                    <h2 className="text-xl font-semibold text-gray-700 mb-4">Mis Notas Rápidas</h2>
+                <div id="quick-notes" className={`${clCard} p-6`}>
+                    <h2 className="text-xl font-semibold text-gray-800 mb-4 border-b border-gray-100 pb-2">Mis Notas Rápidas</h2>
                     <textarea
-                        className="w-full p-3 border rounded-md h-24"
+                        className={`w-full ${clInput} min-h-[6rem] resize-y`}
                         placeholder="Escribe una nueva nota aquí..."
                         value={newNoteContent}
                         onChange={(e) => setNewNoteContent(e.target.value)}
                     ></textarea>
-                    <button onClick={handleCreateNote} className="mt-4 bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-4 rounded-lg">
+                    <button type="button" onClick={handleCreateNote} className="mt-4 bg-green-600 hover:bg-green-700 text-white font-semibold py-2.5 px-5 rounded-xl shadow-sm">
                         Añadir Nota
                     </button>
 
-                    <div className="mt-6 border-t pt-4 space-y-4">
+                    <div className="mt-6 border-t border-gray-100 pt-4 space-y-4">
                         {notes.length > 0 ? notes.map(note => (
-                            <div key={note.id} className="bg-gray-50 p-4 rounded-md border">
+                            <div key={note.id} className="bg-gray-50 p-4 rounded-xl border border-gray-100">
                                 {editingNoteId === note.id ? (
                                     <>
                                         <textarea 
                                             value={editingContent}
                                             onChange={(e) => setEditingContent(e.target.value)}
-                                            className="w-full p-2 border rounded-md h-20"
+                                            className={`w-full ${clInput} min-h-[5rem]`}
                                         />
-                                        <div className="flex items-center gap-2 mt-2">
-                                            <button onClick={() => handleUpdateNote(note.id)} className="text-sm bg-blue-500 text-white py-1 px-3 rounded hover:bg-blue-600">Guardar</button>
-                                            <button onClick={() => setEditingNoteId(null)} className="text-sm bg-gray-200 text-gray-700 py-1 px-3 rounded hover:bg-gray-300">Cancelar</button>
+                                        <div className="flex items-center gap-2 mt-2 flex-wrap">
+                                            <button type="button" onClick={() => handleUpdateNote(note.id)} className="text-sm bg-blue-500 text-white py-2 px-4 rounded-xl hover:bg-blue-600 font-medium">Guardar</button>
+                                            <button type="button" onClick={() => setEditingNoteId(null)} className="text-sm bg-gray-200 text-gray-700 py-2 px-4 rounded-xl hover:bg-gray-300 font-medium">Cancelar</button>
                                         </div>
                                     </>
                                 ) : (

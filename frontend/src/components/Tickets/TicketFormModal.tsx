@@ -12,6 +12,7 @@ import {
     staffAssignableUsers,
     ticketRequiresRealHoursForClosure,
 } from '../../utils/ticketAccess';
+import { clInput, clModalPanel } from '../../utils/cleanLightUi';
 
 /** Valores enviados al backend en `subcategoria` */
 export const DESARROLLO_SUBCATEGORIAS = [
@@ -140,12 +141,6 @@ const TicketFormModal: React.FC<TicketFormModalProps> = ({
     const [locations, setLocations] = useState<Location[]>([]);
     const [depositarios, setDepositarios] = useState<DepositarioOption[]>([]);
     const [isCustomCategory, setIsCustomCategory] = useState(false);
-
-    const hardStyle = {
-        backgroundColor: '#ffffff',
-        color: '#000000',
-        borderColor: '#d1d5db',
-    };
 
     const targetCompanyId = useMemo(() => {
         if ((currentUserRole === 'admin' || currentUserRole === 'agent') && formData.user_id) {
@@ -578,7 +573,7 @@ const TicketFormModal: React.FC<TicketFormModalProps> = ({
 
     return (
         <div className="fixed inset-0 bg-black bg-opacity-60 flex justify-center items-center z-50 p-4">
-            <div className="bg-white p-6 rounded-lg shadow-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+            <div className={`${clModalPanel} max-w-2xl p-6`}>
                 <div className="flex justify-between items-center mb-4 border-b pb-2">
                     <h2 className="text-2xl font-bold text-gray-800">
                         {initialData?.id ? 'Editar Ticket' : 'Crear Nuevo Ticket'}
@@ -600,8 +595,7 @@ const TicketFormModal: React.FC<TicketFormModalProps> = ({
                             value={formData.title || ''}
                             onChange={handleChange}
                             placeholder="Título del ticket"
-                            className="w-full p-2 border rounded mt-1"
-                            style={hardStyle}
+                            className={`${clInput} mt-1`}
                             required
                             disabled={titleDisabled}
                         />
@@ -615,8 +609,7 @@ const TicketFormModal: React.FC<TicketFormModalProps> = ({
                             value={formData.telefono_contacto ?? ''}
                             onChange={handleChange}
                             placeholder="Ej: 3511234567 (Opcional)"
-                            className="w-full p-2 border rounded mt-1"
-                            style={hardStyle}
+                            className={`${clInput} mt-1`}
                             autoComplete="tel"
                             maxLength={64}
                         />
@@ -629,13 +622,12 @@ const TicketFormModal: React.FC<TicketFormModalProps> = ({
                             name="department_id"
                             value={formData.department_id || ''}
                             onChange={handleChange}
-                            className="w-full p-2 border rounded mt-1"
-                            style={hardStyle}
+                            className={`${clInput} mt-1`}
                             required
                         >
                             <option value="">Seleccioná un departamento</option>
                             {filteredDepartments.map((dept) => (
-                                <option key={dept.id} value={dept.id} style={hardStyle}>
+                                <option key={dept.id} value={dept.id}>
                                     {dept.name}
                                 </option>
                             ))}
@@ -652,8 +644,7 @@ const TicketFormModal: React.FC<TicketFormModalProps> = ({
                                 name="subcategoria"
                                 value={formData.subcategoria || ''}
                                 onChange={handleChange}
-                                className="w-full p-2 border border-violet-200 rounded mt-1 bg-white"
-                                style={hardStyle}
+                                className={`${clInput} mt-1 border-violet-200`}
                                 required
                             >
                                 <option value="">-- Seleccioná una opción --</option>
@@ -674,8 +665,7 @@ const TicketFormModal: React.FC<TicketFormModalProps> = ({
                                     value={formData.github_repo ?? ''}
                                     onChange={handleChange}
                                     placeholder="ej: mi-org/mi-repo"
-                                    className="w-full p-2 border border-violet-200 rounded mt-1 bg-white"
-                                    style={hardStyle}
+                                    className={`${clInput} mt-1 border-violet-200`}
                                     maxLength={255}
                                     autoComplete="off"
                                 />
@@ -690,18 +680,14 @@ const TicketFormModal: React.FC<TicketFormModalProps> = ({
                                     name="category_id"
                                     value={formData.category_id || ''}
                                     onChange={handleChange}
-                                    className={`w-full p-2 border rounded mt-1 transition-all ${isAnalyzing ? 'opacity-50' : 'opacity-100'}`}
-                                    style={hardStyle}
+                                    className={`${clInput} mt-1 transition-all ${isAnalyzing ? 'opacity-50' : 'opacity-100'}`}
                                     required
                                 >
                                     <option value="">-- Seleccioná una categoría --</option>
                                     {categories.map((cat) => {
                                         const isSpecial = cat.name.includes('Area de');
-                                        const optionStyle = isSpecial
-                                            ? { ...hardStyle, fontWeight: 'bold', backgroundColor: '#e5e7eb' }
-                                            : hardStyle;
                                         return (
-                                            <option key={cat.id} value={cat.id} style={optionStyle}>
+                                            <option key={cat.id} value={cat.id} className={isSpecial ? 'font-bold bg-gray-100' : ''}>
                                                 {isSpecial ? `--- ${cat.name.toUpperCase()} ---` : cat.name}
                                             </option>
                                         );
@@ -715,19 +701,18 @@ const TicketFormModal: React.FC<TicketFormModalProps> = ({
                                         name="predefined_problem"
                                         value={formData.predefined_problem_id || ''}
                                         onChange={handleChange}
-                                        className="w-full p-2 border rounded mt-1"
-                                        style={hardStyle}
+                                        className={`${clInput} mt-1`}
                                         required={!isCustomCategory}
                                     >
                                         <option value="">-- Seleccioná un problema --</option>
                                         {predefinedProblems.length > 0 ? (
                                             predefinedProblems.map((prob) => (
-                                                <option key={prob.id} value={prob.id} style={hardStyle}>
+                                                <option key={prob.id} value={prob.id}>
                                                     {prob.title}
                                                 </option>
                                             ))
                                         ) : (
-                                            <option value="" disabled style={hardStyle}>
+                                            <option value="" disabled>
                                                 Cargando o sin opciones...
                                             </option>
                                         )}
@@ -744,20 +729,13 @@ const TicketFormModal: React.FC<TicketFormModalProps> = ({
                             name="priority"
                             value={formData.priority || 'medium'}
                             onChange={handleChange}
-                            className="w-full p-2 border rounded mt-1"
-                            style={hardStyle}
+                            className={`${clInput} mt-1`}
                             required
                         >
-                            <option value="low" style={hardStyle}>
-                                Baja
-                            </option>
-                            <option value="medium" style={hardStyle}>
-                                Media
-                            </option>
-                            <option value="high" style={hardStyle}>
-                                Alta
-                            </option>
-                            <option value="urgent" style={{ ...hardStyle, color: 'red', fontWeight: 'bold' }}>
+                            <option value="low">Baja</option>
+                            <option value="medium">Media</option>
+                            <option value="high">Alta</option>
+                            <option value="urgent" className="text-red-600 font-bold">
                                 Urgente
                             </option>
                         </select>
@@ -775,8 +753,7 @@ const TicketFormModal: React.FC<TicketFormModalProps> = ({
                             onChange={handleChange}
                             placeholder="Detalle del pedido o incidente..."
                             rows={5}
-                            className="w-full p-2 border rounded mt-1 outline-none transition-all"
-                            style={hardStyle}
+                            className={`${clInput} mt-1 min-h-[120px]`}
                             required
                         />
                     </div>
@@ -793,13 +770,12 @@ const TicketFormModal: React.FC<TicketFormModalProps> = ({
                                         name="location_id"
                                         value={formData.location_id || ''}
                                         onChange={handleChange}
-                                        className="w-full p-2 border rounded mt-1"
-                                        style={hardStyle}
+                                        className={`${clInput} mt-1`}
                                         required
                                     >
                                         <option value="">-- Seleccioná ubicación --</option>
                                         {locations.map((loc) => (
-                                            <option key={loc.id} value={loc.id} style={hardStyle}>
+                                            <option key={loc.id} value={loc.id}>
                                                 {loc.alias || loc.name}{' '}
                                                 {loc.serial_number ? `(S/N: ${loc.serial_number})` : ''}
                                             </option>
@@ -814,12 +790,11 @@ const TicketFormModal: React.FC<TicketFormModalProps> = ({
                                         name="depositario_id"
                                         value={formData.depositario_id || ''}
                                         onChange={handleChange}
-                                        className="w-full p-2 border rounded mt-1"
-                                        style={hardStyle}
+                                        className={`${clInput} mt-1`}
                                     >
                                         <option value="">-- Ninguno --</option>
                                         {depositarios.map((dep) => (
-                                            <option key={dep.id} value={dep.id} style={hardStyle}>
+                                            <option key={dep.id} value={dep.id}>
                                                 {dep.alias} (S/N: {dep.serial_number})
                                             </option>
                                         ))}
@@ -839,13 +814,12 @@ const TicketFormModal: React.FC<TicketFormModalProps> = ({
                                     name="user_id"
                                     value={formData.user_id || ''}
                                     onChange={handleChange}
-                                    className="w-full p-2 border rounded mt-1 bg-white"
-                                    style={hardStyle}
+                                    className={`${clInput} mt-1`}
                                     required
                                 >
                                     <option value="">-- Seleccioná un usuario --</option>
                                     {users.filter((u) => u.role === 'client').map((client) => (
-                                        <option key={client.id} value={client.id} style={hardStyle}>
+                                        <option key={client.id} value={client.id}>
                                             {client.username}
                                         </option>
                                     ))}
@@ -862,13 +836,12 @@ const TicketFormModal: React.FC<TicketFormModalProps> = ({
                                             name="location_id"
                                             value={formData.location_id || ''}
                                             onChange={handleChange}
-                                            className="w-full p-2 border rounded mt-1 bg-white"
-                                            style={hardStyle}
+                                            className={`${clInput} mt-1`}
                                             required
                                         >
                                             <option value="">-- Ubicación --</option>
                                             {locations.map((loc) => (
-                                                <option key={loc.id} value={loc.id} style={hardStyle}>
+                                                <option key={loc.id} value={loc.id}>
                                                     {loc.alias || loc.name}{' '}
                                                     {loc.serial_number ? `(S/N: ${loc.serial_number})` : ''}
                                                 </option>
@@ -887,12 +860,11 @@ const TicketFormModal: React.FC<TicketFormModalProps> = ({
                                             name="depositario_id"
                                             value={formData.depositario_id || ''}
                                             onChange={handleChange}
-                                            className="w-full p-2 border rounded mt-1 bg-white"
-                                            style={hardStyle}
+                                            className={`${clInput} mt-1`}
                                         >
                                             <option value="">-- Ninguno --</option>
                                             {depositarios.map((dep) => (
-                                                <option key={dep.id} value={dep.id} style={hardStyle}>
+                                                <option key={dep.id} value={dep.id}>
                                                     {dep.alias} (S/N: {dep.serial_number})
                                                 </option>
                                             ))}
@@ -907,8 +879,7 @@ const TicketFormModal: React.FC<TicketFormModalProps> = ({
                                     name="assigned_to_user_id"
                                     value={formData.assigned_to_user_id ?? ''}
                                     onChange={handleChange}
-                                    className="w-full p-2 border rounded mt-1 bg-white"
-                                    style={hardStyle}
+                                    className={`${clInput} mt-1`}
                                 >
                                     <option value="">Sin asignar</option>
                                     {assignableStaff.map((u) => (
@@ -937,7 +908,7 @@ const TicketFormModal: React.FC<TicketFormModalProps> = ({
                                     name="es_tarea_interna"
                                     checked={!!formData.es_tarea_interna}
                                     onChange={handleChange}
-                                    className="rounded border-gray-400 text-red-600 focus:ring-red-500"
+                                    className="rounded border-gray-300 text-red-600 focus:ring-2 focus:ring-blue-100 focus:border-blue-400"
                                 />
                                 Marcar como tarea interna
                             </label>
@@ -957,8 +928,7 @@ const TicketFormModal: React.FC<TicketFormModalProps> = ({
                                                 : formData.horas_estimadas
                                         }
                                         onChange={handleChange}
-                                        className="w-full p-2 border rounded mt-1 bg-white"
-                                        style={hardStyle}
+                                        className={`${clInput} mt-1`}
                                         placeholder="0"
                                     />
                                 </div>
@@ -976,8 +946,7 @@ const TicketFormModal: React.FC<TicketFormModalProps> = ({
                                                     : formData.horas_reales
                                             }
                                             onChange={handleChange}
-                                            className="w-full p-2 border rounded mt-1 bg-white"
-                                            style={hardStyle}
+                                            className={`${clInput} mt-1`}
                                             placeholder="0"
                                         />
                                     </div>
@@ -993,22 +962,21 @@ const TicketFormModal: React.FC<TicketFormModalProps> = ({
                             type="file"
                             multiple
                             onChange={handleFileChange}
-                            className="w-full text-sm mt-1"
-                            style={{ color: '#000000' }}
+                            className={`w-full text-sm mt-2 ${clInput} file:mr-3 file:rounded-lg file:border-0 file:bg-gray-100 file:px-3 file:py-1.5 file:text-sm file:font-medium text-gray-900`}
                         />
                     </div>
 
-                    <div className="flex justify-end gap-4 pt-4 border-t">
+                    <div className="flex justify-end gap-4 pt-4 border-t border-gray-100">
                         <button
                             type="button"
                             onClick={onClose}
-                            className="bg-gray-200 hover:bg-gray-300 text-gray-800 font-bold py-2 px-4 rounded"
+                            className="bg-gray-200 hover:bg-gray-300 text-gray-800 font-semibold py-2.5 px-5 rounded-xl"
                         >
                             Cancelar
                         </button>
                         <button
                             type="submit"
-                            className="bg-red-600 hover:bg-red-700 text-white font-bold py-2 px-4 rounded"
+                            className="bg-red-600 hover:bg-red-700 text-white font-semibold py-2.5 px-5 rounded-xl shadow-sm"
                             disabled={loading}
                         >
                             {loading ? 'Guardando...' : 'Guardar ticket'}

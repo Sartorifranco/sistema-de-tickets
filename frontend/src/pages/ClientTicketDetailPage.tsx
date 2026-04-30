@@ -2,11 +2,12 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import api from '../config/axiosConfig';
 import { useAuth } from '../context/AuthContext';
-import { TicketData, Comment as TicketComment, TicketStatus } from '../types';
+import { TicketData, TicketStatus } from '../types';
 import { ticketStatusTranslations } from '../utils/traslations';
 import { toast } from 'react-toastify';
 import { formatLocalDate } from '../utils/dateFormatter';
 import CommentForm from '../components/Common/CommentForm';
+import { clCard } from '../utils/cleanLightUi';
 
 const Badge: React.FC<{ color: string; children: React.ReactNode }> = ({ color, children }) => (
     <span className={`px-3 py-1 text-xs font-semibold rounded-full ${color}`}>
@@ -92,10 +93,10 @@ const ClientTicketDetailPage: React.FC = () => {
     if (!ticket) return <div className="p-8 text-center">Ticket no encontrado.</div>;
 
     return (
-        <div className="container mx-auto p-4 sm:p-6 lg:p-8 bg-gray-50 min-h-screen">
+        <div className="container mx-auto p-4 sm:p-6 lg:p-8">
             <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-4 mb-6">
-                <h1 className="text-xl sm:text-3xl font-bold text-gray-800 break-all">Ticket #{ticket.id}: {ticket.title}</h1>
-                <button onClick={() => navigate(-1)} className="bg-gray-300 hover:bg-gray-400 text-gray-800 font-bold py-2 px-4 rounded-lg self-start sm:self-center">Volver</button>
+                <h1 className="text-xl sm:text-3xl font-bold text-gray-900 break-words">Ticket #{ticket.id}: {ticket.title}</h1>
+                <button type="button" onClick={() => navigate(-1)} className="bg-gray-300 hover:bg-gray-400 text-gray-800 font-semibold py-2.5 px-5 rounded-xl self-start sm:self-center shadow-sm">Volver</button>
             </div>
 
             {/* ✅ CORRECCIÓN: Se añade el nuevo cartel para tickets cerrados automáticamente */}
@@ -112,7 +113,7 @@ const ClientTicketDetailPage: React.FC = () => {
                     <p className="font-bold">¡Ticket Solucionado!</p>
                     <p className="text-sm">Nuestro equipo ha marcado este ticket como resuelto. Por favor, confirma si el problema se ha solucionado.</p>
                     <div className="mt-4 flex flex-col sm:flex-row gap-4">
-                        <button onClick={handleCloseTicket} className="bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-4 rounded-lg">
+                        <button type="button" onClick={handleCloseTicket} className="bg-green-600 hover:bg-green-700 text-white font-semibold py-2.5 px-5 rounded-xl shadow-sm">
                             Sí, cerrar el ticket
                         </button>
                         <p className="text-sm self-center">O, si el problema persiste, simplemente <strong>añade un nuevo comentario</strong> abajo y el ticket se reabrirá automáticamente.</p>
@@ -121,13 +122,13 @@ const ClientTicketDetailPage: React.FC = () => {
             )}
 
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                <div className="lg:col-span-2 bg-white p-6 rounded-lg shadow-md">
-                    <h2 className="text-xl font-bold text-gray-800 mb-4 border-b pb-2">Descripción</h2>
+                <div className={`lg:col-span-2 ${clCard} p-6`}>
+                    <h2 className="text-xl font-bold text-gray-800 mb-4 border-b border-gray-100 pb-2">Descripción</h2>
                     <p className="text-gray-700 whitespace-pre-wrap">{ticket.description}</p>
                 </div>
 
-                <div className="lg:col-span-1 bg-white p-6 rounded-lg shadow-md flex flex-col">
-                    <h2 className="text-xl font-bold text-gray-800 mb-4 border-b pb-2">Información</h2>
+                <div className={`lg:col-span-1 ${clCard} p-6 flex flex-col`}>
+                    <h2 className="text-xl font-bold text-gray-800 mb-4 border-b border-gray-100 pb-2">Información</h2>
                     <div className="space-y-3 text-sm">
                         <div className="flex justify-between">
                             <span className="font-semibold text-gray-600">Estado:</span>
@@ -138,18 +139,24 @@ const ClientTicketDetailPage: React.FC = () => {
                     </div>
                 </div>
 
-                <div className="lg:col-span-3 bg-white p-6 rounded-lg shadow-md">
-                    <h2 className="text-xl font-bold text-gray-800 mb-4 border-b pb-2">Conversación</h2>
-                    <div className="space-y-4 mb-6 max-h-[50vh] overflow-y-auto pr-2">
+                <div className={`lg:col-span-3 ${clCard} p-6`}>
+                    <h2 className="text-xl font-bold text-gray-800 mb-4 border-b border-gray-100 pb-2">Conversación</h2>
+                    <div className="space-y-5 mb-6 max-h-[50vh] overflow-y-auto pr-2">
                         {ticket.comments && ticket.comments.filter(c => !c.is_internal).length > 0 ? (
                             ticket.comments
                                 .filter(comment => !comment.is_internal)
                                 .map(comment => (
                                     <div key={comment.id} className={`flex flex-col ${comment.user_id === user?.id ? 'items-end' : 'items-start'}`}>
-                                        <div className={`p-3 rounded-lg max-w-lg ${comment.user_id === user?.id ? 'bg-blue-100' : 'bg-gray-100'}`}>
-                                            <p className="text-sm font-bold">{comment.username}</p>
-                                            <p className="text-gray-800">{comment.comment_text}</p>
-                                            <p className="text-xs text-gray-500 mt-1 text-right">{formatLocalDate(comment.created_at)}</p>
+                                        <div
+                                            className={`p-4 rounded-xl max-w-lg border ${
+                                                comment.user_id === user?.id
+                                                    ? 'bg-gray-50 border-gray-100'
+                                                    : 'bg-white border-gray-200 shadow-sm'
+                                            }`}
+                                        >
+                                            <p className="text-sm font-bold text-gray-800">{comment.username}</p>
+                                            <p className="text-gray-800 whitespace-pre-wrap">{comment.comment_text}</p>
+                                            <p className="text-xs text-gray-500 mt-2 text-right">{formatLocalDate(comment.created_at)}</p>
                                         </div>
                                     </div>
                                 ))
@@ -160,7 +167,7 @@ const ClientTicketDetailPage: React.FC = () => {
                     
                     {ticket.status !== 'closed' && user && <CommentForm onAddComment={handleAddComment} userRole={user.role} />}
                     {ticket.status === 'closed' && !ticket.closure_reason && (
-                        <div className="text-center p-4 bg-gray-100 rounded-md">
+                        <div className="text-center p-4 bg-gray-50 border border-gray-100 rounded-xl">
                             <p className="text-gray-600 font-semibold">Este ticket está cerrado.</p>
                             <p className="text-sm text-gray-500">Para un nuevo problema, por favor crea un nuevo ticket.</p>
                         </div>

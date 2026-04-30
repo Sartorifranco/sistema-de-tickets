@@ -1,8 +1,9 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import api from '../../config/axiosConfig';
-import { ReportMetrics, ActivityLog } from '../../types';
-import { formatLocalDate } from '../../utils/dateFormatter'; // Asegúrate de tener este helper
+import { ActivityLog } from '../../types';
+import { formatLocalDate } from '../../utils/dateFormatter';
+import { clCard } from '../../utils/cleanLightUi';
 
 // Interfaz para los datos que esperamos del dashboard de admin
 interface AdminDashboardMetrics {
@@ -40,12 +41,12 @@ const AdminProfilePage: React.FC = () => {
         <div className="container mx-auto p-4 sm:p-6 lg:p-8 space-y-8">
             <div>
                 {/* ✅ Títulos responsivos */}
-                <h1 className="text-2xl sm:text-3xl font-bold text-gray-800 mb-2">Perfil de Administrador</h1>
+                <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 mb-2 tracking-tight">Perfil de Administrador</h1>
                 <p className="text-md sm:text-lg text-gray-500">Bienvenido de nuevo, {user?.username}.</p>
             </div>
 
-            <div className="bg-white p-6 rounded-lg shadow-lg">
-                <h2 className="text-xl sm:text-2xl font-semibold text-gray-700 mb-4">Información de la Cuenta</h2>
+            <div className={`${clCard} p-6`}>
+                <h2 className="text-xl sm:text-2xl font-semibold text-gray-800 mb-4 border-b border-gray-100 pb-2">Información de la Cuenta</h2>
                 {/* La grilla ya era responsiva, se mantiene */}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-gray-600">
                     <p><strong>Nombre de Usuario:</strong> {user?.username}</p>
@@ -57,25 +58,25 @@ const AdminProfilePage: React.FC = () => {
             {loading ? (
                 <div className="text-center p-8">Cargando métricas...</div>
             ) : metrics && (
-                <div className="bg-white p-6 rounded-lg shadow-lg">
-                    <h2 className="text-xl sm:text-2xl font-semibold text-gray-700 mb-6">Visión General del Sistema</h2>
+                <div className={`${clCard} p-6`}>
+                    <h2 className="text-xl sm:text-2xl font-semibold text-gray-800 mb-6 border-b border-gray-100 pb-2">Visión General del Sistema</h2>
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-6 text-center mb-8">
-                        <div className="bg-blue-50 p-6 rounded-lg border border-blue-200">
+                        <div className="bg-blue-50 p-6 rounded-2xl border border-blue-200/80 shadow-sm">
                             <p className="text-3xl sm:text-4xl font-bold text-blue-600">{metrics.totalTickets}</p>
                             <p className="text-md text-blue-800 mt-1">Tickets Totales</p>
                         </div>
-                        <div className="bg-green-50 p-6 rounded-lg border border-green-200">
+                        <div className="bg-green-50 p-6 rounded-2xl border border-green-200/80 shadow-sm">
                             <p className="text-3xl sm:text-4xl font-bold text-green-600">{metrics.openTickets}</p>
                             <p className="text-md text-green-800 mt-1">Tickets Abiertos</p>
                         </div>
-                        <div className="bg-purple-50 p-6 rounded-lg border border-purple-200">
+                        <div className="bg-purple-50 p-6 rounded-2xl border border-purple-200/80 shadow-sm">
                             <p className="text-3xl sm:text-4xl font-bold text-purple-600">{metrics.totalUsers}</p>
                             <p className="text-md text-purple-800 mt-1">Usuarios Totales</p>
                         </div>
                     </div>
                     
-                    <h3 className="text-lg sm:text-xl font-semibold text-gray-700 mb-4">Actividad Reciente</h3>
-                    <ul className="divide-y divide-gray-200">
+                    <h3 className="text-lg sm:text-xl font-semibold text-gray-800 mb-4">Actividad Reciente</h3>
+                    <ul className="divide-y divide-gray-100">
                         {metrics.recentActivity.slice(0, 5).map(log => (
                             <li key={log.id} className="py-3 flex flex-col sm:flex-row justify-between items-start">
                                 <div>

@@ -8,7 +8,8 @@ import { isAxiosErrorTypeGuard } from '../utils/typeGuards';
 import { formatLocalDate } from '../utils/dateFormatter';
 import { toast } from 'react-toastify';
 // ✅ AJUSTAR RUTA DE IMPORTACIÓN SI ES NECESARIO (Widgets vs Dashboard)
-import DepositariosWidget from '../components/Dashboard/DepositariosWidget'; 
+import DepositariosWidget from '../components/Dashboard/DepositariosWidget';
+import { clCard, clModalPanel } from '../utils/cleanLightUi'; 
 
 const activityTypeTranslations: { [key: string]: string } = {
     user_registered: 'Usuario Registrado',
@@ -42,8 +43,8 @@ interface DashboardMetrics {
 const DetailsModal: React.FC<{ title: string; items: any[]; onClose: () => void; renderItem: (item: any, index?: number) => React.ReactNode; loading: boolean }> = ({ title, items, onClose, renderItem, loading }) => {
     return (
         <div className="fixed inset-0 bg-black bg-opacity-60 flex justify-center items-center z-50 p-4">
-            <div className="bg-white p-6 rounded-lg shadow-xl w-full max-w-2xl">
-                <h2 className="text-2xl font-bold mb-4 border-b pb-2">{title}</h2>
+            <div className={`${clModalPanel} max-w-2xl p-6`}>
+                <h2 className="text-2xl font-bold mb-4 border-b border-gray-100 pb-2 text-gray-900">{title}</h2>
                 <div className="max-h-96 overflow-y-auto">
                     {loading ? (
                         <p className="text-center text-gray-500 py-4">Cargando...</p>
@@ -55,7 +56,7 @@ const DetailsModal: React.FC<{ title: string; items: any[]; onClose: () => void;
                         <p className="text-center text-gray-500 py-4">No hay elementos para mostrar.</p>
                     )}
                 </div>
-                <button onClick={onClose} className="mt-6 bg-gray-200 hover:bg-gray-300 text-gray-800 font-bold py-2 px-4 rounded w-full">Cerrar</button>
+                <button type="button" onClick={onClose} className="mt-6 bg-gray-200 hover:bg-gray-300 text-gray-800 font-semibold py-2.5 px-5 rounded-xl w-full">Cerrar</button>
             </div>
         </div>
     );
@@ -87,7 +88,7 @@ const AgentTicketsModal: React.FC<{ agent: { agentId: number, agentName: string 
 
     return (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center z-50 p-4">
-            <div className="bg-white p-6 rounded-lg shadow-xl w-full max-w-lg">
+            <div className={`${clModalPanel} max-w-lg p-6`}>
                 <h2 className="text-xl font-bold mb-4">Tickets Activos de {agent.agentName}</h2>
                 {loading ? (
                     <p>Cargando tickets...</p>
@@ -101,7 +102,7 @@ const AgentTicketsModal: React.FC<{ agent: { agentId: number, agentName: string 
                         )) : <p className="text-gray-500">Este agente no tiene tickets activos asignados.</p>}
                     </ul>
                 )}
-                <button onClick={onClose} className="mt-6 bg-gray-300 hover:bg-gray-400 text-gray-800 font-bold py-2 px-4 rounded w-full">Cerrar</button>
+                <button type="button" onClick={onClose} className="mt-6 bg-gray-300 hover:bg-gray-400 text-gray-800 font-semibold py-2.5 px-5 rounded-xl w-full">Cerrar</button>
             </div>
         </div>
     );
@@ -217,15 +218,15 @@ const AdminDashboard: React.FC = () => {
 
                 {/* ✅ GRILA DE MÉTRICAS + WIDGET DEPOSITARIOS */}
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-                    <button onClick={() => handleCardClick('total')} className="text-left bg-white p-6 rounded-lg shadow-md hover:shadow-xl transition-shadow cursor-pointer">
+                    <button type="button" onClick={() => handleCardClick('total')} className={`text-left ${clCard} p-6 hover:shadow-md transition-shadow cursor-pointer`}>
                         <h3 className="text-lg font-semibold text-gray-600">Tickets Totales</h3>
                         <p className="text-4xl font-bold text-indigo-600 mt-2">{metrics.totalTickets}</p>
                     </button>
-                    <button onClick={() => handleCardClick('active')} className="text-left bg-white p-6 rounded-lg shadow-md hover:shadow-xl transition-shadow cursor-pointer">
+                    <button type="button" onClick={() => handleCardClick('active')} className={`text-left ${clCard} p-6 hover:shadow-md transition-shadow cursor-pointer`}>
                         <h3 className="text-lg font-semibold text-gray-600">Tickets Activos</h3>
                         <p className="text-4xl font-bold text-green-600 mt-2">{metrics.activeTickets}</p>
                     </button>
-                    <button onClick={() => handleCardClick('users')} className="text-left bg-white p-6 rounded-lg shadow-md hover:shadow-xl transition-shadow cursor-pointer">
+                    <button type="button" onClick={() => handleCardClick('users')} className={`text-left ${clCard} p-6 hover:shadow-md transition-shadow cursor-pointer`}>
                         <h3 className="text-lg font-semibold text-gray-600">Usuarios Totales</h3>
                         <p className="text-4xl font-bold text-blue-600 mt-2">{metrics.totalUsers}</p>
                     </button>
@@ -235,33 +236,33 @@ const AdminDashboard: React.FC = () => {
                 </div>
 
                 <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
-                    <div className="lg:col-span-3 bg-white p-6 rounded-lg shadow-md">
-                        <h2 className="text-xl font-semibold mb-4 border-b pb-2">Estado por Área (Tickets Activos)</h2>
+                    <div className={`lg:col-span-3 ${clCard} p-6`}>
+                        <h2 className="text-xl font-semibold mb-4 border-b border-gray-100 pb-2 text-gray-900">Estado por Área (Tickets Activos)</h2>
                         <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
-                             <button onClick={() => handleCardClick('department', 'Soporte - IT')} className="text-center p-4 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors cursor-pointer">
+                             <button type="button" onClick={() => handleCardClick('department', 'Soporte - IT')} className="text-center p-4 bg-gray-50 rounded-xl border border-gray-100 hover:bg-gray-100/80 transition-colors cursor-pointer">
                                 <h4 className="font-bold text-gray-700">Soporte - IT</h4>
                                 <p className="text-4xl font-bold text-red-600 mt-2">{metrics.departmentCounts['Soporte - IT'] || 0}</p>
                             </button>
-                            <button onClick={() => handleCardClick('department', 'Implementaciones')} className="text-center p-4 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors cursor-pointer">
+                            <button type="button" onClick={() => handleCardClick('department', 'Implementaciones')} className="text-center p-4 bg-gray-50 rounded-xl border border-gray-100 hover:bg-gray-100/80 transition-colors cursor-pointer">
                                 <h4 className="font-bold text-gray-700">Implementaciones</h4>
                                 <p className="text-4xl font-bold text-red-600 mt-2">{metrics.departmentCounts['Implementaciones'] || 0}</p>
                             </button>
-                            <button onClick={() => handleCardClick('department', 'Mantenimiento')} className="text-center p-4 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors cursor-pointer">
+                            <button type="button" onClick={() => handleCardClick('department', 'Mantenimiento')} className="text-center p-4 bg-gray-50 rounded-xl border border-gray-100 hover:bg-gray-100/80 transition-colors cursor-pointer">
                                 <h4 className="font-bold text-gray-700">Mantenimiento</h4>
                                 <p className="text-4xl font-bold text-red-600 mt-2">{metrics.departmentCounts['Mantenimiento'] || 0}</p>
                             </button>
-                            <button onClick={() => handleCardClick('department', 'Desarrollo')} className="text-center p-4 rounded-lg border border-violet-300/80 bg-gradient-to-br from-violet-50 to-indigo-50 hover:from-violet-100 hover:to-indigo-100 transition-colors cursor-pointer shadow-sm">
+                            <button type="button" onClick={() => handleCardClick('department', 'Desarrollo')} className="text-center p-4 rounded-xl border border-violet-300/80 bg-gradient-to-br from-violet-50 to-indigo-50 hover:from-violet-100 hover:to-indigo-100 transition-colors cursor-pointer shadow-sm">
                                 <h4 className="font-bold text-indigo-950">Desarrollo</h4>
                                 <p className="text-4xl font-bold text-violet-700 mt-2">{metrics.departmentCounts['Desarrollo'] || 0}</p>
                             </button>
                         </div>
                     </div>
-                    <div className="lg:col-span-2 bg-white p-6 rounded-lg shadow-md">
-                        <h2 className="text-xl font-semibold mb-4 border-b pb-2">Carga de Agentes (Tickets Activos)</h2>
+                    <div className={`lg:col-span-2 ${clCard} p-6`}>
+                        <h2 className="text-xl font-semibold mb-4 border-b border-gray-100 pb-2 text-gray-900">Carga de Agentes (Tickets Activos)</h2>
                         <ul className="space-y-3 max-h-60 overflow-y-auto">
                             {metrics.agentWorkload.length > 0 ? metrics.agentWorkload.map(agent => (
                                 <li key={agent.agentId}>
-                                    <button onClick={() => handleAgentClick(agent)} className="w-full flex justify-between items-center p-2 rounded-md hover:bg-gray-100 text-left transition-colors">
+                                    <button type="button" onClick={() => handleAgentClick(agent)} className="w-full flex justify-between items-center p-2 rounded-xl hover:bg-gray-50 text-left transition-colors border border-transparent hover:border-gray-100">
                                         <span className="font-medium text-gray-800">{agent.agentName}</span>
                                         <span className="font-bold text-white bg-red-600 rounded-full h-6 w-6 flex items-center justify-center text-xs">{agent.assignedTickets}</span>
                                     </button>
@@ -273,8 +274,8 @@ const AdminDashboard: React.FC = () => {
                     </div>
                 </div>
 
-                <div className="bg-white p-6 rounded-lg shadow-md">
-                    <h2 className="text-2xl font-bold text-gray-800 mb-4">Actividad Reciente</h2>
+                <div className={`${clCard} p-6`}>
+                    <h2 className="text-2xl font-bold text-gray-900 mb-4 border-b border-gray-100 pb-2">Actividad Reciente</h2>
                     <div className="overflow-x-auto">
                         <ul className="divide-y divide-gray-200">
                             {metrics.recentActivity.length > 0 ? (

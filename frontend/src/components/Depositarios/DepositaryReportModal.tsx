@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import api from '../../config/axiosConfig';
 import { toast } from 'react-toastify';
 import { formatLocalDate } from '../../utils/dateFormatter';
+import { clCard } from '../../utils/cleanLightUi';
 
 interface DepositaryReport {
     id: number;
@@ -60,7 +61,7 @@ const DepositaryReportModal: React.FC<Props> = ({ onClose }) => {
 
     return (
         <div className="fixed inset-0 bg-black bg-opacity-70 flex justify-center items-center z-50 p-4 backdrop-blur-sm animate-fade-in">
-            <div className="bg-white rounded-xl shadow-2xl w-full max-w-6xl h-[85vh] flex flex-col overflow-hidden transition-all">
+            <div className={`${clCard} shadow-xl w-full max-w-6xl h-[85vh] flex flex-col overflow-hidden transition-all`}>
                 <div className="bg-indigo-900 text-white p-4 shadow-md flex justify-between items-center">
                     <div className="flex items-center gap-3">
                         {selectedId && <button onClick={() => setSelectedId(null)} className="hover:bg-indigo-700 p-1 rounded-full bg-indigo-800 px-3 text-sm">⬅ Volver</button>}
@@ -69,7 +70,7 @@ const DepositaryReportModal: React.FC<Props> = ({ onClose }) => {
                     <button onClick={onClose} className="text-gray-400 hover:text-white font-bold text-xl">✕</button>
                 </div>
 
-                <div className="flex-grow overflow-auto p-6 bg-gray-50">
+                <div className="flex-grow overflow-auto p-6 bg-slate-50/90">
                     {loading ? ( <div className="flex justify-center p-10"><div className="animate-spin rounded-full h-10 w-10 border-b-2 border-indigo-900"></div></div> ) : selectedId ? (
                         <div className="animate-fade-in space-y-6">
                             {analyzing || !analysisData ? (
@@ -95,7 +96,7 @@ const DepositaryReportModal: React.FC<Props> = ({ onClose }) => {
                                     </div>
                                     <div>
                                         <h4 className="text-gray-700 font-bold text-lg mb-3">📂 Historial de Reclamos Técnicos (Filtrado)</h4>
-                                        <div className="bg-white rounded-lg shadow border border-gray-200 overflow-hidden">
+                                        <div className={`${clCard} overflow-hidden`}>
                                             {analysisData.tickets.length === 0 ? <p className="p-5 text-gray-500 text-center">Sin tickets técnicos relevantes.</p> : (
                                                 <table className="w-full text-sm text-left">
                                                     <thead className="bg-gray-100 text-gray-600 uppercase text-xs">
@@ -122,7 +123,8 @@ const DepositaryReportModal: React.FC<Props> = ({ onClose }) => {
                     ) : (
                         <div className="overflow-x-auto">
                             <p className="text-sm text-gray-500 mb-4 italic flex items-center gap-2"><span className="bg-blue-100 text-blue-800 px-2 rounded text-xs font-bold">INFO</span> Haz clic en cualquier fila para ver el análisis detallado.</p>
-                            <table className="w-full text-sm text-left text-gray-500 shadow-md rounded-lg">
+                            <div className={`${clCard} overflow-hidden shadow-sm`}>
+                            <table className="w-full text-sm text-left text-gray-500">
                                 <thead className="text-xs text-white uppercase bg-indigo-800">
                                     <tr><th className="px-6 py-3">Equipo / Empresa</th><th className="px-6 py-3 text-center">Contador</th><th className="px-6 py-3 text-center">Uso Mes</th><th className="px-6 py-3 text-center">Tickets</th><th className="px-6 py-3">Último Problema</th><th className="px-6 py-3 text-center">Estado</th></tr>
                                 </thead>
@@ -139,10 +141,11 @@ const DepositaryReportModal: React.FC<Props> = ({ onClose }) => {
                                     ))}
                                 </tbody>
                             </table>
+                            </div>
                         </div>
                     )}
                 </div>
-                <div className="bg-gray-100 p-4 flex justify-end border-t"><button onClick={onClose} className="bg-gray-300 hover:bg-gray-400 text-gray-800 font-bold py-2 px-6 rounded shadow">Cerrar</button></div>
+                <div className="bg-gray-50 p-4 flex justify-end border-t border-gray-100"><button type="button" onClick={onClose} className="bg-gray-300 hover:bg-gray-400 text-gray-800 font-semibold py-2.5 px-6 rounded-xl shadow-sm">Cerrar</button></div>
             </div>
         </div>
     );

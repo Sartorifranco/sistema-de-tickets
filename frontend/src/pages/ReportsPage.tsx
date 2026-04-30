@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import api from '../config/axiosConfig';
 import { toast } from 'react-toastify';
+import { clCard } from '../utils/cleanLightUi';
 
 // ✅ NUEVO: Definimos el tipo para las métricas que recibiremos
 interface ResolutionMetrics {
@@ -32,13 +33,13 @@ const ReportsPage: React.FC = () => {
     }
 
     return (
-        <div className="container mx-auto p-8">
-            <h1 className="text-3xl font-bold text-gray-800 mb-6">Reportes y Métricas</h1>
+        <div className="container mx-auto p-4 sm:p-6 lg:p-8">
+            <h1 className="text-3xl font-bold text-gray-900 mb-6 tracking-tight">Reportes y Métricas</h1>
             
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                 {/* Tarjeta para el Tiempo de Resolución */}
-                <div className="bg-white p-6 rounded-lg shadow-md">
-                    <h2 className="text-lg font-semibold text-gray-500">Tiempo Promedio de Resolución</h2>
+                <div className={`${clCard} p-6`}>
+                    <h2 className="text-lg font-semibold text-gray-500 border-b border-gray-100 pb-2 mb-2">Tiempo Promedio de Resolución</h2>
                     {metrics ? (
                         <p className="text-3xl font-bold text-indigo-600 mt-2">
                             {metrics.averageResolutionTimeFormatted}
@@ -47,8 +48,8 @@ const ReportsPage: React.FC = () => {
                 </div>
 
                 {/* Tarjeta para el Total de Tickets Resueltos */}
-                <div className="bg-white p-6 rounded-lg shadow-md">
-                    <h2 className="text-lg font-semibold text-gray-500">Total de Tickets Resueltos</h2>
+                <div className={`${clCard} p-6`}>
+                    <h2 className="text-lg font-semibold text-gray-500 border-b border-gray-100 pb-2 mb-2">Total de Tickets Resueltos</h2>
                      {metrics ? (
                         <p className="text-3xl font-bold text-green-600 mt-2">
                             {metrics.resolvedTicketsCount}

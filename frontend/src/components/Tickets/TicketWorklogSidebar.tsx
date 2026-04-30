@@ -6,6 +6,7 @@ import {
     isDesarrolloDepartmentName,
     isTruthyInternalTask,
 } from '../../utils/ticketAccess';
+import { clCard, clInput } from '../../utils/cleanLightUi';
 
 export interface TicketWorklogSidebarProps {
     ticketId: number;
@@ -101,7 +102,7 @@ const TicketWorklogSidebar: React.FC<TicketWorklogSidebarProps> = ({
     };
 
     return (
-        <div className="bg-white p-6 rounded-lg shadow-md border border-gray-100">
+        <div className={`${clCard} p-6`}>
             <h2 className="text-xl font-bold text-gray-800 mb-1">Registro de trabajo</h2>
             <p className="text-xs text-gray-500 mb-4">Horas reales dedicadas al ticket</p>
             <div
@@ -137,7 +138,7 @@ const TicketWorklogSidebar: React.FC<TicketWorklogSidebarProps> = ({
                                 void persist();
                             }
                         }}
-                        className="flex-1 min-w-0 p-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-red-500 disabled:bg-gray-100 disabled:text-gray-500"
+                        className={`flex-1 min-w-0 ${clInput} disabled:bg-gray-50 disabled:text-gray-500`}
                         placeholder="0"
                     />
                     <button

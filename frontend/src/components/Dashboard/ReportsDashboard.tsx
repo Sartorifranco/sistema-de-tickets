@@ -10,6 +10,7 @@ import autoTable from 'jspdf-autotable';
 import html2canvas from 'html2canvas';
 import { ticketStatusTranslations, ticketPriorityTranslations } from '../../utils/traslations';
 import { toast } from 'react-toastify';
+import { clCard } from '../../utils/cleanLightUi';
 
 // Type declaration for jspdf-autotable
 declare module 'jspdf' {
@@ -137,29 +138,30 @@ const AdminReportsPage: React.FC = () => {
     return (
         <div className="container mx-auto p-4 sm:p-6 lg:p-8">
             <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-4 mb-6">
-                <h1 className="text-2xl sm:text-3xl font-bold text-gray-800">Reportes Avanzados</h1>
+                <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 tracking-tight">Reportes Avanzados</h1>
                 <button 
+                    type="button"
                     onClick={handleDownloadPdf} 
                     disabled={isDownloading} 
-                    className="bg-red-600 hover:bg-red-700 text-white font-bold py-2 px-4 rounded-lg self-start sm:self-center"
+                    className="bg-red-600 hover:bg-red-700 text-white font-semibold py-2.5 px-5 rounded-xl shadow-sm self-start sm:self-center disabled:opacity-60"
                 >
                     {isDownloading ? 'Generando...' : 'Descargar Reporte PDF'}
                 </button>
             </div>
             
-            <div ref={reportContainerRef} className="space-y-8 bg-gray-50 p-4 sm:p-6 rounded-lg">
+            <div ref={reportContainerRef} className="space-y-8 bg-slate-50/80 p-4 sm:p-6 rounded-2xl border border-gray-100">
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-                    <div className="bg-white p-6 rounded-lg shadow-md">
-                        <h2 className="text-xl font-bold text-gray-700 mb-4 text-center">Tickets por Estado</h2>
+                    <div className={`${clCard} p-6`}>
+                        <h2 className="text-xl font-bold text-gray-800 mb-4 text-center border-b border-gray-100 pb-2">Tickets por Estado</h2>
                         <div className="h-80 flex justify-center"><Pie data={statusChartData} options={{ maintainAspectRatio: false, plugins: { legend: { position: 'right' } } }} /></div>
                     </div>
-                    <div className="bg-white p-6 rounded-lg shadow-md">
-                        <h2 className="text-xl font-bold text-gray-700 mb-4 text-center">Tickets por Empresa</h2>
+                    <div className={`${clCard} p-6`}>
+                        <h2 className="text-xl font-bold text-gray-800 mb-4 text-center border-b border-gray-100 pb-2">Tickets por Empresa</h2>
                         <div className="h-80"><Bar data={companyChartData} options={{ maintainAspectRatio: false, plugins: { legend: { display: false } } }} /></div>
                     </div>
                 </div>
-                <div className="bg-white p-6 rounded-lg shadow-md">
-                    <h2 className="text-xl font-bold text-gray-700 mb-4 text-center">Rendimiento por Agente</h2>
+                <div className={`${clCard} p-6`}>
+                    <h2 className="text-xl font-bold text-gray-800 mb-4 text-center border-b border-gray-100 pb-2">Rendimiento por Agente</h2>
                     <div className="h-80"><Bar data={agentChartData} options={{ maintainAspectRatio: false }} /></div>
                 </div>
             </div>

@@ -8,6 +8,9 @@ export const clThRight =
 export const clTd = 'px-6 py-4 align-top text-sm text-gray-900';
 export const clCard = 'bg-white rounded-2xl border border-gray-100 shadow-sm';
 
+/** Panel interior de modales (overlay oscuro se mantiene fuera). */
+export const clModalPanel = 'bg-white rounded-2xl border border-gray-100 shadow-xl w-full max-h-[90vh] overflow-y-auto';
+
 /** Píldora de prioridad (solo estilo; el texto sigue siendo el mismo que antes). */
 export function priorityPillClass(priority: string): string {
     switch (priority) {

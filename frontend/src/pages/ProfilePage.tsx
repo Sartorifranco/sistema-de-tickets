@@ -5,6 +5,7 @@ import { toast } from 'react-toastify';
 import PushNotificationButton from '../components/PushNotificationButton/PushNotificationButton';
 import DeveloperGithubSettings from '../components/Profile/DeveloperGithubSettings';
 import { isDesarrolloDepartmentName } from '../utils/ticketAccess';
+import { clCard, clInput } from '../utils/cleanLightUi';
 
 const ProfilePage: React.FC = () => {
     const { user } = useAuth();
@@ -195,10 +196,10 @@ const ProfilePage: React.FC = () => {
 
     return (
         <div className="container mx-auto p-4 sm:p-6 lg:p-8 space-y-8">
-            <h1 className="text-3xl font-bold text-gray-800">Mi Perfil</h1>
+            <h1 className="text-3xl font-bold text-gray-900 tracking-tight">Mi Perfil</h1>
             
-            <div className="bg-white p-6 rounded-lg shadow-lg">
-                <h2 className="text-xl font-semibold mb-4 text-gray-700">Detalles de la Cuenta</h2>
+            <div className={`${clCard} p-6`}>
+                <h2 className="text-xl font-semibold mb-4 text-gray-800 border-b border-gray-100 pb-2">Detalles de la Cuenta</h2>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-gray-600">
                     <div><strong>Nombre de Usuario:</strong> {user.username}</div>
                     <div><strong>Email:</strong> {user.email}</div>
@@ -211,8 +212,8 @@ const ProfilePage: React.FC = () => {
             <DeveloperGithubSettings visible={showDeveloperGithubSettings} />
 
             {canViewConfigStatus && configStatus && (
-                <div className="bg-white p-6 rounded-lg shadow-lg">
-                    <h2 className="text-xl font-semibold mb-4 text-gray-700">Estado de canales de notificación</h2>
+                <div className={`${clCard} p-6`}>
+                    <h2 className="text-xl font-semibold mb-4 text-gray-800 border-b border-gray-100 pb-2">Estado de canales de notificación</h2>
                     <p className="text-sm text-gray-600 mb-4">Verificación de la configuración del servidor para pruebas reales.</p>
                     <div className="space-y-3">
                         <div className={`p-3 rounded-lg ${configStatus.email?.configured ? 'bg-green-50 border border-green-200' : 'bg-amber-50 border border-amber-200'}`}>
@@ -231,8 +232,8 @@ const ProfilePage: React.FC = () => {
                 </div>
             )}
 
-            <div className="bg-white p-6 rounded-lg shadow-lg">
-                <h2 className="text-xl font-semibold mb-4 text-gray-700">Notificaciones Push</h2>
+            <div className={`${clCard} p-6`}>
+                <h2 className="text-xl font-semibold mb-4 text-gray-800 border-b border-gray-100 pb-2">Notificaciones Push</h2>
                 <p className="text-sm text-gray-600 mb-4">Activa las notificaciones para recibir alertas incluso con el navegador cerrado.</p>
                 <div className="flex flex-wrap items-center gap-3">
                     <PushNotificationButton />
@@ -240,7 +241,7 @@ const ProfilePage: React.FC = () => {
                         type="button"
                         onClick={handleTestPush}
                         disabled={testingPush}
-                        className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-medium rounded-md disabled:opacity-50 disabled:cursor-not-allowed"
+                        className="px-5 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-semibold rounded-xl shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
                     >
                         {testingPush ? 'Enviando...' : '🔔 Probar Alerta'}
                     </button>
@@ -248,8 +249,8 @@ const ProfilePage: React.FC = () => {
             </div>
 
             {canEditNotificationPrefs && (
-                <div className="bg-white p-6 rounded-lg shadow-lg">
-                    <h2 className="text-xl font-semibold mb-4 text-gray-700">Preferencias de Notificación</h2>
+                <div className={`${clCard} p-6`}>
+                    <h2 className="text-xl font-semibold mb-4 text-gray-800 border-b border-gray-100 pb-2">Preferencias de Notificación</h2>
                     <form onSubmit={handleSaveNotificationPrefs} className="space-y-4 max-w-md">
                         <div>
                             <label className="block text-sm font-medium text-gray-700">Email alternativo de alertas</label>
@@ -259,13 +260,13 @@ const ProfilePage: React.FC = () => {
                                     value={notificationEmail}
                                     onChange={(e) => setNotificationEmail(e.target.value)}
                                     placeholder="Dejar vacío para usar el email de la cuenta"
-                                    className="flex-1 rounded-md border-gray-300 shadow-sm"
+                                    className={`flex-1 ${clInput}`}
                                 />
                                 <button
                                     type="button"
                                     onClick={handleTestEmail}
                                     disabled={testingEmail || (!notificationEmail.trim() && !user?.email)}
-                                    className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-md disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap"
+                                    className="px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold rounded-xl shadow-sm disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap"
                                 >
                                     {testingEmail ? 'Enviando...' : 'Probar email'}
                                 </button>
@@ -278,10 +279,10 @@ const ProfilePage: React.FC = () => {
                                 value={whatsappNumber}
                                 onChange={(e) => setWhatsappNumber(e.target.value)}
                                 placeholder="Ej: +54 9 11 1234-5678"
-                                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm"
+                                className={`mt-1 block w-full ${clInput}`}
                             />
                             {whatsappHelp && (whatsappHelp.sandboxJoinCode || whatsappHelp.sandboxNumber) && (
-                                <div className="mt-2 p-3 bg-green-50 border border-green-200 rounded-lg text-sm text-green-800">
+                                <div className="mt-2 p-4 bg-green-50 border border-green-200 rounded-xl text-sm text-green-800">
                                     <p className="font-medium mb-2">📱 Para recibir notificaciones por WhatsApp (modo prueba):</p>
                                     <p className="text-xs text-amber-800 mb-2">El número que recibe debe ser el mismo que envía el mensaje. La membresía dura 72 horas.</p>
                                     <ol className="list-decimal list-inside space-y-1 mb-2">
@@ -295,7 +296,7 @@ const ProfilePage: React.FC = () => {
                                         type="button"
                                         onClick={handleTestWhatsApp}
                                         disabled={testingWhatsApp || !whatsappNumber.trim()}
-                                        className="mt-2 px-4 py-2 bg-green-600 hover:bg-green-700 text-white text-sm font-medium rounded-md disabled:opacity-50 disabled:cursor-not-allowed"
+                                        className="mt-2 px-5 py-2.5 bg-green-600 hover:bg-green-700 text-white text-sm font-semibold rounded-xl shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
                                     >
                                         {testingWhatsApp ? 'Enviando...' : '📱 Probar WhatsApp'}
                                     </button>
@@ -315,7 +316,7 @@ const ProfilePage: React.FC = () => {
                             <label className="text-sm font-medium text-gray-700">Habilitar notificaciones push</label>
                         </div>
                         <div className="pt-2">
-                            <button type="submit" className="bg-red-600 hover:bg-red-700 text-white font-bold py-2 px-4 rounded-lg shadow-md" disabled={savingPrefs}>
+                            <button type="submit" className="bg-red-600 hover:bg-red-700 text-white font-semibold py-2.5 px-5 rounded-xl shadow-sm" disabled={savingPrefs}>
                                 {savingPrefs ? 'Guardando...' : 'Guardar preferencias'}
                             </button>
                         </div>
@@ -323,23 +324,23 @@ const ProfilePage: React.FC = () => {
                 </div>
             )}
 
-            <div className="bg-white p-6 rounded-lg shadow-lg">
-                <h2 className="text-xl font-semibold mb-4 text-gray-700">Cambiar Contraseña</h2>
+            <div className={`${clCard} p-6`}>
+                <h2 className="text-xl font-semibold mb-4 text-gray-800 border-b border-gray-100 pb-2">Cambiar Contraseña</h2>
                 <form onSubmit={handleChangePassword} className="space-y-4 max-w-md">
                     <div>
                         <label className="block text-sm font-medium text-gray-700">Contraseña Actual</label>
-                        <input type="password" value={currentPassword} onChange={(e) => setCurrentPassword(e.target.value)} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm" required />
+                        <input type="password" value={currentPassword} onChange={(e) => setCurrentPassword(e.target.value)} className={`mt-1 block w-full ${clInput}`} required />
                     </div>
                     <div>
                         <label className="block text-sm font-medium text-gray-700">Nueva Contraseña</label>
-                        <input type="password" value={newPassword} onChange={(e) => setNewPassword(e.target.value)} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm" required />
+                        <input type="password" value={newPassword} onChange={(e) => setNewPassword(e.target.value)} className={`mt-1 block w-full ${clInput}`} required />
                     </div>
                     <div>
                         <label className="block text-sm font-medium text-gray-700">Confirmar Nueva Contraseña</label>
-                        <input type="password" value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm" required />
+                        <input type="password" value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} className={`mt-1 block w-full ${clInput}`} required />
                     </div>
                     <div className="text-right pt-2">
-                        <button type="submit" className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 px-4 rounded-lg shadow-md" disabled={isUpdatingPassword}>
+                        <button type="submit" className="bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-2.5 px-5 rounded-xl shadow-sm" disabled={isUpdatingPassword}>
                             {isUpdatingPassword ? 'Actualizando...' : 'Actualizar Contraseña'}
                         </button>
                     </div>

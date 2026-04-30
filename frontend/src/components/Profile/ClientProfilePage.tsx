@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import api from '../../config/axiosConfig';
 import { Company, Department } from '../../types';
+import { clCard } from '../../utils/cleanLightUi';
 
 const ClientProfilePage: React.FC = () => {
     const { user } = useAuth();
@@ -43,12 +44,12 @@ const ClientProfilePage: React.FC = () => {
         <div className="container mx-auto p-4 sm:p-6 lg:p-8 space-y-8">
             <div>
                 {/* ✅ Responsive titles */}
-                <h1 className="text-2xl sm:text-3xl font-bold text-gray-800 mb-2">Tu Perfil de Cliente</h1>
+                <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 mb-2 tracking-tight">Tu Perfil de Cliente</h1>
                 <p className="text-md sm:text-lg text-gray-500">Hola, {user.username}. Aquí está la información de tu cuenta.</p>
             </div>
 
-            <div className="bg-white p-6 sm:p-8 rounded-lg shadow-lg">
-                <h2 className="text-xl sm:text-2xl font-semibold text-gray-700 mb-6 border-b pb-4">Detalles de tu Cuenta</h2>
+            <div className={`${clCard} p-6 sm:p-8`}>
+                <h2 className="text-xl sm:text-2xl font-semibold text-gray-800 mb-6 border-b border-gray-100 pb-4">Detalles de tu Cuenta</h2>
                 {/* ✅ The grid was already responsive, which is great. */}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-4 text-gray-600">
                     <p><strong>Nombre de Usuario:</strong> {user.username}</p>

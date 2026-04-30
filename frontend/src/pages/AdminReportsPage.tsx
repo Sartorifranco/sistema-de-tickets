@@ -11,6 +11,7 @@ import autoTable from 'jspdf-autotable'; // ✅ Importación corregida
 import html2canvas from 'html2canvas';
 import { ticketStatusTranslations, ticketPriorityTranslations } from '../utils/traslations';
 import { toast } from 'react-toastify';
+import { clCard, clInput, clModalPanel, clTd, clTh } from '../utils/cleanLightUi';
 
 // ✅ Interfaces corregidas como Arrays
 interface ReportData {
@@ -37,8 +38,8 @@ interface FilterOptions {
 const DetailsModal: React.FC<{ title: string; items: Partial<TicketData>[]; onClose: () => void; loading: boolean }> = ({ title, items, onClose, loading }) => {
     return (
         <div className="fixed inset-0 bg-black bg-opacity-60 flex justify-center items-center z-50 p-4">
-            <div className="bg-white p-6 rounded-lg shadow-xl w-full max-w-2xl">
-                <h2 className="text-2xl font-bold mb-4">{title}</h2>
+            <div className={`${clModalPanel} max-w-2xl p-6`}>
+                <h2 className="text-2xl font-bold mb-4 border-b border-gray-100 pb-2 text-gray-900">{title}</h2>
                 <div className="max-h-96 overflow-y-auto border-t border-b py-2">
                     {loading ? (
                         <p className="text-center text-gray-500 py-4">Cargando...</p>
@@ -55,7 +56,7 @@ const DetailsModal: React.FC<{ title: string; items: Partial<TicketData>[]; onCl
                         <p className="text-center text-gray-500 py-4">No hay tickets para mostrar.</p>
                     )}
                 </div>
-                <button onClick={onClose} className="mt-6 bg-gray-300 hover:bg-gray-400 text-gray-800 font-bold py-2 px-4 rounded w-full">Cerrar</button>
+                <button type="button" onClick={onClose} className="mt-6 bg-gray-300 hover:bg-gray-400 text-gray-800 font-semibold py-2.5 px-5 rounded-xl w-full">Cerrar</button>
             </div>
         </div>
     );
@@ -355,26 +356,26 @@ const AdminReportsPage: React.FC = () => {
         <>
             <div className="container mx-auto p-4 sm:p-6 lg:p-8">
                 <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-4 mb-6">
-                    <h1 className="text-2xl sm:text-3xl font-bold text-gray-800">Reportes Avanzados</h1>
-                    <button onClick={handleDownloadPdf} disabled={isDownloading} className="bg-red-600 hover:bg-red-700 text-white font-bold py-2 px-4 rounded-lg self-start sm:self-center">
+                    <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 tracking-tight">Reportes Avanzados</h1>
+                    <button type="button" onClick={handleDownloadPdf} disabled={isDownloading} className="bg-red-600 hover:bg-red-700 text-white font-semibold py-2.5 px-5 rounded-xl shadow-sm self-start sm:self-center disabled:opacity-60">
                         {isDownloading ? 'Generando...' : 'Descargar Reporte PDF'}
                     </button>
                 </div>
                 
-                <div className="bg-white p-6 rounded-lg shadow-md mb-8">
+                <div className={`${clCard} p-6 mb-8`}>
                     <form onSubmit={handleGenerateReport} className="space-y-4">
                         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                             <div>
                                 <label htmlFor="startDate" className="block text-sm font-medium text-gray-700">Desde</label>
-                                <input type="date" name="startDate" id="startDate" value={filters.startDate} onChange={handleFilterChange} className="mt-1 block w-full p-2 border rounded-md"/>
+                                <input type="date" name="startDate" id="startDate" value={filters.startDate} onChange={handleFilterChange} className={`mt-1 block w-full ${clInput}`}/>
                             </div>
                             <div>
                                 <label htmlFor="endDate" className="block text-sm font-medium text-gray-700">Hasta</label>
-                                <input type="date" name="endDate" id="endDate" value={filters.endDate} onChange={handleFilterChange} className="mt-1 block w-full p-2 border rounded-md"/>
+                                <input type="date" name="endDate" id="endDate" value={filters.endDate} onChange={handleFilterChange} className={`mt-1 block w-full ${clInput}`}/>
                             </div>
                             <div>
                                 <label htmlFor="agentId" className="block text-sm font-medium text-gray-700">Agente</label>
-                                <select name="agentId" id="agentId" value={filters.agentId} onChange={handleFilterChange} className="mt-1 block w-full p-2 border rounded-md bg-white">
+                                <select name="agentId" id="agentId" value={filters.agentId} onChange={handleFilterChange} className={`mt-1 block w-full ${clInput}`}>
                                     <option value="">Todos los Agentes</option>
                                     {filterOptions.agents.map(agent => (
                                         <option key={agent.id} value={agent.id}>
@@ -385,7 +386,7 @@ const AdminReportsPage: React.FC = () => {
                             </div>
                             <div>
                                 <label htmlFor="clientId" className="block text-sm font-medium text-gray-700">Cliente</label>
-                                <select name="clientId" id="clientId" value={filters.clientId} onChange={handleFilterChange} className="mt-1 block w-full p-2 border rounded-md bg-white">
+                                <select name="clientId" id="clientId" value={filters.clientId} onChange={handleFilterChange} className={`mt-1 block w-full ${clInput}`}>
                                     <option value="">Todos los Clientes</option>
                                     {filterOptions.clients.map(client => (
                                         <option key={client.id} value={client.id}>
@@ -396,7 +397,7 @@ const AdminReportsPage: React.FC = () => {
                             </div>
                             <div>
                                 <label htmlFor="companyId" className="block text-sm font-medium text-gray-700">Empresa</label>
-                                <select name="companyId" id="companyId" value={filters.companyId} onChange={handleFilterChange} className="mt-1 block w-full p-2 border rounded-md bg-white">
+                                <select name="companyId" id="companyId" value={filters.companyId} onChange={handleFilterChange} className={`mt-1 block w-full ${clInput}`}>
                                     <option value="">Todas las Empresas</option>
                                     {filterOptions.companies.map(company => (
                                         <option key={company.id} value={company.id}>{company.name}</option>
@@ -405,7 +406,7 @@ const AdminReportsPage: React.FC = () => {
                             </div>
                             <div>
                                 <label htmlFor="departmentId" className="block text-sm font-medium text-gray-700">Departamento</label>
-                                <select name="departmentId" id="departmentId" value={filters.departmentId} onChange={handleFilterChange} className="mt-1 block w-full p-2 border rounded-md bg-white">
+                                <select name="departmentId" id="departmentId" value={filters.departmentId} onChange={handleFilterChange} className={`mt-1 block w-full ${clInput}`}>
                                     <option value="">Todos los Departamentos</option>
                                     {filterOptions.departments.map(dept => (
                                         <option key={dept.id} value={dept.id}>{dept.name}</option>
@@ -414,7 +415,7 @@ const AdminReportsPage: React.FC = () => {
                             </div>
                             <div>
                                 <label htmlFor="categoryId" className="block text-sm font-medium text-gray-700">Problemática (Categoría)</label>
-                                <select name="categoryId" id="categoryId" value={filters.categoryId} onChange={handleFilterChange} className="mt-1 block w-full p-2 border rounded-md bg-white">
+                                <select name="categoryId" id="categoryId" value={filters.categoryId} onChange={handleFilterChange} className={`mt-1 block w-full ${clInput}`}>
                                     <option value="">Todas las Categorías</option>
                                     {filterOptions.categories.map(cat => (
                                         <option key={cat.id} value={cat.id}>{cat.name}</option>
@@ -423,7 +424,7 @@ const AdminReportsPage: React.FC = () => {
                             </div>
                         </div>
                         <div className="flex justify-end">
-                            <button type="submit" disabled={loading} className="bg-blue-600 text-white px-6 py-2 rounded-md hover:bg-blue-700 disabled:bg-gray-400">
+                            <button type="submit" disabled={loading} className="bg-blue-600 text-white px-6 py-2.5 rounded-xl font-semibold shadow-sm hover:bg-blue-700 disabled:bg-gray-400">
                                 {loading ? 'Generando...' : 'Generar Reporte'}
                             </button>
                         </div>
@@ -434,8 +435,8 @@ const AdminReportsPage: React.FC = () => {
                 <div className="space-y-8">
                 
                     <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-                        <div className="bg-white p-6 rounded-lg shadow-md cursor-pointer">
-                            <h2 className="text-xl font-bold text-gray-700 mb-4 text-center">Tickets por Estado</h2>
+                        <div className={`${clCard} p-6 cursor-pointer`}>
+                            <h2 className="text-xl font-bold text-gray-800 mb-4 text-center border-b border-gray-100 pb-2">Tickets por Estado</h2>
                             <div className="h-80 flex justify-center">
                                 <Pie 
                                     ref={statusChartRef}
@@ -445,8 +446,8 @@ const AdminReportsPage: React.FC = () => {
                                 />
                             </div>
                         </div>
-                        <div className="bg-white p-6 rounded-lg shadow-md cursor-pointer">
-                            <h2 className="text-xl font-bold text-gray-700 mb-4 text-center">Tickets por Prioridad</h2>
+                        <div className={`${clCard} p-6 cursor-pointer`}>
+                            <h2 className="text-xl font-bold text-gray-800 mb-4 text-center border-b border-gray-100 pb-2">Tickets por Prioridad</h2>
                             <div className="h-80 flex justify-center">
                                 <Bar 
                                     ref={priorityChartRef}
@@ -456,8 +457,8 @@ const AdminReportsPage: React.FC = () => {
                                 />
                             </div>
                         </div>
-                        <div className="bg-white p-6 rounded-lg shadow-md cursor-pointer">
-                            <h2 className="text-xl font-bold text-gray-700 mb-4 text-center">Tickets por Departamento</h2>
+                        <div className={`${clCard} p-6 cursor-pointer`}>
+                            <h2 className="text-xl font-bold text-gray-800 mb-4 text-center border-b border-gray-100 pb-2">Tickets por Departamento</h2>
                             <div className="h-80">
                                 <Bar 
                                     ref={departmentChartRef}
@@ -469,8 +470,8 @@ const AdminReportsPage: React.FC = () => {
                         </div>
                     </div>
 
-                    <div className="bg-white p-6 rounded-lg shadow-md">
-                        <h2 className="text-xl font-bold text-gray-700 mb-4 text-center">Tickets por Hora del Día (0-23hs)</h2>
+                    <div className={`${clCard} p-6`}>
+                        <h2 className="text-xl font-bold text-gray-800 mb-4 text-center border-b border-gray-100 pb-2">Tickets por Hora del Día (0-23hs)</h2>
                         <div className="h-80">
                             <Line 
                                 ref={hourChartRef}
@@ -481,8 +482,8 @@ const AdminReportsPage: React.FC = () => {
                     </div>
 
                     <div ref={reportContainerRef} className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-                        <div className="bg-white p-6 rounded-lg shadow-md cursor-pointer">
-                            <h2 className="text-xl font-bold text-gray-700 mb-4 text-center">Top 10 Problemáticas</h2>
+                        <div className={`${clCard} p-6 cursor-pointer`}>
+                            <h2 className="text-xl font-bold text-gray-800 mb-4 text-center border-b border-gray-100 pb-2">Top 10 Problemáticas</h2>
                             <div className="h-80">
                                 <Bar 
                                     ref={categoryChartRef}
@@ -493,8 +494,8 @@ const AdminReportsPage: React.FC = () => {
                             </div>
                         </div>
                         
-                        <div className="bg-white p-6 rounded-lg shadow-md cursor-pointer">
-                            <h2 className="text-xl font-bold text-gray-700 mb-4 text-center">Rendimiento por Agente</h2>
+                        <div className={`${clCard} p-6 cursor-pointer`}>
+                            <h2 className="text-xl font-bold text-gray-800 mb-4 text-center border-b border-gray-100 pb-2">Rendimiento por Agente</h2>
                             <div className="h-80">
                                 <Bar 
                                     ref={agentChartRef} 
@@ -507,22 +508,22 @@ const AdminReportsPage: React.FC = () => {
                     </div>
 
                     <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-                        <div className="bg-white rounded-lg shadow-md overflow-hidden">
-                            <h2 className="text-xl font-semibold p-6 border-b">Tiempo de Resolución por Agente</h2>
-                            <table className="min-w-full divide-y divide-gray-200">
-                                <thead className="bg-gray-50">
+                        <div className={`${clCard} overflow-hidden`}>
+                            <h2 className="text-xl font-semibold p-6 border-b border-gray-100 text-gray-900">Tiempo de Resolución por Agente</h2>
+                            <table className="min-w-full divide-y divide-gray-100">
+                                <thead className="bg-gray-50/90">
                                     <tr>
-                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Agente</th>
-                                        <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase">Tickets Resueltos</th>
-                                        <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase">Tiempo Promedio (Horas)</th>
+                                        <th className={clTh}>Agente</th>
+                                        <th className={`${clTh} text-center`}>Tickets Resueltos</th>
+                                        <th className={`${clTh} text-center`}>Tiempo Promedio (Horas)</th>
                                     </tr>
                                 </thead>
-                                <tbody className="bg-white divide-y divide-gray-200">
+                                <tbody className="bg-white divide-y divide-gray-100">
                                     {reportData.agentResolutionTimes.map(agent => (
-                                        <tr key={agent.agentId} className="hover:bg-gray-50">
-                                            <td className="px-6 py-4 font-medium text-gray-900">{agent.agentName}</td>
-                                            <td className="px-6 py-4 text-center text-gray-700">{agent.resolvedTickets}</td>
-                                            <td className="px-6 py-4 text-center text-gray-700 font-bold">
+                                        <tr key={agent.agentId} className="hover:bg-gray-50/80 transition-colors">
+                                            <td className={`${clTd} font-medium text-gray-900`}>{agent.agentName}</td>
+                                            <td className={`${clTd} text-center text-gray-700`}>{agent.resolvedTickets}</td>
+                                            <td className={`${clTd} text-center text-gray-700 font-bold`}>
                                                 {agent.avgResolutionTimeHours !== null ? `${agent.avgResolutionTimeHours.toFixed(2)} hs` : 'N/A'}
                                             </td>
                                         </tr>
@@ -531,23 +532,23 @@ const AdminReportsPage: React.FC = () => {
                             </table>
                         </div>
                         
-                        <div className="bg-white rounded-lg shadow-md overflow-hidden">
-                            <h2 className="text-xl font-semibold p-6 border-b">Top 10 Clientes (por Tickets Creados)</h2>
-                            <table className="min-w-full divide-y divide-gray-200">
-                                <thead className="bg-gray-50">
+                        <div className={`${clCard} overflow-hidden`}>
+                            <h2 className="text-xl font-semibold p-6 border-b border-gray-100 text-gray-900">Top 10 Clientes (por Tickets Creados)</h2>
+                            <table className="min-w-full divide-y divide-gray-100">
+                                <thead className="bg-gray-50/90">
                                     <tr>
-                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Cliente</th>
-                                        <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase">Tickets Creados</th>
+                                        <th className={clTh}>Cliente</th>
+                                        <th className={`${clTh} text-center`}>Tickets Creados</th>
                                     </tr>
                                 </thead>
-                                <tbody className="bg-white divide-y divide-gray-200">
+                                <tbody className="bg-white divide-y divide-gray-100">
                                     {reportData.topClients.map(client => (
                                         <tr key={client.clientId} 
-                                            className="hover:bg-gray-50 cursor-pointer" 
+                                            className="hover:bg-gray-50/80 cursor-pointer transition-colors" 
                                             onClick={() => showFilteredTickets(`Tickets de ${client.clientName}`, { clientId: String(client.clientId) })}
                                         >
-                                            <td className="px-6 py-4 font-medium text-gray-900">{client.clientName}</td>
-                                            <td className="px-6 py-4 text-center text-gray-700 font-bold">{client.count}</td>
+                                            <td className={`${clTd} font-medium text-gray-900`}>{client.clientName}</td>
+                                            <td className={`${clTd} text-center text-gray-700 font-bold`}>{client.count}</td>
                                         </tr>
                                     ))}
                                 </tbody>

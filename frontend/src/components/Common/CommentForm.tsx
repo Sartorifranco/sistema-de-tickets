@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { UserRole } from '../../types';
+import { clInput } from '../../utils/cleanLightUi';
 
 interface CommentFormProps {
     onAddComment: (commentText: string, isInternal: boolean) => Promise<void>;
@@ -30,7 +31,7 @@ const CommentForm: React.FC<CommentFormProps> = ({ onAddComment, userRole }) => 
                 value={commentText}
                 onChange={(e) => setCommentText(e.target.value)}
                 placeholder="Escribe tu respuesta..."
-                className="w-full p-3 border rounded-md h-28 focus:ring-2 focus:ring-red-500"
+                className={`${clInput} min-h-[7rem] resize-y`}
                 required
                 disabled={isSubmitting}
             />
@@ -55,7 +56,7 @@ const CommentForm: React.FC<CommentFormProps> = ({ onAddComment, userRole }) => 
                 )}
                 <button 
                     type="submit" 
-                    className="bg-red-600 text-white font-bold py-2 px-6 rounded-lg hover:bg-red-700 w-full sm:w-auto disabled:bg-gray-400"
+                    className="bg-red-600 text-white font-semibold py-2.5 px-6 rounded-xl hover:bg-red-700 w-full sm:w-auto disabled:bg-gray-400 shadow-sm"
                     disabled={isSubmitting}
                 >
                     {isSubmitting ? 'Enviando...' : 'Enviar'}

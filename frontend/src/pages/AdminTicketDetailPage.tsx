@@ -16,6 +16,7 @@ import {
     ticketRealHoursValid,
     ticketRequiresRealHoursForClosure,
 } from '../utils/ticketAccess';
+import { clCard, clInput, clModalPanel } from '../utils/cleanLightUi';
 
 type DetailedTicketData = TicketData & {
     ticket_category_name?: string;
@@ -171,14 +172,14 @@ const AdminTicketDetailPage: React.FC = () => {
                         </h1>
                         {isTicketInternalTask(ticket) && <InternalTaskBadge />}
                     </div>
-                    <button onClick={() => navigate(-1)} className="bg-gray-300 hover:bg-gray-400 text-gray-800 font-bold py-2 px-4 rounded-lg shrink-0 self-start">Volver</button>
+                    <button type="button" onClick={() => navigate(-1)} className="bg-gray-300 hover:bg-gray-400 text-gray-800 font-semibold py-2.5 px-5 rounded-xl shrink-0 self-start shadow-sm">Volver</button>
                 </div>
 
                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                     {/* Columna Izquierda: Detalles y Conversación */}
                     <div className="lg:col-span-2 space-y-6">
-                        <div className="bg-white p-6 rounded-lg shadow-md">
-                            <h2 className="text-xl font-bold text-gray-800 mb-4 border-b pb-2">Detalles del Ticket</h2>
+                        <div className={`${clCard} p-6`}>
+                            <h2 className="text-xl font-bold text-gray-800 mb-4 border-b border-gray-100 pb-2">Detalles del Ticket</h2>
                             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
                                 <div><strong className="block text-gray-500">Cliente:</strong> {ticket.client_name}</div>
                                 <ContactPhoneRow phone={ticket.telefono_contacto} />
@@ -215,8 +216,8 @@ const AdminTicketDetailPage: React.FC = () => {
                         </div>
 
                         {ticket.attachments && ticket.attachments.length > 0 && (
-                            <div className="bg-white p-6 rounded-lg shadow-md">
-                                <h2 className="text-xl font-bold text-gray-800 mb-4 border-b pb-2">Archivos Adjuntos</h2>
+                            <div className={`${clCard} p-6`}>
+                                <h2 className="text-xl font-bold text-gray-800 mb-4 border-b border-gray-100 pb-2">Archivos Adjuntos</h2>
                                 <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
                                     {ticket.attachments.map(att => (
                                         <a 
@@ -224,7 +225,7 @@ const AdminTicketDetailPage: React.FC = () => {
                                             href={`/${att.file_path.replace(/\\/g, '/')}`} 
                                             target="_blank" 
                                             rel="noopener noreferrer"
-                                            className="border rounded-lg p-2 text-center hover:bg-gray-50 transition-colors group"
+                                            className="border border-gray-200 rounded-xl p-2 text-center hover:bg-gray-50/80 transition-colors group bg-white"
                                             title={`Ver: ${att.file_name}`}
                                         >
                                             {att.file_type && att.file_type.startsWith('image/') ? (
@@ -254,17 +255,24 @@ const AdminTicketDetailPage: React.FC = () => {
                             />
                         )}
 
-                        <div className="bg-white p-6 rounded-lg shadow-md">
-                            <h2 className="text-xl font-bold text-gray-800 mb-4 border-b pb-2">Conversación</h2>
-                            <div className="space-y-4 mb-6 max-h-[60vh] overflow-y-auto pr-2">
+                        <div className={`${clCard} p-6`}>
+                            <h2 className="text-xl font-bold text-gray-800 mb-4 border-b border-gray-100 pb-2">Conversación</h2>
+                            <div className="space-y-5 mb-6 max-h-[60vh] overflow-y-auto pr-2 custom-scrollbar">
                                 {ticket.comments && ticket.comments.length > 0 ? ticket.comments.map(comment => (
-                                    <div key={comment.id} className={`p-4 rounded-lg ${comment.is_internal ? 'bg-yellow-50 border border-yellow-200' : 'bg-gray-50'}`}>
-                                        <div className="flex justify-between items-center text-xs text-gray-500">
-                                            <span className="font-bold">{comment.username || 'Sistema'}</span>
-                                            <span>{formatLocalDate(comment.created_at)}</span>
+                                    <div
+                                        key={comment.id}
+                                        className={`p-4 rounded-xl ${
+                                            comment.is_internal
+                                                ? 'bg-slate-50 border border-slate-200/90'
+                                                : 'bg-white border border-gray-100 shadow-sm'
+                                        }`}
+                                    >
+                                        <div className="flex justify-between items-center text-xs text-gray-500 gap-2">
+                                            <span className="font-bold text-gray-700">{comment.username || 'Sistema'}</span>
+                                            <span className="shrink-0">{formatLocalDate(comment.created_at)}</span>
                                         </div>
-                                        <p className="text-gray-800 mt-2">{comment.comment_text}</p>
-                                        {comment.is_internal && <span className="text-xs font-bold text-yellow-600 mt-2 block">NOTA INTERNA</span>}
+                                        <p className="text-gray-800 mt-2 whitespace-pre-wrap">{comment.comment_text}</p>
+                                        {comment.is_internal && <span className="text-xs font-bold text-amber-700 mt-2 block">NOTA INTERNA</span>}
                                     </div>
                                 )) : (
                                     <p className="text-center text-gray-500 py-8">No hay comentarios aún.</p>
@@ -287,15 +295,15 @@ const AdminTicketDetailPage: React.FC = () => {
                                 onSaved={fetchTicketDetails}
                             />
                         )}
-                        <div className="bg-white p-6 rounded-lg shadow-md">
-                            <h2 className="text-xl font-bold text-gray-800 mb-4">Estado y Prioridad</h2>
+                        <div className={`${clCard} p-6`}>
+                            <h2 className="text-xl font-bold text-gray-800 mb-4 border-b border-gray-100 pb-2">Estado y Prioridad</h2>
                             <div className="space-y-4">
                                 <div>
                                     <label className="block text-sm font-medium text-gray-700">Estado Actual</label>
                                     <select 
                                         value={ticket.status}
                                         onChange={(e) => handleStatusChange(e.target.value as TicketStatus)}
-                                        className="mt-1 block w-full p-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-red-500 focus:border-red-500"
+                                        className={`mt-1 block w-full ${clInput}`}
                                         disabled={ticket.status === 'closed'}
                                     >
                                         <option value="open">Abierto</option>
@@ -311,7 +319,7 @@ const AdminTicketDetailPage: React.FC = () => {
                                         id="priority-select"
                                         value={ticket.priority}
                                         onChange={(e) => handlePriorityChange(e.target.value as TicketPriority)}
-                                        className="mt-1 block w-full p-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-red-500 focus:border-red-500"
+                                        className={`mt-1 block w-full ${clInput}`}
                                         disabled={ticket.status === 'closed'}
                                     >
                                         {Object.entries(ticketPriorityTranslations).map(([key, value]) => (
@@ -323,15 +331,15 @@ const AdminTicketDetailPage: React.FC = () => {
                             </div>
                         </div>
 
-                        <div className="bg-white p-6 rounded-lg shadow-md">
-                            <h2 className="text-xl font-bold text-gray-800 mb-4">Agente Asignado</h2>
+                        <div className={`${clCard} p-6`}>
+                            <h2 className="text-xl font-bold text-gray-800 mb-4 border-b border-gray-100 pb-2">Agente Asignado</h2>
                             <p className="font-semibold text-lg">{ticket.agent_name || 'Sin asignar'}</p>
                         </div>
 
-                        <div className="bg-white p-6 rounded-lg shadow-md">
-                            <h2 className="text-xl font-bold text-gray-800 mb-4">Reasignar Ticket</h2>
+                        <div className={`${clCard} p-6`}>
+                            <h2 className="text-xl font-bold text-gray-800 mb-4 border-b border-gray-100 pb-2">Reasignar Ticket</h2>
                             <form onSubmit={handleReassignTicket}>
-                                <select name="agentId" className="w-full p-2 border border-gray-300 rounded-md" defaultValue="">
+                                <select name="agentId" className={`w-full ${clInput}`} defaultValue="">
                                     <option value="" disabled>-- Selecciona un agente --</option>
                                     {agentsForReassign.map((agent) => (
                                         <option key={agent.id} value={agent.id}>
@@ -339,7 +347,7 @@ const AdminTicketDetailPage: React.FC = () => {
                                         </option>
                                     ))}
                                 </select>
-                                <button type="submit" className="w-full bg-red-600 text-white font-bold py-2 px-4 rounded-md mt-4 hover:bg-red-700">
+                                <button type="submit" className="w-full bg-red-600 text-white font-semibold py-2.5 px-4 rounded-xl mt-4 hover:bg-red-700 shadow-sm">
                                     Reasignar
                                 </button>
                             </form>
@@ -347,11 +355,12 @@ const AdminTicketDetailPage: React.FC = () => {
 
                         {/* ✅ AÑADIDO: Botón de Eliminar Ticket (Solo para Admin) */}
                         {user?.role === 'admin' && (
-                            <div className="bg-white p-6 rounded-lg shadow-md border border-red-200">
+                            <div className={`${clCard} p-6 border-red-200 ring-1 ring-red-100`}>
                                 <h2 className="text-xl font-bold text-red-700 mb-4">Zona de Peligro</h2>
                                 <button 
+                                    type="button"
                                     onClick={() => setIsDeleteModalOpen(true)}
-                                    className="w-full bg-red-700 hover:bg-red-800 text-white font-bold py-2 px-4 rounded-md"
+                                    className="w-full bg-red-700 hover:bg-red-800 text-white font-semibold py-2.5 px-4 rounded-xl shadow-sm"
                                 >
                                     Eliminar Ticket Permanentemente
                                 </button>
@@ -366,19 +375,19 @@ const AdminTicketDetailPage: React.FC = () => {
 
             {/* ✅ AÑADIDO: Modal de Confirmación de Borrado */}
             {isDeleteModalOpen && (
-                <div className="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center z-50">
-                    <div className="bg-white p-6 rounded-lg shadow-xl w-full max-w-md">
+                <div className="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center z-50 p-4">
+                    <div className={`${clModalPanel} max-w-md p-6`}>
                         <h3 className="text-2xl font-bold text-red-700">Confirmar Eliminación</h3>
                         <p className="my-4 text-gray-700">
                             ¿Estás absolutamente seguro de que quieres eliminar el ticket #{ticket.id}?
                             <br />
                             <strong className="font-bold">Esta acción es irreversible</strong> y se borrarán todos los comentarios y adjuntos asociados.
                         </p>
-                        <div className="flex justify-end gap-4 mt-6">
-                            <button onClick={() => setIsDeleteModalOpen(false)} className="bg-gray-200 hover:bg-gray-300 text-gray-800 font-bold px-4 py-2 rounded-lg">
+                        <div className="flex justify-end gap-4 mt-6 flex-wrap">
+                            <button type="button" onClick={() => setIsDeleteModalOpen(false)} className="bg-gray-200 hover:bg-gray-300 text-gray-800 font-semibold px-5 py-2.5 rounded-xl">
                                 Cancelar
                             </button>
-                            <button onClick={handleDeleteTicket} className="bg-red-600 hover:bg-red-700 text-white font-bold px-4 py-2 rounded-lg">
+                            <button type="button" onClick={handleDeleteTicket} className="bg-red-600 hover:bg-red-700 text-white font-semibold px-5 py-2.5 rounded-xl shadow-sm">
                                 Sí, eliminar
                             </button>
                         </div>

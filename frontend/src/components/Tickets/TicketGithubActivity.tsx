@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import api from '../../config/axiosConfig';
 import { formatLocalDate } from '../../utils/dateFormatter';
+import { clCard } from '../../utils/cleanLightUi';
 
 export interface GithubCommitItem {
     sha: string;
@@ -72,7 +73,7 @@ const TicketGithubActivity: React.FC<Props> = ({ ticketId, githubRepo }) => {
     };
 
     return (
-        <div className="bg-white p-6 rounded-lg shadow-md border border-gray-100">
+        <div className={`${clCard} p-6`}>
             <div className="flex items-center gap-2 mb-4 border-b pb-3">
                 <GitHubMark className="w-6 h-6 text-gray-800" />
                 <h2 className="text-xl font-bold text-gray-800">Actividad en GitHub</h2>

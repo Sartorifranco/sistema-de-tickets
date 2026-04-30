@@ -4,6 +4,7 @@ import api from '../config/axiosConfig';
 import { Link } from 'react-router-dom';
 import { toast } from 'react-toastify';
 import { TicketData } from '../types';
+import { clModalPanel } from '../utils/cleanLightUi';
 
 // Interfaz para la estructura de las métricas que esperamos del backend
 interface ClientMetrics {
@@ -17,8 +18,8 @@ interface ClientMetrics {
 const DetailsModal: React.FC<{ title: string; items: Partial<TicketData>[]; onClose: () => void; loading: boolean }> = ({ title, items, onClose, loading }) => {
     return (
         <div className="fixed inset-0 bg-black bg-opacity-60 flex justify-center items-center z-50 p-4">
-            <div className="bg-white p-6 rounded-lg shadow-xl w-full max-w-2xl">
-                <h2 className="text-2xl font-bold mb-4">{title}</h2>
+            <div className={`${clModalPanel} max-w-2xl p-6`}>
+                <h2 className="text-2xl font-bold mb-4 border-b border-gray-100 pb-2 text-gray-900">{title}</h2>
                 <div className="max-h-96 overflow-y-auto border-t border-b py-2">
                     {loading ? (
                         <p className="text-center text-gray-500 py-4">Cargando...</p>
@@ -35,7 +36,7 @@ const DetailsModal: React.FC<{ title: string; items: Partial<TicketData>[]; onCl
                         <p className="text-center text-gray-500 py-4">No hay tickets para mostrar en esta categoría.</p>
                     )}
                 </div>
-                <button onClick={onClose} className="mt-6 bg-gray-300 hover:bg-gray-400 text-gray-800 font-bold py-2 px-4 rounded w-full">Cerrar</button>
+                <button type="button" onClick={onClose} className="mt-6 bg-gray-300 hover:bg-gray-400 text-gray-800 font-semibold py-2.5 px-5 rounded-xl w-full">Cerrar</button>
             </div>
         </div>
     );
@@ -114,21 +115,21 @@ const ClientDashboard: React.FC = () => {
                 </p>
 
                 {metrics && (
-                    // ✅ Las tarjetas ahora son botones clicables
+                    // ✅ Las tarjetas ahora son botones clicables (colores de KPI sin cambios)
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-                        <button onClick={() => handleCardClick('open')} className="bg-blue-100 p-6 rounded-lg shadow text-center transition-transform hover:scale-105">
+                        <button type="button" onClick={() => handleCardClick('open')} className="bg-blue-100 p-6 rounded-2xl border border-blue-200/60 shadow-sm text-center transition-transform hover:scale-[1.02] hover:shadow-md">
                             <p className="text-3xl sm:text-4xl font-bold text-blue-600">{metrics.open}</p>
                             <p className="text-md text-blue-800 mt-1">Tickets Abiertos</p>
                         </button>
-                        <button onClick={() => handleCardClick('in-progress')} className="bg-yellow-100 p-6 rounded-lg shadow text-center transition-transform hover:scale-105">
+                        <button type="button" onClick={() => handleCardClick('in-progress')} className="bg-yellow-100 p-6 rounded-2xl border border-yellow-200/60 shadow-sm text-center transition-transform hover:scale-[1.02] hover:shadow-md">
                             <p className="text-3xl sm:text-4xl font-bold text-yellow-600">{metrics.inProgress}</p>
                             <p className="text-md text-yellow-800 mt-1">En Progreso</p>
                         </button>
-                        <button onClick={() => handleCardClick('resolved')} className="bg-green-100 p-6 rounded-lg shadow text-center transition-transform hover:scale-105">
+                        <button type="button" onClick={() => handleCardClick('resolved')} className="bg-green-100 p-6 rounded-2xl border border-green-200/60 shadow-sm text-center transition-transform hover:scale-[1.02] hover:shadow-md">
                             <p className="text-3xl sm:text-4xl font-bold text-green-600">{metrics.resolved}</p>
                             <p className="text-md text-green-800 mt-1">Resueltos</p>
                         </button>
-                        <button onClick={() => handleCardClick('closed')} className="bg-gray-200 p-6 rounded-lg shadow text-center transition-transform hover:scale-105">
+                        <button type="button" onClick={() => handleCardClick('closed')} className="bg-gray-200 p-6 rounded-2xl border border-gray-300/80 shadow-sm text-center transition-transform hover:scale-[1.02] hover:shadow-md">
                             <p className="text-3xl sm:text-4xl font-bold text-gray-600">{metrics.closed}</p>
                             <p className="text-md text-gray-800 mt-1">Cerrados</p>
                         </button>
@@ -136,7 +137,7 @@ const ClientDashboard: React.FC = () => {
                 )}
                 
                 <div className="mt-12 text-center">
-                    <Link to="/client/tickets" className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 px-8 rounded-lg shadow-md transition-transform transform hover:scale-105">
+                    <Link to="/client/tickets" className="bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-3 px-8 rounded-xl shadow-md transition-transform transform hover:scale-105 inline-block">
                         Ver Todos Mis Tickets
                     </Link>
                 </div>

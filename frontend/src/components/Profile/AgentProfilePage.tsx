@@ -2,6 +2,7 @@ import React, {useState, useEffect, useCallback } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import api from '../../config/axiosConfig';
 import { AgentMetrics } from '../../types';
+import { clCard } from '../../utils/cleanLightUi';
 
 const AgentProfilePage: React.FC = () => {
     const { user } = useAuth();
@@ -35,12 +36,12 @@ const AgentProfilePage: React.FC = () => {
         <div className="container mx-auto p-4 sm:p-6 lg:p-8 space-y-8">
             <div>
                 {/* ✅ Títulos responsivos */}
-                <h1 className="text-2xl sm:text-3xl font-bold text-gray-800 mb-2">Perfil de Agente</h1>
+                <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 mb-2 tracking-tight">Perfil de Agente</h1>
                 <p className="text-md sm:text-lg text-gray-500">Aquí tienes un resumen de tu actividad, {user.username}.</p>
             </div>
 
-            <div className="bg-white p-6 rounded-lg shadow-lg">
-                <h2 className="text-xl sm:text-2xl font-semibold text-gray-700 mb-4">Información Personal</h2>
+            <div className={`${clCard} p-6`}>
+                <h2 className="text-xl sm:text-2xl font-semibold text-gray-800 mb-4 border-b border-gray-100 pb-2">Información Personal</h2>
                 {/* ✅ Grilla responsiva para los detalles */}
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-gray-600">
                     <p><strong>Nombre de Usuario:</strong> {user.username}</p>
@@ -52,23 +53,23 @@ const AgentProfilePage: React.FC = () => {
             {loading ? (
                 <div className="p-8 text-center">Cargando estadísticas...</div>
             ) : stats ? (
-                <div className="bg-white p-6 rounded-lg shadow-lg">
-                    <h2 className="text-xl sm:text-2xl font-semibold text-gray-700 mb-6">Tus Estadísticas de Tickets</h2>
+                <div className={`${clCard} p-6`}>
+                    <h2 className="text-xl sm:text-2xl font-semibold text-gray-800 mb-6 border-b border-gray-100 pb-2">Tus Estadísticas de Tickets</h2>
                     {/* ✅ Grilla responsiva para las tarjetas de métricas */}
                     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 text-center">
-                        <div className="bg-gray-100 p-6 rounded-lg">
+                        <div className="bg-gray-100 p-6 rounded-2xl border border-gray-200/80 shadow-sm">
                             <p className="text-3xl sm:text-4xl font-bold text-gray-800">{stats.totalTicketsAssigned}</p>
                             <p className="text-md text-gray-600 mt-1">Total Asignados</p>
                         </div>
-                        <div className="bg-blue-50 p-6 rounded-lg border border-blue-200">
+                        <div className="bg-blue-50 p-6 rounded-2xl border border-blue-200/80 shadow-sm">
                             <p className="text-3xl sm:text-4xl font-bold text-blue-600">{stats.openTickets}</p>
                             <p className="text-md text-blue-800 mt-1">Abiertos</p>
                         </div>
-                        <div className="bg-yellow-50 p-6 rounded-lg border border-yellow-200">
+                        <div className="bg-yellow-50 p-6 rounded-2xl border border-yellow-200/80 shadow-sm">
                             <p className="text-3xl sm:text-4xl font-bold text-yellow-600">{stats.inProgressTickets}</p>
                             <p className="text-md text-yellow-800 mt-1">En Progreso</p>
                         </div>
-                        <div className="bg-green-50 p-6 rounded-lg border border-green-200">
+                        <div className="bg-green-50 p-6 rounded-2xl border border-green-200/80 shadow-sm">
                             <p className="text-3xl sm:text-4xl font-bold text-green-600">{stats.resolvedTickets + stats.closedTickets}</p>
                             <p className="text-md text-green-800 mt-1">Resueltos / Cerrados</p>
                         </div>

@@ -11,6 +11,7 @@ import CommentForm from '../components/Common/CommentForm';
 import ContactPhoneRow from '../components/Common/ContactPhoneRow';
 import TicketWorklogSidebar from '../components/Tickets/TicketWorklogSidebar';
 import { staffAssignableUsers, ticketRequiresRealHoursForClosure } from '../utils/ticketAccess';
+import { clCard, clInput, clModalPanel } from '../utils/cleanLightUi';
 
 // ✅ AÑADIDO: Icono de Archivo Genérico
 const FileIcon: React.FC<{ className?: string }> = ({ className = "w-16 h-16" }) => (
@@ -133,17 +134,17 @@ const AgentTicketDetailPage: React.FC = () => {
         );
 
     return (
-        <div className="container mx-auto p-4 sm:p-6 lg:p-8 bg-gray-50 min-h-screen">
-            <div className="flex justify-between items-center mb-6">
-                <h1 className="text-2xl sm:text-3xl font-bold text-gray-800">Ticket #{ticket.id}: {ticket.title}</h1>
-                <button onClick={() => navigate(-1)} className="bg-gray-300 hover:bg-gray-400 text-gray-800 font-bold py-2 px-4 rounded-lg">Volver</button>
+        <div className="container mx-auto p-4 sm:p-6 lg:p-8">
+            <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-4 mb-6">
+                <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 break-words">Ticket #{ticket.id}: {ticket.title}</h1>
+                <button type="button" onClick={() => navigate(-1)} className="bg-gray-300 hover:bg-gray-400 text-gray-800 font-semibold py-2.5 px-5 rounded-xl shadow-sm shrink-0">Volver</button>
             </div>
 
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                 <div className="lg:col-span-2 space-y-6">
                     {/* Sección de Detalles del Ticket */}
-                    <div className="bg-white p-6 rounded-lg shadow-md">
-                        <h2 className="text-xl font-bold text-gray-800 mb-4 border-b pb-2">Detalles del Ticket</h2>
+                    <div className={`${clCard} p-6`}>
+                        <h2 className="text-xl font-bold text-gray-800 mb-4 border-b border-gray-100 pb-2">Detalles del Ticket</h2>
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
                             <div>
                                 <strong className="block text-sm text-gray-500">Cliente</strong>
@@ -173,8 +174,8 @@ const AgentTicketDetailPage: React.FC = () => {
                     
                     {/* Sección de Archivos Adjuntos */}
                     {ticket.attachments && ticket.attachments.length > 0 && (
-                        <div className="bg-white p-6 rounded-lg shadow-md">
-                            <h2 className="text-xl font-bold text-gray-800 mb-4 border-b pb-2">Archivos Adjuntos</h2>
+                        <div className={`${clCard} p-6`}>
+                            <h2 className="text-xl font-bold text-gray-800 mb-4 border-b border-gray-100 pb-2">Archivos Adjuntos</h2>
                             <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
                                 {ticket.attachments.map(att => (
                                     <a 
@@ -182,7 +183,7 @@ const AgentTicketDetailPage: React.FC = () => {
                                         href={`/${att.file_path.replace(/\\/g, '/')}`} 
                                         target="_blank" 
                                         rel="noopener noreferrer"
-                                        className="border rounded-lg p-2 text-center hover:bg-gray-50 transition-colors group"
+                                        className="border border-gray-200 rounded-xl p-2 text-center hover:bg-gray-50/80 transition-colors group bg-white"
                                         title={`Ver: ${att.file_name}`}
                                     >
                                         {att.file_type && att.file_type.startsWith('image/') ? (
@@ -206,16 +207,23 @@ const AgentTicketDetailPage: React.FC = () => {
                     )}
                     
                     {/* Sección de Conversación */}
-                    <div className="bg-white p-6 rounded-lg shadow-md">
-                        <h2 className="text-xl font-bold text-gray-800 mb-4 border-b pb-2">Conversación</h2>
-                        <div className="space-y-4 max-h-[60vh] overflow-y-auto pr-2">
+                    <div className={`${clCard} p-6`}>
+                        <h2 className="text-xl font-bold text-gray-800 mb-4 border-b border-gray-100 pb-2">Conversación</h2>
+                        <div className="space-y-5 max-h-[60vh] overflow-y-auto pr-2">
                             {ticket.comments && ticket.comments.length > 0 ? (
                                 ticket.comments.map(comment => (
-                                    <div key={comment.id} className={`p-3 rounded-lg shadow-sm border ${comment.is_internal ? 'bg-yellow-50 border-yellow-200' : 'bg-white'}`}>
-                                        <div className="flex justify-between items-center mb-1">
-                                            <p className="text-sm font-semibold text-gray-800">{comment.username}</p>
+                                    <div
+                                        key={comment.id}
+                                        className={`p-4 rounded-xl ${
+                                            comment.is_internal
+                                                ? 'bg-slate-50 border border-slate-200/90'
+                                                : 'bg-white border border-gray-100 shadow-sm'
+                                        }`}
+                                    >
+                                        <div className="flex justify-between items-start gap-2 mb-1">
+                                            <p className="text-sm font-semibold text-gray-800">{comment.username || 'Sistema'}</p>
                                             {comment.is_internal && (
-                                                <span className="text-xs font-bold bg-yellow-200 text-yellow-800 px-2 py-1 rounded-full">NOTA INTERNA</span>
+                                                <span className="text-xs font-bold bg-amber-100 text-amber-800 px-2 py-0.5 rounded-full shrink-0">NOTA INTERNA</span>
                                             )}
                                         </div>
                                         <p className="text-gray-700 text-sm whitespace-pre-wrap">{comment.comment_text}</p>
@@ -227,7 +235,7 @@ const AgentTicketDetailPage: React.FC = () => {
                             )}
                         </div>
                         
-                        <div className="mt-4 pt-4 border-t">
+                        <div className="mt-4 pt-4 border-t border-gray-100">
                             {user && <CommentForm onAddComment={handleAddComment} userRole={user.role} />}
                         </div>
                     </div>
@@ -247,8 +255,8 @@ const AgentTicketDetailPage: React.FC = () => {
                         />
                     )}
                     {/* ✅ MODIFICACIÓN: Se separa Estado y Prioridad, y Prioridad ahora es un <select> */}
-                    <div className="bg-white p-6 rounded-lg shadow-md">
-                        <h2 className="text-xl font-bold text-gray-800 mb-4">Estado y Prioridad</h2>
+                    <div className={`${clCard} p-6`}>
+                        <h2 className="text-xl font-bold text-gray-800 mb-4 border-b border-gray-100 pb-2">Estado y Prioridad</h2>
                         <div className="space-y-4">
                             <div>
                                 <label className="block text-sm font-medium text-gray-700">Estado Actual</label>
@@ -264,7 +272,7 @@ const AgentTicketDetailPage: React.FC = () => {
                                     id="priority-select"
                                     value={ticket.priority}
                                     onChange={(e) => handlePriorityChange(e.target.value as TicketPriority)}
-                                    className="mt-1 block w-full p-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-red-500 focus:border-red-500"
+                                    className={`mt-1 block w-full ${clInput}`}
                                     disabled={ticket.status === 'closed'}
                                 >
                                     {Object.entries(ticketPriorityTranslations).map(([key, value]) => (
@@ -276,18 +284,18 @@ const AgentTicketDetailPage: React.FC = () => {
                     </div>
                     {/* FIN MODIFICACIÓN */}
                     
-                    <div className="bg-white p-6 rounded-lg shadow-md">
+                    <div className={`${clCard} p-6`}>
                         <strong className="block text-sm text-gray-500 mb-2">Agente Asignado</strong>
                         <p className="text-lg font-medium">{ticket.agent_name || 'No asignado'}</p>
                     </div>
                     {(user?.role === 'admin' || user?.role === 'agent') && (
-                        <div className="bg-white p-6 rounded-lg shadow-md">
-                            <h3 className="text-lg font-semibold text-gray-700 mb-2">Reasignar Ticket</h3>
+                        <div className={`${clCard} p-6`}>
+                            <h3 className="text-lg font-semibold text-gray-800 mb-2 border-b border-gray-100 pb-2">Reasignar Ticket</h3>
                             <div className="flex flex-col gap-3">
                                 <select 
                                     value={selectedAgentId} 
                                     onChange={(e) => setSelectedAgentId(e.target.value)} 
-                                    className="w-full p-2 border rounded-md bg-white"
+                                    className={`w-full ${clInput}`}
                                 >
                                     <option value="">-- Selecciona un agente --</option>
                                     {agentsForReassign.map((agent) => (
@@ -297,9 +305,10 @@ const AgentTicketDetailPage: React.FC = () => {
                                     ))}
                                 </select>
                                 <button 
+                                    type="button"
                                     onClick={() => setIsReassignModalOpen(true)} 
                                     disabled={!selectedAgentId} 
-                                    className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 px-4 rounded-lg disabled:bg-gray-400"
+                                    className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-2.5 px-4 rounded-xl disabled:bg-gray-400 shadow-sm"
                                 >
                                     Reasignar
                                 </button>
@@ -311,13 +320,13 @@ const AgentTicketDetailPage: React.FC = () => {
 
             {/* Modal de Confirmación para Reasignar */}
             {isReassignModalOpen && (
-                <div className="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center z-50">
-                    <div className="bg-white p-6 rounded-lg shadow-xl">
-                        <h3 className="text-lg font-bold">Confirmar Reasignación</h3>
-                        <p className="my-4">¿Estás seguro de que quieres reasignar este ticket?</p>
-                        <div className="flex justify-end gap-4">
-                            <button onClick={() => setIsReassignModalOpen(false)} className="bg-gray-200 hover:bg-gray-300 px-4 py-2 rounded-lg">Cancelar</button>
-                            <button onClick={handleConfirmReassign} className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg">Confirmar</button>
+                <div className="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center z-50 p-4">
+                    <div className={`${clModalPanel} max-w-md p-6`}>
+                        <h3 className="text-lg font-bold text-gray-900 border-b border-gray-100 pb-2">Confirmar Reasignación</h3>
+                        <p className="my-4 text-gray-700">¿Estás seguro de que quieres reasignar este ticket?</p>
+                        <div className="flex justify-end gap-4 flex-wrap">
+                            <button type="button" onClick={() => setIsReassignModalOpen(false)} className="bg-gray-200 hover:bg-gray-300 text-gray-800 font-semibold px-5 py-2.5 rounded-xl">Cancelar</button>
+                            <button type="button" onClick={handleConfirmReassign} className="bg-red-600 hover:bg-red-700 text-white font-semibold px-5 py-2.5 rounded-xl shadow-sm">Confirmar</button>
                         </div>
                     </div>
                 </div>
