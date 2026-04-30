@@ -7,6 +7,7 @@ import { TicketData, Comment as TicketComment, User, Department, TicketStatus, T
 import { isAxiosErrorTypeGuard, ApiResponseError } from '../../utils/typeGuards';
 import { ticketStatusTranslations, ticketPriorityTranslations } from '../../utils/traslations';
 import { formatLocalDate } from '../../utils/dateFormatter'; // Asegúrate de tener este helper
+import ContactPhoneRow from '../Common/ContactPhoneRow';
 import { InternalTaskBadge, isTicketInternalTask } from './InternalTaskBadge';
 import { staffAssignableUsers } from '../../utils/ticketAccess';
 
@@ -164,6 +165,7 @@ const TicketDetailModal: React.FC<TicketDetailModalProps> = ({ isOpen, onClose, 
                             <label className="block text-sm font-medium text-gray-700">Creado por:</label>
                             <p className="py-2 px-3 bg-gray-100 rounded text-gray-700 mt-1">{ticket.user_username}</p>
                         </div>
+                        <ContactPhoneRow phone={ticket.telefono_contacto} className="md:col-span-2" />
                     </div>
                     <div className="mb-4">
                         <label className="block text-sm font-medium text-gray-700">Descripción:</label>

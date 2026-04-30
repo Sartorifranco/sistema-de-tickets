@@ -36,6 +36,7 @@ const EMPTY_FORM_BASE = {
     horas_estimadas: undefined as number | undefined,
     horas_reales: undefined as number | undefined,
     assigned_to_user_id: undefined as number | undefined,
+    telefono_contacto: '' as string,
 };
 
 // --- INTERFACES LOCALES ---
@@ -93,6 +94,10 @@ function buildFormFromTicket(t: TicketData): FormDataType {
         es_tarea_interna: !!(t.es_tarea_interna === true || t.es_tarea_interna === 1 || String(t.es_tarea_interna ?? '') === '1'),
         horas_estimadas: hEst !== undefined && hEst !== null && hEst !== '' ? Number(hEst) : undefined,
         horas_reales: hReal !== undefined && hReal !== null && hReal !== '' ? Number(hReal) : undefined,
+        telefono_contacto:
+            t.telefono_contacto !== undefined && t.telefono_contacto !== null
+                ? String(t.telefono_contacto).trim()
+                : '',
     };
 }
 
@@ -515,6 +520,16 @@ const TicketFormModal: React.FC<TicketFormModalProps> = ({
             delete payload.assigned_to_user_id;
         }
 
+        const phoneTrim =
+            formData.telefono_contacto !== undefined && formData.telefono_contacto !== null
+                ? String(formData.telefono_contacto).trim().slice(0, 64)
+                : '';
+        if (phoneTrim === '') {
+            delete payload.telefono_contacto;
+        } else {
+            payload.telefono_contacto = phoneTrim;
+        }
+
         const selectedDeptName =
             departments.find((d) => d.id === formData.department_id)?.name ??
             filteredDepartments.find((d) => d.id === formData.department_id)?.name;
@@ -575,6 +590,21 @@ const TicketFormModal: React.FC<TicketFormModalProps> = ({
                             style={hardStyle}
                             required
                             disabled={titleDisabled}
+                        />
+                    </div>
+
+                    <div>
+                        <label className="block text-gray-700 font-medium">Teléfono de contacto</label>
+                        <input
+                            type="text"
+                            name="telefono_contacto"
+                            value={formData.telefono_contacto ?? ''}
+                            onChange={handleChange}
+                            placeholder="Ej: 3511234567 (Opcional)"
+                            className="w-full p-2 border rounded mt-1"
+                            style={hardStyle}
+                            autoComplete="tel"
+                            maxLength={64}
                         />
                     </div>
 

@@ -7,6 +7,7 @@ import { TicketData, TicketStatus, User, Attachment, TicketPriority } from '../t
 import { ticketStatusTranslations, ticketPriorityTranslations } from '../utils/traslations';
 import { formatLocalDate } from '../utils/dateFormatter';
 import CommentForm from '../components/Common/CommentForm';
+import ContactPhoneRow from '../components/Common/ContactPhoneRow';
 import { InternalTaskBadge, isTicketInternalTask } from '../components/Tickets/InternalTaskBadge';
 import TicketWorklogSidebar from '../components/Tickets/TicketWorklogSidebar';
 import {
@@ -179,6 +180,7 @@ const AdminTicketDetailPage: React.FC = () => {
                             <h2 className="text-xl font-bold text-gray-800 mb-4 border-b pb-2">Detalles del Ticket</h2>
                             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
                                 <div><strong className="block text-gray-500">Cliente:</strong> {ticket.client_name}</div>
+                                <ContactPhoneRow phone={ticket.telefono_contacto} />
                                 <div><strong className="block text-gray-500">Departamento:</strong> {ticket.ticket_department_name ? `${ticket.ticket_department_name} (${ticket.department_id})` : ticket.department_id}</div>
                                 <div><strong className="block text-gray-500">Categoría:</strong> {ticket.ticket_category_name || 'N/A'}</div>
                                 {ticket.subcategoria ? (

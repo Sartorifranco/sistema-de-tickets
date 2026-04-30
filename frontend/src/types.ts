@@ -113,6 +113,9 @@ export interface TicketData {
     resolved_at?: string | null;
     feedback?: Feedback | null;
 
+    /** Opcional: teléfono para contactar al solicitante */
+    telefono_contacto?: string | null;
+
     /** Flujo Desarrollo */
     subcategoria?: string | null;
     es_tarea_interna?: boolean | number | null;

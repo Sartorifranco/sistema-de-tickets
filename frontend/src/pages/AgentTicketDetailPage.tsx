@@ -8,6 +8,7 @@ import { TicketData, Comment as TicketComment, TicketStatus, User, Attachment, T
 import { ticketStatusTranslations, ticketPriorityTranslations } from '../utils/traslations';
 import { formatLocalDate } from '../utils/dateFormatter';
 import CommentForm from '../components/Common/CommentForm';
+import ContactPhoneRow from '../components/Common/ContactPhoneRow';
 import TicketWorklogSidebar from '../components/Tickets/TicketWorklogSidebar';
 import { staffAssignableUsers, ticketRequiresRealHoursForClosure } from '../utils/ticketAccess';
 
@@ -148,6 +149,7 @@ const AgentTicketDetailPage: React.FC = () => {
                                 <strong className="block text-sm text-gray-500">Cliente</strong>
                                 <p className="text-lg">{ticket.client_name}</p>
                             </div>
+                            <ContactPhoneRow phone={ticket.telefono_contacto} className="text-lg" />
                             <div>
                                 <strong className="block text-sm text-gray-500">Departamento</strong>
                                 <p className="text-lg">{ticket.ticket_department_name || ticket.department_id}</p>

@@ -38,6 +38,14 @@ function realHoursMeaningful(value) {
     return Number.isFinite(n) && n > 0;
 }
 
+/** Teléfono opcional: vacío → null, máx. 64 caracteres */
+function parseOptionalPhone(value) {
+    if (value === undefined || value === null) return null;
+    const s = String(value).trim();
+    if (s === '') return null;
+    return s.length > 64 ? s.slice(0, 64) : s;
+}
+
 // @desc    Crear un nuevo ticket y notificar a los admins/agentes
 // @route   POST /api/tickets
 // @access  Private
@@ -57,6 +65,7 @@ const createTicket = asyncHandler(async (req, res) => {
         es_tarea_interna,
         horas_estimadas,
         horas_reales,
+        telefono_contacto,
         assigned_to_user_id: assignedToBody,
     } = req.body;
     const loggedInUser = req.user;
@@ -124,6 +133,7 @@ const createTicket = asyncHandler(async (req, res) => {
     const finalEsTareaInterna = parseCreateBool(es_tarea_interna, false) ? 1 : 0;
     const finalHorasEstimadas = parseOptionalDecimal(horas_estimadas);
     const finalHorasReales = parseOptionalDecimal(horas_reales);
+    const finalTelefonoContacto = parseOptionalPhone(telefono_contacto);
 
     let finalAssignedTo = null;
     if (assignedToBody !== undefined && assignedToBody !== null && assignedToBody !== '') {
@@ -146,8 +156,9 @@ const createTicket = asyncHandler(async (req, res) => {
             user_id, title, description, priority, category_id, department_id, status,
             location_id, depositario_id,
             subcategoria, es_tarea_interna, horas_estimadas, horas_reales,
+            telefono_contacto,
             assigned_to_user_id
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         [
             finalUserId,
             title,
@@ -162,6 +173,7 @@ const createTicket = asyncHandler(async (req, res) => {
             finalEsTareaInterna,
             finalHorasEstimadas,
             finalHorasReales,
+            finalTelefonoContacto,
             finalAssignedTo,
         ]
     );
@@ -396,6 +408,7 @@ const updateTicket = asyncHandler(async (req, res) => {
         es_tarea_interna,
         horas_estimadas,
         horas_reales,
+        telefono_contacto,
         assigned_to_user_id,
     } = req.body;
     const fieldsToUpdate = [];
@@ -419,6 +432,10 @@ const updateTicket = asyncHandler(async (req, res) => {
     if (horas_reales !== undefined) {
         fieldsToUpdate.push('horas_reales = ?');
         params.push(parseOptionalDecimal(horas_reales));
+    }
+    if (telefono_contacto !== undefined) {
+        fieldsToUpdate.push('telefono_contacto = ?');
+        params.push(parseOptionalPhone(telefono_contacto));
     }
     if (assigned_to_user_id !== undefined) {
         const raw = assigned_to_user_id;
