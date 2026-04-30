@@ -186,6 +186,12 @@ const AdminTicketDetailPage: React.FC = () => {
                                 {ticket.subcategoria ? (
                                     <div><strong className="block text-gray-500">Sub-categoría:</strong> {ticket.subcategoria}</div>
                                 ) : null}
+                                {ticket.github_repo && String(ticket.github_repo).trim() !== '' ? (
+                                    <div>
+                                        <strong className="block text-gray-500">Repo GitHub:</strong>{' '}
+                                        <span className="font-mono text-sm">{String(ticket.github_repo).trim()}</span>
+                                    </div>
+                                ) : null}
                                 <div><strong className="block text-gray-500">Creado:</strong> {formatLocalDate(ticket.created_at)}</div>
                             </div>
                             {user?.role === 'admin' &&

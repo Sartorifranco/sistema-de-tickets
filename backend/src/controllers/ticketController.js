@@ -46,6 +46,13 @@ function parseOptionalPhone(value) {
     return s.length > 64 ? s.slice(0, 64) : s;
 }
 
+function parseOptionalGithubRepo(value) {
+    if (value === undefined || value === null) return null;
+    const s = String(value).trim();
+    if (s === '') return null;
+    return s.length > 255 ? s.slice(0, 255) : s;
+}
+
 // @desc    Crear un nuevo ticket y notificar a los admins/agentes
 // @route   POST /api/tickets
 // @access  Private
@@ -66,6 +73,7 @@ const createTicket = asyncHandler(async (req, res) => {
         horas_estimadas,
         horas_reales,
         telefono_contacto,
+        github_repo,
         assigned_to_user_id: assignedToBody,
     } = req.body;
     const loggedInUser = req.user;
@@ -134,6 +142,7 @@ const createTicket = asyncHandler(async (req, res) => {
     const finalHorasEstimadas = parseOptionalDecimal(horas_estimadas);
     const finalHorasReales = parseOptionalDecimal(horas_reales);
     const finalTelefonoContacto = parseOptionalPhone(telefono_contacto);
+    const finalGithubRepo = parseOptionalGithubRepo(github_repo);
 
     let finalAssignedTo = null;
     if (assignedToBody !== undefined && assignedToBody !== null && assignedToBody !== '') {
@@ -157,8 +166,9 @@ const createTicket = asyncHandler(async (req, res) => {
             location_id, depositario_id,
             subcategoria, es_tarea_interna, horas_estimadas, horas_reales,
             telefono_contacto,
+            github_repo,
             assigned_to_user_id
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         [
             finalUserId,
             title,
@@ -174,6 +184,7 @@ const createTicket = asyncHandler(async (req, res) => {
             finalHorasEstimadas,
             finalHorasReales,
             finalTelefonoContacto,
+            finalGithubRepo,
             finalAssignedTo,
         ]
     );
@@ -409,6 +420,7 @@ const updateTicket = asyncHandler(async (req, res) => {
         horas_estimadas,
         horas_reales,
         telefono_contacto,
+        github_repo,
         assigned_to_user_id,
     } = req.body;
     const fieldsToUpdate = [];
@@ -436,6 +448,10 @@ const updateTicket = asyncHandler(async (req, res) => {
     if (telefono_contacto !== undefined) {
         fieldsToUpdate.push('telefono_contacto = ?');
         params.push(parseOptionalPhone(telefono_contacto));
+    }
+    if (github_repo !== undefined) {
+        fieldsToUpdate.push('github_repo = ?');
+        params.push(parseOptionalGithubRepo(github_repo));
     }
     if (assigned_to_user_id !== undefined) {
         const raw = assigned_to_user_id;

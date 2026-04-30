@@ -154,6 +154,12 @@ const AgentTicketDetailPage: React.FC = () => {
                                 <strong className="block text-sm text-gray-500">Departamento</strong>
                                 <p className="text-lg">{ticket.ticket_department_name || ticket.department_id}</p>
                             </div>
+                            {ticket.github_repo && String(ticket.github_repo).trim() !== '' ? (
+                                <div className="sm:col-span-2">
+                                    <strong className="block text-sm text-gray-500">Repo GitHub</strong>
+                                    <p className="text-lg font-mono break-all">{String(ticket.github_repo).trim()}</p>
+                                </div>
+                            ) : null}
                             <div>
                                 <strong className="block text-sm text-gray-500">Creado</strong>
                                 <p className="text-lg">{formatLocalDate(ticket.created_at)}</p>

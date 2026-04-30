@@ -37,6 +37,7 @@ const EMPTY_FORM_BASE = {
     horas_reales: undefined as number | undefined,
     assigned_to_user_id: undefined as number | undefined,
     telefono_contacto: '' as string,
+    github_repo: '' as string,
 };
 
 // --- INTERFACES LOCALES ---
@@ -97,6 +98,10 @@ function buildFormFromTicket(t: TicketData): FormDataType {
         telefono_contacto:
             t.telefono_contacto !== undefined && t.telefono_contacto !== null
                 ? String(t.telefono_contacto).trim()
+                : '',
+        github_repo:
+            t.github_repo !== undefined && t.github_repo !== null && String(t.github_repo).trim() !== ''
+                ? String(t.github_repo).trim()
                 : '',
     };
 }
@@ -504,8 +509,17 @@ const TicketFormModal: React.FC<TicketFormModalProps> = ({
 
         if (!isDesarrolloArea) {
             delete payload.subcategoria;
-        } else if (payload.subcategoria) {
-            payload.subcategoria = String(payload.subcategoria).trim();
+            delete payload.github_repo;
+        } else {
+            if (payload.subcategoria) {
+                payload.subcategoria = String(payload.subcategoria).trim();
+            }
+            const gr = formData.github_repo != null ? String(formData.github_repo).trim() : '';
+            if (gr === '') {
+                delete payload.github_repo;
+            } else {
+                payload.github_repo = gr.slice(0, 255);
+            }
         }
 
         if (!mayUseControlBlock) {
@@ -649,6 +663,23 @@ const TicketFormModal: React.FC<TicketFormModalProps> = ({
                                     </option>
                                 ))}
                             </select>
+                            <div className="pt-2">
+                                <label className="block text-gray-800 font-medium text-sm">
+                                    Repositorio GitHub <span className="text-gray-500 font-normal">(opcional)</span>
+                                </label>
+                                <input
+                                    type="text"
+                                    name="github_repo"
+                                    value={formData.github_repo ?? ''}
+                                    onChange={handleChange}
+                                    placeholder="ej: mi-org/mi-repo"
+                                    className="w-full p-2 border border-violet-200 rounded mt-1 bg-white"
+                                    style={hardStyle}
+                                    maxLength={255}
+                                    autoComplete="off"
+                                />
+                                <p className="text-xs text-violet-700/90 mt-1">Formato owner/nombre del repo</p>
+                            </div>
                         </div>
                     ) : (
                         <>

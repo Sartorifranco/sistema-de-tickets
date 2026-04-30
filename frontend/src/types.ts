@@ -116,6 +116,9 @@ export interface TicketData {
     /** Opcional: teléfono para contactar al solicitante */
     telefono_contacto?: string | null;
 
+    /** Repositorio GitHub owner/repo (tickets de Desarrollo) */
+    github_repo?: string | null;
+
     /** Flujo Desarrollo */
     subcategoria?: string | null;
     es_tarea_interna?: boolean | number | null;

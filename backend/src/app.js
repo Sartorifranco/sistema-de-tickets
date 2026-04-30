@@ -96,6 +96,7 @@ app.use('/api/reports', reportRoutes);
 app.use('/api/companies', companyRoutes);
 app.use('/api/depositarios', depositarioRoutes);
 app.use('/api/ai', aiRoutes);
+app.use('/api/developer', require('./routes/developerRoutes'));
 app.use('/api/purchases', require('./routes/purchaseRoutes'));
 app.use('/api/suppliers', require('./routes/supplierRoutes'));
 
