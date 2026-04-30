@@ -8,7 +8,7 @@ import { isAxiosErrorTypeGuard } from '../utils/typeGuards';
 import { formatLocalDate } from '../utils/dateFormatter';
 import { toast } from 'react-toastify';
 // ✅ AJUSTAR RUTA DE IMPORTACIÓN SI ES NECESARIO (Widgets vs Dashboard)
-import DepositariosWidget from '../components/Dashboard/DepositariosWidget';
+import { useDepositariosMetrics, DepositariosCriticalListModal } from '../components/Dashboard/DepositariosWidget';
 import { clCard, clModalPanel } from '../utils/cleanLightUi'; 
 
 const activityTypeTranslations: { [key: string]: string } = {
@@ -44,7 +44,7 @@ const DetailsModal: React.FC<{ title: string; items: any[]; onClose: () => void;
     return (
         <div className="fixed inset-0 bg-black bg-opacity-60 flex justify-center items-center z-50 p-4">
             <div className={`${clModalPanel} max-w-2xl p-6`}>
-                <h2 className="text-2xl font-bold mb-4 border-b border-gray-100 pb-2 text-gray-900">{title}</h2>
+                <h2 className="text-2xl font-bold mb-4 border-b border-gray-100 pb-2 text-slate-900">{title}</h2>
                 <div className="max-h-96 overflow-y-auto">
                     {loading ? (
                         <p className="text-center text-gray-500 py-4">Cargando...</p>
@@ -89,7 +89,7 @@ const AgentTicketsModal: React.FC<{ agent: { agentId: number, agentName: string 
     return (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center z-50 p-4">
             <div className={`${clModalPanel} max-w-lg p-6`}>
-                <h2 className="text-xl font-bold mb-4">Tickets Activos de {agent.agentName}</h2>
+                <h2 className="text-xl font-bold mb-4 text-slate-900">Tickets Activos de {agent.agentName}</h2>
                 {loading ? (
                     <p>Cargando tickets...</p>
                 ) : (
@@ -122,6 +122,8 @@ const AdminDashboard: React.FC = () => {
     const [modalContent, setModalContent] = useState<{ title: string; items: any[]; renderItem: (item: any, index?: number) => React.ReactNode } | null>(null);
     const [modalLoading, setModalLoading] = useState(false);
     const [selectedAgent, setSelectedAgent] = useState<{ agentId: number, agentName: string } | null>(null);
+    const depMetrics = useDepositariosMetrics();
+    const [showDepCriticalModal, setShowDepCriticalModal] = useState(false);
 
     const fetchMetrics = useCallback(async (isInitialLoad = false) => {
         if (isInitialLoad) setLoading(true);
@@ -214,30 +216,49 @@ const AdminDashboard: React.FC = () => {
     return (
         <>
             <div className="container mx-auto p-4 sm:p-6 lg:p-8 space-y-8">
-                <h1 className="text-2xl sm:text-3xl font-bold text-gray-800">Dashboard de Administrador</h1>
+                <h1 className="text-2xl sm:text-3xl font-bold text-slate-900">Dashboard de Administrador</h1>
 
-                {/* ✅ GRILA DE MÉTRICAS + WIDGET DEPOSITARIOS */}
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                     <button type="button" onClick={() => handleCardClick('total')} className={`text-left ${clCard} p-6 hover:shadow-md transition-shadow cursor-pointer`}>
-                        <h3 className="text-lg font-semibold text-gray-600">Tickets Totales</h3>
-                        <p className="text-4xl font-bold text-indigo-600 mt-2">{metrics.totalTickets}</p>
+                        <h3 className="text-lg font-bold text-slate-900">Tickets Totales</h3>
+                        <p className="text-4xl font-bold text-violet-600 mt-2">{metrics.totalTickets}</p>
                     </button>
                     <button type="button" onClick={() => handleCardClick('active')} className={`text-left ${clCard} p-6 hover:shadow-md transition-shadow cursor-pointer`}>
-                        <h3 className="text-lg font-semibold text-gray-600">Tickets Activos</h3>
+                        <h3 className="text-lg font-bold text-slate-900">Tickets Activos</h3>
                         <p className="text-4xl font-bold text-green-600 mt-2">{metrics.activeTickets}</p>
                     </button>
                     <button type="button" onClick={() => handleCardClick('users')} className={`text-left ${clCard} p-6 hover:shadow-md transition-shadow cursor-pointer`}>
-                        <h3 className="text-lg font-semibold text-gray-600">Usuarios Totales</h3>
+                        <h3 className="text-lg font-bold text-slate-900">Usuarios Totales</h3>
                         <p className="text-4xl font-bold text-blue-600 mt-2">{metrics.totalUsers}</p>
                     </button>
-                    
-                    {/* ✅ WIDGET DE DEPOSITARIOS AQUI */}
-                    <DepositariosWidget />
+
+                    <div className={`${clCard} p-6`}>
+                        <h3 className="text-lg font-bold text-slate-900">Mantenimientos</h3>
+                        <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mt-1">Este mes</p>
+                        <p className="text-4xl font-bold text-green-600 mt-2">{depMetrics.maintainedThisMonth}</p>
+                    </div>
+                    <button
+                        type="button"
+                        onClick={() => depMetrics.criticalCount > 0 && setShowDepCriticalModal(true)}
+                        className={`text-left ${clCard} p-6 hover:shadow-md transition-shadow ${depMetrics.criticalCount > 0 ? 'cursor-pointer ring-1 ring-red-100' : 'cursor-default opacity-95'}`}
+                    >
+                        <h3 className="text-lg font-bold text-slate-900">Pendientes</h3>
+                        <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mt-1">Sin mantenimiento +30 días</p>
+                        <p className="text-4xl font-bold text-red-600 mt-2">{depMetrics.criticalCount}</p>
+                        {depMetrics.criticalCount > 0 && (
+                            <p className="text-xs font-semibold text-red-600 mt-2">Tocar para ver lista</p>
+                        )}
+                    </button>
+                    <div className={`${clCard} p-6`}>
+                        <h3 className="text-lg font-bold text-slate-900">Total de Equipos</h3>
+                        <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mt-1">Activos en sistema</p>
+                        <p className="text-4xl font-bold text-slate-900 mt-2">{depMetrics.totalDepositarios}</p>
+                    </div>
                 </div>
 
                 <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
                     <div className={`lg:col-span-3 ${clCard} p-6`}>
-                        <h2 className="text-xl font-semibold mb-4 border-b border-gray-100 pb-2 text-gray-900">Estado por Área (Tickets Activos)</h2>
+                        <h2 className="text-xl font-bold mb-4 border-b border-gray-100 pb-2 text-slate-900">Estado por Área (Tickets Activos)</h2>
                         <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
                              <button type="button" onClick={() => handleCardClick('department', 'Soporte - IT')} className="text-center p-4 bg-gray-50 rounded-xl border border-gray-100 hover:bg-gray-100/80 transition-colors cursor-pointer">
                                 <h4 className="font-bold text-gray-700">Soporte - IT</h4>
@@ -258,7 +279,7 @@ const AdminDashboard: React.FC = () => {
                         </div>
                     </div>
                     <div className={`lg:col-span-2 ${clCard} p-6`}>
-                        <h2 className="text-xl font-semibold mb-4 border-b border-gray-100 pb-2 text-gray-900">Carga de Agentes (Tickets Activos)</h2>
+                        <h2 className="text-xl font-bold mb-4 border-b border-gray-100 pb-2 text-slate-900">Carga de Agentes (Tickets Activos)</h2>
                         <ul className="space-y-3 max-h-60 overflow-y-auto">
                             {metrics.agentWorkload.length > 0 ? metrics.agentWorkload.map(agent => (
                                 <li key={agent.agentId}>
@@ -275,7 +296,7 @@ const AdminDashboard: React.FC = () => {
                 </div>
 
                 <div className={`${clCard} p-6`}>
-                    <h2 className="text-2xl font-bold text-gray-900 mb-4 border-b border-gray-100 pb-2">Actividad Reciente</h2>
+                    <h2 className="text-2xl font-bold text-slate-900 mb-4 border-b border-gray-100 pb-2">Actividad Reciente</h2>
                     <div className="overflow-x-auto">
                         <ul className="divide-y divide-gray-200">
                             {metrics.recentActivity.length > 0 ? (
@@ -303,6 +324,13 @@ const AdminDashboard: React.FC = () => {
                 </div>
             </div>
 
+            {showDepCriticalModal && (
+                <DepositariosCriticalListModal
+                    title="Equipos sin mantenimiento reciente"
+                    items={depMetrics.criticalList}
+                    onClose={() => setShowDepCriticalModal(false)}
+                />
+            )}
             {isAgentModalOpen && <AgentTicketsModal agent={selectedAgent} onClose={() => setIsAgentModalOpen(false)} />}
             {isDetailsModalOpen && <DetailsModal title={modalContent?.title || ''} items={modalContent?.items || []} onClose={() => setIsDetailsModalOpen(false)} renderItem={modalContent?.renderItem || (() => null)} loading={modalLoading} />}
         </>

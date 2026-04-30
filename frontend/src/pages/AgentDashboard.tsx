@@ -46,7 +46,7 @@ const DetailsModal: React.FC<{ title: string; items: Partial<TicketData>[]; onCl
 const TicketList: React.FC<{ tickets: TicketData[], title: string, onTicketClick: (id: number) => void }> = ({ tickets, title, onTicketClick }) => {
     return (
         <div className={`${clCard} p-6 h-full flex flex-col`}>
-            <h2 className="text-xl font-semibold text-gray-800 mb-4 border-b border-gray-100 pb-2">{title}</h2>
+            <h2 className="text-xl font-bold text-slate-900 mb-4 border-b border-gray-100 pb-2">{title}</h2>
             {tickets.length === 0 ? (
                  <p className="text-gray-600 flex-grow flex items-center justify-center">No hay tickets recientes.</p>
             ) : (
@@ -87,7 +87,7 @@ const TicketList: React.FC<{ tickets: TicketData[], title: string, onTicketClick
 const ActivityLogList: React.FC<{ logs: ActivityLog[], title: string }> = ({ logs, title }) => {
     return (
         <div className={`${clCard} p-6 h-full flex flex-col`}>
-            <h2 className="text-xl font-semibold text-gray-800 mb-4 border-b border-gray-100 pb-2">{title}</h2>
+            <h2 className="text-xl font-bold text-slate-900 mb-4 border-b border-gray-100 pb-2">{title}</h2>
             {logs.length === 0 ? (
                 <p className="text-gray-600 flex-grow flex items-center justify-center">No hay actividad reciente.</p>
             ) : (
@@ -234,7 +234,7 @@ const AgentDashboard: React.FC = () => {
     return (
         <>
             <div className="container mx-auto p-4 sm:p-6 lg:p-8">
-                <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 mb-6 border-b border-gray-100 pb-4">Dashboard de Agente</h1>
+                <h1 className="text-2xl sm:text-3xl font-bold text-slate-900 mb-6 border-b border-gray-100 pb-4">Dashboard de Agente</h1>
 
                 {/* ✅ GRILA DE MÉTRICAS + WIDGET */}
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
@@ -261,13 +261,13 @@ const AgentDashboard: React.FC = () => {
                 </div>
 
                 <div className="flex justify-center mb-8">
-                    <button type="button" onClick={() => navigate('/agent/tickets')} className="bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-3 px-6 rounded-xl shadow-md">
+                    <button type="button" onClick={() => navigate('/agent/tickets')} className="bg-red-600 hover:bg-red-700 text-white font-semibold py-3 px-6 rounded-xl shadow-md">
                         Gestionar Todos Mis Tickets
                     </button>
                 </div>
                 
                 <div id="quick-notes" className={`${clCard} p-6`}>
-                    <h2 className="text-xl font-semibold text-gray-800 mb-4 border-b border-gray-100 pb-2">Mis Notas Rápidas</h2>
+                    <h2 className="text-xl font-bold text-slate-900 mb-4 border-b border-gray-100 pb-2">Mis Notas Rápidas</h2>
                     <textarea
                         className={`w-full ${clInput} min-h-[6rem] resize-y`}
                         placeholder="Escribe una nueva nota aquí..."
@@ -289,7 +289,7 @@ const AgentDashboard: React.FC = () => {
                                             className={`w-full ${clInput} min-h-[5rem]`}
                                         />
                                         <div className="flex items-center gap-2 mt-2 flex-wrap">
-                                            <button type="button" onClick={() => handleUpdateNote(note.id)} className="text-sm bg-blue-500 text-white py-2 px-4 rounded-xl hover:bg-blue-600 font-medium">Guardar</button>
+                                            <button type="button" onClick={() => handleUpdateNote(note.id)} className="text-sm bg-red-600 text-white py-2 px-4 rounded-xl hover:bg-red-700 font-semibold">Guardar</button>
                                             <button type="button" onClick={() => setEditingNoteId(null)} className="text-sm bg-gray-200 text-gray-700 py-2 px-4 rounded-xl hover:bg-gray-300 font-medium">Cancelar</button>
                                         </div>
                                     </>

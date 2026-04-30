@@ -83,5 +83,19 @@ module.exports = {
       }
     },
   },
-  plugins: [], // Asegúrate de incluir cualquier plugin que uses
+  plugins: [
+    function ({ addBase }) {
+      addBase({
+        body: {
+          fontWeight: '500',
+          fontFamily: 'Urbanist, ui-sans-serif, system-ui, sans-serif',
+          color: '#0f172a',
+        },
+        'h1, h2, h3, h4, h5, h6': { fontWeight: '700' },
+        'button, [type="button"], [type="submit"], [type="reset"], input:not([type="checkbox"]):not([type="radio"]), select, textarea': {
+          fontWeight: '600',
+        },
+      });
+    },
+  ],
 }

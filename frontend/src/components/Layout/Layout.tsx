@@ -31,7 +31,7 @@ const Layout: React.FC = () => {
             case 'admin':
                 return (
                     <>
-                        <li className="text-xs uppercase tracking-wider font-semibold text-gray-400 mt-2 mb-2 px-3">Admin</li>
+                        <li className="text-xs uppercase tracking-wider font-bold text-slate-900 mt-2 mb-2 px-3">Admin</li>
                         <li><NavLink to="/admin" end className={getLinkClassName}><Home className={iconClass} />Dashboard</NavLink></li>
                         <li><NavLink to="/profile" className={getLinkClassName}><User className={iconClass} />Mi Perfil</NavLink></li>
                         <li><NavLink to="/admin/users" className={getLinkClassName}><Users className={iconClass} />Usuarios</NavLink></li>
@@ -54,7 +54,7 @@ const Layout: React.FC = () => {
             case 'agent':
                 return (
                     <>
-                        <li className="text-xs uppercase tracking-wider font-semibold text-gray-400 mt-2 mb-2 px-3">Agente</li>
+                        <li className="text-xs uppercase tracking-wider font-bold text-slate-900 mt-2 mb-2 px-3">Agente</li>
                         <li><NavLink to="/agent" end className={getLinkClassName}><Home className={iconClass} />Dashboard</NavLink></li>
                         <li><NavLink to="/profile" className={getLinkClassName}><User className={iconClass} />Mi Perfil</NavLink></li>
                         <li><NavLink to="/agent/tickets" className={getLinkClassName}><Ticket className={iconClass} />Mis Tickets</NavLink></li>
@@ -70,7 +70,7 @@ const Layout: React.FC = () => {
                 const isBacar = user?.company_name && String(user.company_name).toLowerCase().includes('bacar');
                 return (
                     <>
-                        <li className="text-xs uppercase tracking-wider font-semibold text-gray-400 mt-2 mb-2 px-3">Cliente</li>
+                        <li className="text-xs uppercase tracking-wider font-bold text-slate-900 mt-2 mb-2 px-3">Cliente</li>
                         <li><NavLink to="/client" end className={getLinkClassName}><Home className={iconClass} />Dashboard</NavLink></li>
                         <li><NavLink to="/profile" className={getLinkClassName}><User className={iconClass} />Mi Perfil</NavLink></li>
                         <li><NavLink to="/client/tickets" className={getLinkClassName}><Ticket className={iconClass} />Mis Tickets</NavLink></li>
@@ -83,7 +83,7 @@ const Layout: React.FC = () => {
             case 'boss':
                 return (
                     <>
-                        <li className="text-xs uppercase tracking-wider font-semibold text-gray-400 mt-2 mb-2 px-3">Jefe</li>
+                        <li className="text-xs uppercase tracking-wider font-bold text-slate-900 mt-2 mb-2 px-3">Jefe</li>
                         <li><NavLink to="/client" end className={getLinkClassName}><Home className={iconClass} />Dashboard</NavLink></li>
                         <li><NavLink to="/profile" className={getLinkClassName}><User className={iconClass} />Mi Perfil</NavLink></li>
                         <li><NavLink to="/client/tickets" className={getLinkClassName}><Ticket className={iconClass} />Mis Tickets</NavLink></li>
@@ -99,7 +99,7 @@ const Layout: React.FC = () => {
             case 'purchasing':
                 return (
                     <>
-                        <li className="text-xs uppercase tracking-wider font-semibold text-gray-400 mt-2 mb-2 px-3">Compras</li>
+                        <li className="text-xs uppercase tracking-wider font-bold text-slate-900 mt-2 mb-2 px-3">Compras</li>
                         <li><NavLink to="/client" end className={getLinkClassName}><Home className={iconClass} />Dashboard</NavLink></li>
                         <li><NavLink to="/profile" className={getLinkClassName}><User className={iconClass} />Mi Perfil</NavLink></li>
                         <li><NavLink to="/client/tickets" className={getLinkClassName}><Ticket className={iconClass} />Mis Tickets</NavLink></li>
@@ -115,7 +115,7 @@ const Layout: React.FC = () => {
             case 'supplier':
                 return (
                     <>
-                        <li className="text-xs uppercase tracking-wider font-semibold text-gray-400 mt-2 mb-2 px-3">Proveedor</li>
+                        <li className="text-xs uppercase tracking-wider font-bold text-slate-900 mt-2 mb-2 px-3">Proveedor</li>
                         <li><NavLink to="/profile" className={getLinkClassName}><User className={iconClass} />Mi Perfil</NavLink></li>
                         {canAccessPurchasingModule(user?.email) && (
                             <li><NavLink to="/purchases" end className={getLinkClassName}><ClipboardList className={iconClass} />Presupuestos</NavLink></li>

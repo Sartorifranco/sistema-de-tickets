@@ -194,7 +194,7 @@ const TicketDetailModal: React.FC<TicketDetailModalProps> = ({ isOpen, onClose, 
                 
                 <div className="flex flex-col sm:flex-row justify-end gap-3 mt-6 pt-4 border-t">
                     <button type="button" onClick={onClose} className="bg-gray-300 hover:bg-gray-400 text-gray-800 font-bold py-2 px-4 rounded-lg">Cerrar</button>
-                    <button type="button" onClick={handleSave} className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-lg" disabled={!canEditTicket}>Guardar Cambios</button>
+                    <button type="button" onClick={handleSave} className="bg-red-600 hover:bg-red-700 text-white font-bold py-2 px-4 rounded-lg" disabled={!canEditTicket}>Guardar Cambios</button>
                 </div>
             </div>
         </div>

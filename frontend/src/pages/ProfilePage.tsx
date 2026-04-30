@@ -199,7 +199,7 @@ const ProfilePage: React.FC = () => {
             <h1 className="text-3xl font-bold text-gray-900 tracking-tight">Mi Perfil</h1>
             
             <div className={`${clCard} p-6`}>
-                <h2 className="text-xl font-semibold mb-4 text-gray-800 border-b border-gray-100 pb-2">Detalles de la Cuenta</h2>
+                <h2 className="text-xl font-bold mb-4 text-slate-900 border-b border-gray-100 pb-2">Detalles de la Cuenta</h2>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-gray-600">
                     <div><strong>Nombre de Usuario:</strong> {user.username}</div>
                     <div><strong>Email:</strong> {user.email}</div>
@@ -213,7 +213,7 @@ const ProfilePage: React.FC = () => {
 
             {canViewConfigStatus && configStatus && (
                 <div className={`${clCard} p-6`}>
-                    <h2 className="text-xl font-semibold mb-4 text-gray-800 border-b border-gray-100 pb-2">Estado de canales de notificación</h2>
+                    <h2 className="text-xl font-bold mb-4 text-slate-900 border-b border-gray-100 pb-2">Estado de canales de notificación</h2>
                     <p className="text-sm text-gray-600 mb-4">Verificación de la configuración del servidor para pruebas reales.</p>
                     <div className="space-y-3">
                         <div className={`p-3 rounded-lg ${configStatus.email?.configured ? 'bg-green-50 border border-green-200' : 'bg-amber-50 border border-amber-200'}`}>
@@ -233,7 +233,7 @@ const ProfilePage: React.FC = () => {
             )}
 
             <div className={`${clCard} p-6`}>
-                <h2 className="text-xl font-semibold mb-4 text-gray-800 border-b border-gray-100 pb-2">Notificaciones Push</h2>
+                <h2 className="text-xl font-bold mb-4 text-slate-900 border-b border-gray-100 pb-2">Notificaciones Push</h2>
                 <p className="text-sm text-gray-600 mb-4">Activa las notificaciones para recibir alertas incluso con el navegador cerrado.</p>
                 <div className="flex flex-wrap items-center gap-3">
                     <PushNotificationButton />
@@ -241,7 +241,7 @@ const ProfilePage: React.FC = () => {
                         type="button"
                         onClick={handleTestPush}
                         disabled={testingPush}
-                        className="px-5 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-semibold rounded-xl shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
+                        className="px-5 py-2.5 bg-red-600 hover:bg-red-700 text-white text-sm font-semibold rounded-xl shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
                     >
                         {testingPush ? 'Enviando...' : '🔔 Probar Alerta'}
                     </button>
@@ -250,7 +250,7 @@ const ProfilePage: React.FC = () => {
 
             {canEditNotificationPrefs && (
                 <div className={`${clCard} p-6`}>
-                    <h2 className="text-xl font-semibold mb-4 text-gray-800 border-b border-gray-100 pb-2">Preferencias de Notificación</h2>
+                    <h2 className="text-xl font-bold mb-4 text-slate-900 border-b border-gray-100 pb-2">Preferencias de Notificación</h2>
                     <form onSubmit={handleSaveNotificationPrefs} className="space-y-4 max-w-md">
                         <div>
                             <label className="block text-sm font-medium text-gray-700">Email alternativo de alertas</label>
@@ -266,7 +266,7 @@ const ProfilePage: React.FC = () => {
                                     type="button"
                                     onClick={handleTestEmail}
                                     disabled={testingEmail || (!notificationEmail.trim() && !user?.email)}
-                                    className="px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold rounded-xl shadow-sm disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap"
+                                    className="px-5 py-2.5 bg-red-600 hover:bg-red-700 text-white text-sm font-semibold rounded-xl shadow-sm disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap"
                                 >
                                     {testingEmail ? 'Enviando...' : 'Probar email'}
                                 </button>
@@ -325,7 +325,7 @@ const ProfilePage: React.FC = () => {
             )}
 
             <div className={`${clCard} p-6`}>
-                <h2 className="text-xl font-semibold mb-4 text-gray-800 border-b border-gray-100 pb-2">Cambiar Contraseña</h2>
+                <h2 className="text-xl font-bold mb-4 text-slate-900 border-b border-gray-100 pb-2">Cambiar Contraseña</h2>
                 <form onSubmit={handleChangePassword} className="space-y-4 max-w-md">
                     <div>
                         <label className="block text-sm font-medium text-gray-700">Contraseña Actual</label>
@@ -340,7 +340,7 @@ const ProfilePage: React.FC = () => {
                         <input type="password" value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} className={`mt-1 block w-full ${clInput}`} required />
                     </div>
                     <div className="text-right pt-2">
-                        <button type="submit" className="bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-2.5 px-5 rounded-xl shadow-sm" disabled={isUpdatingPassword}>
+                        <button type="submit" className="bg-red-600 hover:bg-red-700 text-white font-semibold py-2.5 px-5 rounded-xl shadow-sm" disabled={isUpdatingPassword}>
                             {isUpdatingPassword ? 'Actualizando...' : 'Actualizar Contraseña'}
                         </button>
                     </div>

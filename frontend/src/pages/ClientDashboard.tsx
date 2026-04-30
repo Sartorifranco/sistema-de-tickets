@@ -109,7 +109,7 @@ const ClientDashboard: React.FC = () => {
     return (
         <>
             <div className="container mx-auto p-4 sm:p-6 lg:p-8">
-                <h1 className="text-2xl sm:text-3xl font-bold text-gray-800 mb-2">Tu Dashboard</h1>
+                <h1 className="text-2xl sm:text-3xl font-bold text-slate-900 mb-2">Tu Dashboard</h1>
                 <p className="text-md sm:text-lg text-gray-500 mb-8">
                     Bienvenido, {user?.username}. Aquí tienes un resumen de tus tickets.
                 </p>
@@ -137,7 +137,7 @@ const ClientDashboard: React.FC = () => {
                 )}
                 
                 <div className="mt-12 text-center">
-                    <Link to="/client/tickets" className="bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-3 px-8 rounded-xl shadow-md transition-transform transform hover:scale-105 inline-block">
+                    <Link to="/client/tickets" className="bg-red-600 hover:bg-red-700 text-white font-semibold py-3 px-8 rounded-xl shadow-md transition-transform transform hover:scale-105 inline-block">
                         Ver Todos Mis Tickets
                     </Link>
                 </div>

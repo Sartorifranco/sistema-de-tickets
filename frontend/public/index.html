@@ -24,7 +24,7 @@
       work correctly both with client-side routing and a non-root public URL.
       Learn how to configure a non-root public URL by running `npm run build`.
     -->
-    <title>Sistema de Tickets</title>
+    <title>Bacar OS</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script>
       tailwind.config = {
@@ -41,7 +41,23 @@
     <style>
       body {
         font-family: 'Urbanist', ui-sans-serif, system-ui, sans-serif;
+        font-weight: 500;
+        color: #0f172a;
         background-color: #f8fafc;
+        -webkit-font-smoothing: antialiased;
+        -moz-osx-font-smoothing: grayscale;
+      }
+      h1, h2, h3, h4, h5, h6 {
+        font-weight: 700;
+      }
+      button,
+      [type="button"],
+      [type="submit"],
+      [type="reset"],
+      input:not([type="checkbox"]):not([type="radio"]):not([type="file"]),
+      select,
+      textarea {
+        font-weight: 600;
       }
       /* Estilos para el scrollbar personalizado */
       .custom-scrollbar::-webkit-scrollbar {
