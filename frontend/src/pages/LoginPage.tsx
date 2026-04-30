@@ -1,15 +1,13 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useNotification } from '../context/NotificationContext';
 import { toast } from 'react-toastify';
 import { clInput } from '../utils/cleanLightUi';
 
-/** Ruta pública (colocar `login-video.mp4` en `public/assets/video/`). Forza remount si cambia la URL. */
-const VIDEO_SOURCE = '/assets/video/login-video.mp4';
+const LOGIN_BG_GIF = '/assets/img/login-bg.gif';
 
 const LoginPage: React.FC = () => {
-    const videoRef = useRef<HTMLVideoElement>(null);
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
     const [loading, setLoading] = useState(false);
@@ -24,16 +22,6 @@ const LoginPage: React.FC = () => {
             else navigate(`/${user.role}`, { replace: true });
         }
     }, [user, navigate]);
-
-    /** Reproducción forzada tras 500 ms para evitar bloqueos tempranos del navegador. */
-    useEffect(() => {
-        const id = window.setTimeout(() => {
-            const el = videoRef.current;
-            if (!el) return;
-            void el.play().catch(() => {});
-        }, 500);
-        return () => window.clearTimeout(id);
-    }, []);
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -53,27 +41,14 @@ const LoginPage: React.FC = () => {
     const urbanist = { fontFamily: "'Urbanist', ui-sans-serif, system-ui, sans-serif", fontWeight: 500 as const };
 
     return (
-        <div
-            className="flex h-screen min-h-0 w-full flex-col overflow-hidden md:flex-row"
-            style={urbanist}
-        >
-            {/* 70% ancho desktop — video local */}
+        <div className="flex h-screen min-h-0 w-full flex-col overflow-hidden md:flex-row" style={urbanist}>
+            {/* 70% — GIF de fondo */}
             <div className="relative h-[38vh] w-full min-h-0 shrink-0 overflow-hidden bg-slate-900 md:h-full md:w-[70%] md:min-w-0 md:shrink-0">
-                <video
-                    key={VIDEO_SOURCE}
-                    ref={videoRef}
-                    autoPlay
-                    muted
-                    loop
-                    playsInline
-                    className="w-full h-full object-cover"
-                >
-                    <source src={VIDEO_SOURCE} type="video/mp4" />
-                </video>
+                <img src={LOGIN_BG_GIF} alt="" className="w-full h-full object-cover" />
             </div>
 
-            {/* 30% — formulario centrado, Urbanist Medium (500) */}
-            <div className="flex min-h-0 w-full flex-1 flex-col items-center justify-center overflow-y-auto bg-white px-4 py-8 sm:px-6 md:w-[30%] md:max-w-none md:flex-none md:shrink-0 md:py-12">
+            {/* 30% — formulario centrado vertical y horizontalmente */}
+            <div className="flex min-h-0 w-full flex-1 flex-col items-center justify-center overflow-y-auto bg-white px-4 py-8 sm:px-6 md:h-full md:w-[30%] md:flex-none md:shrink-0 md:py-10">
                 <div className="w-full max-w-sm font-medium">
                     <div className="rounded-2xl border border-gray-100 bg-white px-6 py-9 shadow-sm sm:px-8 sm:py-10">
                         <div className="flex flex-col items-center text-center">
