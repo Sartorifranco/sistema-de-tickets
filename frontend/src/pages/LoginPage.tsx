@@ -1,17 +1,14 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useNotification } from '../context/NotificationContext';
 import { toast } from 'react-toastify';
 import { clInput } from '../utils/cleanLightUi';
 
-const LOGIN_HERO_VIDEO =
-    'https://raw.githubusercontent.com/the-coder-bull/static-assets/main/videos/tech-background.mp4';
-
-const LOGIN_VIDEO_POSTER =
-    'https://images.unsplash.com/photo-1518770660439-4636190af475?q=80&w=2070&auto=format&fit=crop';
+const LOGIN_HERO_VIDEO = 'https://v1.exhibit.com/videos/exhibit-hero-v1.mp4';
 
 const LoginPage: React.FC = () => {
+    const videoRef = useRef<HTMLVideoElement>(null);
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
     const [loading, setLoading] = useState(false);
@@ -26,6 +23,27 @@ const LoginPage: React.FC = () => {
             else navigate(`/${user.role}`, { replace: true });
         }
     }, [user, navigate]);
+
+    /** Refuerza reproducción si el navegador ignorara autoPlay al montar. */
+    useEffect(() => {
+        const el = videoRef.current;
+        if (!el) return;
+
+        const tryPlay = () => {
+            void el.play().catch(() => {
+                /* autoplay bloqueado u offline; el usuario sigue viendo el primer frame / poster del navegador */
+            });
+        };
+
+        tryPlay();
+        el.addEventListener('loadeddata', tryPlay);
+        el.addEventListener('canplay', tryPlay);
+
+        return () => {
+            el.removeEventListener('loadeddata', tryPlay);
+            el.removeEventListener('canplay', tryPlay);
+        };
+    }, []);
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -42,43 +60,46 @@ const LoginPage: React.FC = () => {
         }
     };
 
+    const urbanist = { fontFamily: "'Urbanist', ui-sans-serif, system-ui, sans-serif" } as const;
+
     return (
         <div
             className="flex h-screen min-h-0 w-full flex-col overflow-hidden font-medium md:flex-row"
-            style={{ fontFamily: "'Urbanist', ui-sans-serif, system-ui, sans-serif" }}
+            style={{ ...urbanist, fontWeight: 500 }}
         >
-            {/* Panel video: sin capas superpuestas con z-index alto; solo fondo slate-900 + video */}
-            <div className="relative h-[36vh] w-full min-h-0 shrink-0 overflow-hidden bg-slate-900 md:h-full md:w-1/2">
+            {/* ~67% ancho en desktop (w-2/3), más protagonismo al video */}
+            <div className="relative h-[38vh] w-full min-h-0 shrink-0 overflow-hidden bg-slate-900 md:h-full md:w-2/3">
                 <video
+                    ref={videoRef}
                     autoPlay
                     muted
                     loop
                     playsInline
-                    poster={LOGIN_VIDEO_POSTER}
-                    className="w-full h-full object-cover opacity-100 transition-opacity duration-1000"
+                    preload="auto"
+                    className="w-full h-full object-cover"
                     src={LOGIN_HERO_VIDEO}
                 />
             </div>
 
-            {/* Formulario: mismo nivel de apilamiento que el video (flex); sin z-index que invada la columna izquierda */}
-            <div className="flex min-h-0 flex-1 flex-col items-center justify-center overflow-y-auto bg-white px-4 py-8 sm:px-8 md:w-1/2 md:py-12">
-                <div className="w-full max-w-md">
-                    <div className="rounded-2xl border border-gray-100 bg-white px-6 py-9 shadow-sm sm:px-10 sm:py-11">
-                        <div className="flex flex-col items-center text-center">
+            {/* ~33% formulario, centrado, Urbanist 500 */}
+            <div className="flex min-h-0 flex-1 flex-col items-center justify-center overflow-y-auto bg-white px-4 py-8 sm:px-6 md:w-1/3 md:py-12">
+                <div className="w-full max-w-sm">
+                    <div className="rounded-2xl border border-gray-100 bg-white px-6 py-9 shadow-sm sm:px-8 sm:py-10">
+                        <div className="flex flex-col items-center text-center font-medium">
                             <img
                                 className="h-24 w-auto max-w-full object-contain drop-shadow-sm sm:h-28"
                                 src="/images/logo-grupo-bacar-horizontal.png"
                                 alt="Grupo BACAR"
                             />
-                            <p className="mt-2 text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">Bacar OS</p>
-                            <h1 className="mt-6 text-2xl font-semibold leading-tight text-slate-900 sm:text-3xl">Bienvenido</h1>
+                            <p className="mt-2 text-xs font-medium uppercase tracking-[0.2em] text-slate-500">Bacar OS</p>
+                            <h1 className="mt-6 text-2xl font-medium leading-tight text-slate-900 sm:text-3xl">Bienvenido</h1>
                             <p className="mt-2 text-sm font-medium text-slate-600">Ingresá con tu cuenta corporativa</p>
                         </div>
 
-                        <form className="mt-10 space-y-6" onSubmit={handleSubmit} noValidate>
+                        <form className="mt-10 space-y-6 font-medium" onSubmit={handleSubmit} noValidate>
                             <div className="space-y-5">
                                 <div>
-                                    <label htmlFor="email-address" className="mb-1.5 block text-sm font-semibold text-slate-900">
+                                    <label htmlFor="email-address" className="mb-1.5 block text-sm font-medium text-slate-900">
                                         Correo electrónico
                                     </label>
                                     <input
@@ -87,7 +108,7 @@ const LoginPage: React.FC = () => {
                                         type="email"
                                         autoComplete="email"
                                         required
-                                        className={`${clInput} rounded-xl border-gray-200 text-slate-900 placeholder:text-slate-400`}
+                                        className={`${clInput} !font-medium rounded-xl border-gray-200 text-slate-900 placeholder:text-slate-400`}
                                         placeholder="nombre@empresa.com"
                                         value={email}
                                         onChange={(e) => setEmail(e.target.value)}
@@ -95,7 +116,7 @@ const LoginPage: React.FC = () => {
                                     />
                                 </div>
                                 <div>
-                                    <label htmlFor="password" className="mb-1.5 block text-sm font-semibold text-slate-900">
+                                    <label htmlFor="password" className="mb-1.5 block text-sm font-medium text-slate-900">
                                         Contraseña
                                     </label>
                                     <input
@@ -104,7 +125,7 @@ const LoginPage: React.FC = () => {
                                         type="password"
                                         autoComplete="current-password"
                                         required
-                                        className={`${clInput} rounded-xl border-gray-200 text-slate-900 placeholder:text-slate-400`}
+                                        className={`${clInput} !font-medium rounded-xl border-gray-200 text-slate-900 placeholder:text-slate-400`}
                                         placeholder="••••••••"
                                         value={password}
                                         onChange={(e) => setPassword(e.target.value)}
@@ -115,7 +136,7 @@ const LoginPage: React.FC = () => {
 
                             <button
                                 type="submit"
-                                className="flex w-full justify-center rounded-xl bg-[#DC2626] px-4 py-3 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-[#B91C1C] focus:outline-none focus:ring-2 focus:ring-[#DC2626] focus:ring-offset-2 disabled:bg-gray-400 disabled:hover:bg-gray-400"
+                                className="flex w-full justify-center rounded-xl bg-[#DC2626] px-4 py-3 text-sm !font-medium text-white shadow-sm transition-colors hover:bg-[#B91C1C] focus:outline-none focus:ring-2 focus:ring-[#DC2626] focus:ring-offset-2 disabled:bg-gray-400 disabled:hover:bg-gray-400"
                                 disabled={loading}
                             >
                                 {loading ? 'Iniciando sesión...' : 'Ingresar'}
@@ -126,7 +147,7 @@ const LoginPage: React.FC = () => {
                             ¿No tenés cuenta?{' '}
                             <Link
                                 to="/register"
-                                className="font-semibold text-[#DC2626] underline-offset-2 hover:text-[#B91C1C] hover:underline"
+                                className="font-medium text-[#DC2626] underline-offset-2 hover:text-[#B91C1C] hover:underline"
                             >
                                 Registrate aquí
                             </Link>
