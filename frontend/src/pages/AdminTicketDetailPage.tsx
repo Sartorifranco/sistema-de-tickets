@@ -8,6 +8,7 @@ import { ticketStatusTranslations, ticketPriorityTranslations } from '../utils/t
 import { formatLocalDate } from '../utils/dateFormatter';
 import CommentForm from '../components/Common/CommentForm';
 import { InternalTaskBadge, isTicketInternalTask } from '../components/Tickets/InternalTaskBadge';
+import TicketWorklogSidebar from '../components/Tickets/TicketWorklogSidebar';
 import { staffAssignableUsers, ticketRealHoursValid } from '../utils/ticketAccess';
 
 type DetailedTicketData = TicketData & {
@@ -83,7 +84,7 @@ const AdminTicketDetailPage: React.FC = () => {
             (newStatus === 'resolved' || newStatus === 'closed');
         if (staffNeedsRealHours && !ticketRealHoursValid(ticket.horas_reales)) {
             toast.warn(
-                'Debés registrar las horas reales del ticket (desde edición o control interno) antes de marcarlo como resuelto o finalizado.'
+                'Registrá las horas reales en «Registro de trabajo» (columna derecha) antes de resolver o cerrar el ticket.'
             );
             return;
         }
@@ -243,6 +244,16 @@ const AdminTicketDetailPage: React.FC = () => {
 
                     {/* Columna Derecha: Acciones */}
                     <div className="lg:col-span-1 space-y-6">
+                        {(user?.role === 'admin' || user?.role === 'agent') && (
+                            <TicketWorklogSidebar
+                                ticketId={ticket.id}
+                                horasReales={ticket.horas_reales}
+                                status={ticket.status}
+                                departmentName={ticket.ticket_department_name ?? ticket.department_name ?? null}
+                                disabled={ticket.status === 'closed'}
+                                onSaved={fetchTicketDetails}
+                            />
+                        )}
                         <div className="bg-white p-6 rounded-lg shadow-md">
                             <h2 className="text-xl font-bold text-gray-800 mb-4">Estado y Prioridad</h2>
                             <div className="space-y-4">

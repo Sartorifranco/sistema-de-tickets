@@ -8,6 +8,7 @@ import { TicketData, Comment as TicketComment, TicketStatus, User, Attachment, T
 import { ticketStatusTranslations, ticketPriorityTranslations } from '../utils/traslations';
 import { formatLocalDate } from '../utils/dateFormatter';
 import CommentForm from '../components/Common/CommentForm';
+import TicketWorklogSidebar from '../components/Tickets/TicketWorklogSidebar';
 import { staffAssignableUsers } from '../utils/ticketAccess';
 
 // ✅ AÑADIDO: Icono de Archivo Genérico
@@ -219,6 +220,16 @@ const AgentTicketDetailPage: React.FC = () => {
 
                 {/* Columna Lateral de Acciones */}
                 <div className="lg:col-span-1 space-y-6">
+                    {(user?.role === 'admin' || user?.role === 'agent') && (
+                        <TicketWorklogSidebar
+                            ticketId={ticket.id}
+                            horasReales={ticket.horas_reales}
+                            status={ticket.status}
+                            departmentName={ticket.ticket_department_name ?? ticket.department_name ?? null}
+                            disabled={ticket.status === 'closed'}
+                            onSaved={fetchAllData}
+                        />
+                    )}
                     {/* ✅ MODIFICACIÓN: Se separa Estado y Prioridad, y Prioridad ahora es un <select> */}
                     <div className="bg-white p-6 rounded-lg shadow-md">
                         <h2 className="text-xl font-bold text-gray-800 mb-4">Estado y Prioridad</h2>

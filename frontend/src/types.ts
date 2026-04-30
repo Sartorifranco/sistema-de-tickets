@@ -79,7 +79,6 @@ export type TicketStatus = 'open' | 'in-progress' | 'resolved' | 'closed' | 'reo
 export type TicketPriority = 'low' | 'medium' | 'high' | 'urgent';
 
 export interface TicketData {
-    ticket_department_name?: number | null; // Debería ser string?
     category_name?: ReactNode; // Debería ser string?
     closure_reason?: string; 
     
@@ -102,6 +101,8 @@ export interface TicketData {
     client_name: string; 
     agent_name: string | null;
     ticket_category_name?: string; // Añadido en AdminTicketDetailPage
+    /** Nombre del departamento (JOIN en GET ticket) */
+    ticket_department_name?: string | null;
     
     // Propiedades opcionales
     comments?: Comment[];
