@@ -8,7 +8,7 @@ import { ticketStatusTranslations, ticketPriorityTranslations } from '../utils/t
 import { formatLocalDate } from '../utils/dateFormatter';
 import CommentForm from '../components/Common/CommentForm';
 import { InternalTaskBadge, isTicketInternalTask } from '../components/Tickets/InternalTaskBadge';
-import { staffAssignableUsers } from '../utils/ticketAccess';
+import { staffAssignableUsers, ticketRealHoursValid } from '../utils/ticketAccess';
 
 type DetailedTicketData = TicketData & {
     ticket_category_name?: string;
@@ -78,6 +78,15 @@ const AdminTicketDetailPage: React.FC = () => {
     
     const handleStatusChange = async (newStatus: TicketStatus) => {
         if (!ticket) return;
+        const staffNeedsRealHours =
+            user?.role !== 'client' &&
+            (newStatus === 'resolved' || newStatus === 'closed');
+        if (staffNeedsRealHours && !ticketRealHoursValid(ticket.horas_reales)) {
+            toast.warn(
+                'Debés registrar las horas reales del ticket (desde edición o control interno) antes de marcarlo como resuelto o finalizado.'
+            );
+            return;
+        }
         try {
             await api.put(`/api/tickets/${ticket.id}/status`, { status: newStatus });
             toast.success(`El estado del ticket se actualizó a "${ticketStatusTranslations[newStatus] || newStatus}".`);

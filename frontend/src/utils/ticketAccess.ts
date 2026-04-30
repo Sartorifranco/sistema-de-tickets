@@ -86,3 +86,15 @@ export function staffAssignableUsers(allUsers: User[], currentUser: User | null 
     const staff = allUsers.filter((u) => ASSIGNABLE_ROLES.includes(u.role));
     return mergeAssignableStaff(staff, currentUser);
 }
+
+/** Horas reales válidas para cerrar/resolver: número finito > 0 */
+export function ticketRealHoursValid(value: unknown): boolean {
+    if (value === undefined || value === null || value === '') return false;
+    const n = typeof value === 'number' ? value : parseFloat(String(value).replace(',', '.'));
+    return Number.isFinite(n) && n > 0;
+}
+
+/** Categoría de ticket por nombre exacto (mayúsculas), p. ej. DESARROLLO */
+export function findDesarrolloCategoryId(categories: { id: number; name: string }[]): number | undefined {
+    return categories.find((c) => c.name?.trim().toUpperCase() === 'DESARROLLO')?.id;
+}

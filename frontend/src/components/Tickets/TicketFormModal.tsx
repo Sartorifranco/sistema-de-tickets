@@ -5,6 +5,7 @@ import { useAuth } from '../../context/AuthContext';
 import { Department, User, TicketData, UserRole } from '../../types';
 import {
     canUseTicketInternalControlBlock,
+    findDesarrolloCategoryId,
     isDesarrolloDepartmentName,
     matchesBacarDepartmentDropdownOption,
     matchesStandardDepartmentDropdownOption,
@@ -259,14 +260,14 @@ const TicketFormModal: React.FC<TicketFormModalProps> = ({
         return d ? isDesarrolloDepartmentName(d.name) : false;
     }, [formData.department_id, departments, filteredDepartments]);
 
-    /** Desarrollo: el backend exige category_id — relleno técnico sin mostrar UI */
+    /** Desarrollo: category_id = categoría DESARROLLO (por nombre), sin usar la primera ni IMPLEMENTACIONES */
     useEffect(() => {
         if (!isOpen || !isDesarrolloArea || !categories.length) return;
+        const devId = findDesarrolloCategoryId(categories);
+        if (!devId) return;
         setFormData((prev) => {
-            if (prev.category_id) return prev;
-            const fallback = categories[0]?.id;
-            if (!fallback) return prev;
-            return { ...prev, category_id: fallback };
+            if (prev.category_id === devId) return prev;
+            return { ...prev, category_id: devId };
         });
     }, [isOpen, isDesarrolloArea, categories]);
 
@@ -460,16 +461,17 @@ const TicketFormModal: React.FC<TicketFormModalProps> = ({
             return;
         }
 
-        const resolvedCategoryId = isDesarrolloArea
-            ? formData.category_id ?? categories[0]?.id
-            : formData.category_id;
+        const desarrolloCatId = findDesarrolloCategoryId(categories);
+        const resolvedCategoryId = isDesarrolloArea ? desarrolloCatId ?? formData.category_id : formData.category_id;
 
         if (!isDesarrolloArea && !formData.category_id) {
             toast.warn('Seleccioná una categoría del problema.');
             return;
         }
         if (isDesarrolloArea && !resolvedCategoryId) {
-            toast.warn('No hay categorías cargadas; intentá de nuevo en un momento.');
+            toast.warn(
+                'No se encontró la categoría DESARROLLO para esta empresa. Verificá la configuración o intentá de nuevo.'
+            );
             return;
         }
         if (isDesarrolloArea && (!formData.subcategoria || !String(formData.subcategoria).trim())) {
@@ -512,6 +514,10 @@ const TicketFormModal: React.FC<TicketFormModalProps> = ({
             delete payload.assigned_to_user_id;
         }
 
+        if (!initialData?.id) {
+            delete payload.horas_reales;
+        }
+
         setLoading(true);
         await onSave(payload, attachments);
         setLoading(false);
@@ -519,6 +525,7 @@ const TicketFormModal: React.FC<TicketFormModalProps> = ({
 
     if (!isOpen) return null;
 
+    const isCreateMode = !initialData?.id;
     const titleDisabled = !isOther && !isCustomCategory && !!formData.predefined_problem_id && !isDesarrolloArea;
 
     return (
@@ -853,7 +860,9 @@ const TicketFormModal: React.FC<TicketFormModalProps> = ({
                                 />
                                 Marcar como tarea interna
                             </label>
-                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                            <div
+                                className={`grid grid-cols-1 gap-4 ${!isCreateMode ? 'sm:grid-cols-2' : ''}`}
+                            >
                                 <div>
                                     <label className="block text-gray-700 text-sm font-medium">Horas estimadas</label>
                                     <input
@@ -872,24 +881,26 @@ const TicketFormModal: React.FC<TicketFormModalProps> = ({
                                         placeholder="0"
                                     />
                                 </div>
-                                <div>
-                                    <label className="block text-gray-700 text-sm font-medium">Horas reales</label>
-                                    <input
-                                        type="number"
-                                        name="horas_reales"
-                                        step={0.5}
-                                        min={0}
-                                        value={
-                                            formData.horas_reales === undefined || formData.horas_reales === null
-                                                ? ''
-                                                : formData.horas_reales
-                                        }
-                                        onChange={handleChange}
-                                        className="w-full p-2 border rounded mt-1 bg-white"
-                                        style={hardStyle}
-                                        placeholder="0"
-                                    />
-                                </div>
+                                {!isCreateMode && (
+                                    <div>
+                                        <label className="block text-gray-700 text-sm font-medium">Horas reales</label>
+                                        <input
+                                            type="number"
+                                            name="horas_reales"
+                                            step={0.5}
+                                            min={0}
+                                            value={
+                                                formData.horas_reales === undefined || formData.horas_reales === null
+                                                    ? ''
+                                                    : formData.horas_reales
+                                            }
+                                            onChange={handleChange}
+                                            className="w-full p-2 border rounded mt-1 bg-white"
+                                            style={hardStyle}
+                                            placeholder="0"
+                                        />
+                                    </div>
+                                )}
                             </div>
                         </div>
                     )}

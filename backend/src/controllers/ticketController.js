@@ -16,6 +16,28 @@ function parseCreateBool(value, defaultValue = false) {
     return s === 'true' || s === '1' || value === 1;
 }
 
+function normalizeDeptLabel(name) {
+    if (!name) return '';
+    return String(name)
+        .trim()
+        .toLowerCase()
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '');
+}
+
+function isDesarrolloDepartmentName(name) {
+    const n = normalizeDeptLabel(name);
+    if (!n) return false;
+    return n === 'desarrollo' || n.includes('desarrollo');
+}
+
+/** horas reales obligatorias al pasar a resolved/closed: > 0 */
+function realHoursMeaningful(value) {
+    if (value === undefined || value === null || value === '') return false;
+    const n = parseFloat(String(value).replace(',', '.'));
+    return Number.isFinite(n) && n > 0;
+}
+
 // @desc    Crear un nuevo ticket y notificar a los admins/agentes
 // @route   POST /api/tickets
 // @access  Private
@@ -49,6 +71,45 @@ const createTicket = asyncHandler(async (req, res) => {
     if (!title || !description || !priority || !category_id || !department_id) {
         res.status(400);
         throw new Error('Por favor, completa todos los campos requeridos.');
+    }
+
+    let finalCategoryId = parseInt(String(category_id), 10);
+    if (Number.isNaN(finalCategoryId)) {
+        res.status(400);
+        throw new Error('Categoría inválida.');
+    }
+
+    const [[deptRow]] = await pool.execute('SELECT name FROM departments WHERE id = ?', [department_id]);
+    if (deptRow && isDesarrolloDepartmentName(deptRow.name)) {
+        const [[clientCo]] = await pool.execute('SELECT company_id FROM users WHERE id = ?', [finalUserId]);
+        const co = clientCo?.company_id;
+        const hasCompanyCo = co !== undefined && co !== null && co !== '';
+        let hasCompanyCats = false;
+        if (hasCompanyCo) {
+            const [cntRows] = await pool.execute(
+                'SELECT COUNT(*) AS c FROM ticket_categories WHERE company_id = ?',
+                [co]
+            );
+            hasCompanyCats = cntRows[0].c > 0;
+        }
+        let devCatRows;
+        if (hasCompanyCo && hasCompanyCats) {
+            [devCatRows] = await pool.execute(
+                `SELECT id FROM ticket_categories
+                 WHERE company_id = ? AND UPPER(TRIM(name)) = 'DESARROLLO'
+                 LIMIT 1`,
+                [co]
+            );
+        } else {
+            [devCatRows] = await pool.execute(
+                `SELECT id FROM ticket_categories
+                 WHERE company_id IS NULL AND UPPER(TRIM(name)) = 'DESARROLLO'
+                 LIMIT 1`
+            );
+        }
+        if (devCatRows.length > 0) {
+            finalCategoryId = devCatRows[0].id;
+        }
     }
 
     const creatorName = (loggedInUser.first_name && loggedInUser.last_name) 
@@ -92,7 +153,7 @@ const createTicket = asyncHandler(async (req, res) => {
             title,
             description,
             priority,
-            category_id,
+            finalCategoryId,
             department_id,
             initialStatus,
             finalLocationId,
@@ -406,12 +467,22 @@ const updateTicketStatus = asyncHandler(async (req, res) => {
         throw new Error('No se proporcionó un nuevo estado.');
     }
 
-    const [tickets] = await pool.execute('SELECT user_id, assigned_to_user_id, title, status FROM tickets WHERE id = ?', [ticketId]);
+    const [tickets] = await pool.execute(
+        'SELECT user_id, assigned_to_user_id, title, status, horas_reales FROM tickets WHERE id = ?',
+        [ticketId]
+    );
     if (tickets.length === 0) {
         res.status(404);
         throw new Error('Ticket no encontrado');
     }
     const ticket = tickets[0];
+
+    if ((newStatus === 'resolved' || newStatus === 'closed') && !realHoursMeaningful(ticket.horas_reales)) {
+        res.status(400);
+        throw new Error(
+            'Las horas reales son obligatorias y deben ser mayores a cero para resolver o cerrar el ticket.'
+        );
+    }
 
     if (['client', 'boss', 'purchasing'].includes(userRole)) {
         const canReopen = ticket.status === 'resolved' && newStatus === 'open';

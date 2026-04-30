@@ -10,6 +10,7 @@ import StatusBadge from '../components/Tickets/StatusBadge';
 import KanbanBoard from '../components/Tickets/KanbanBoard';
 import { formatLocalDate } from '../utils/dateFormatter';
 import { InternalTaskBadge, isTicketInternalTask } from '../components/Tickets/InternalTaskBadge';
+import { ticketRealHoursValid } from '../utils/ticketAccess';
 
 // Interfaces para los datos de los filtros
 interface FilterData {
@@ -105,21 +106,36 @@ const AdminTicketsPage: React.FC = () => {
         setFilters({ companyId: '', agentId: '', status: '', priority: '', startDate: '', endDate: '' });
     };
     
-    const handleUpdateTicketStatus = useCallback(async (ticketId: number, newStatus: TicketStatus) => {
-        setTickets((prev) => {
-            const updated = prev.map((t) => (t.id === ticketId ? { ...t, status: newStatus } : t));
-            return updated;
-        });
-        const prevTickets = tickets;
-        try {
-            await api.put(`/api/tickets/${ticketId}/status`, { status: newStatus });
-            toast.success('Estado actualizado correctamente.');
-        } catch (err: unknown) {
-            setTickets(prevTickets);
-            const msg = (err as { response?: { data?: { message?: string } } })?.response?.data?.message;
-            toast.error(msg || 'Error al actualizar el estado del ticket.');
-        }
-    }, [tickets]);
+    const handleUpdateTicketStatus = useCallback(
+        async (ticketId: number, newStatus: TicketStatus) => {
+            if (
+                user?.role !== 'client' &&
+                (newStatus === 'resolved' || newStatus === 'closed')
+            ) {
+                const t = tickets.find((x) => x.id === ticketId);
+                if (!ticketRealHoursValid(t?.horas_reales)) {
+                    toast.warn(
+                        'Completá las horas reales del ticket antes de marcarlo como resuelto o finalizado.'
+                    );
+                    return;
+                }
+            }
+            setTickets((prev) => {
+                const updated = prev.map((x) => (x.id === ticketId ? { ...x, status: newStatus } : x));
+                return updated;
+            });
+            const prevTickets = tickets;
+            try {
+                await api.put(`/api/tickets/${ticketId}/status`, { status: newStatus });
+                toast.success('Estado actualizado correctamente.');
+            } catch (err: unknown) {
+                setTickets(prevTickets);
+                const msg = (err as { response?: { data?: { message?: string } } })?.response?.data?.message;
+                toast.error(msg || 'Error al actualizar el estado del ticket.');
+            }
+        },
+        [tickets, user?.role]
+    );
 
     const handleSaveTicket = async (ticketData: Partial<TicketData>, attachments: File[]) => {
         try {

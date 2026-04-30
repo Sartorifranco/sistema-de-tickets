@@ -7,6 +7,7 @@ import { TicketData, User, Department, TicketStatus, TicketPriority } from '../t
 import { ticketStatusTranslations, ticketPriorityTranslations } from '../utils/traslations';
 import TicketFormModal from '../components/Tickets/TicketFormModal';
 import { formatLocalDate } from '../utils/dateFormatter';
+import { ticketRealHoursValid } from '../utils/ticketAccess';
 
 const TabButton: React.FC<{
     label: string;
@@ -163,6 +164,15 @@ const AgentTicketsPage: React.FC = () => {
     };
 
     const handleStatusChange = async (ticketId: number, newStatus: TicketStatus) => {
+        if (newStatus === 'resolved' || newStatus === 'closed') {
+            const t = tickets.find((x) => x.id === ticketId);
+            if (!ticketRealHoursValid(t?.horas_reales)) {
+                toast.warn(
+                    'Completá las horas reales del ticket antes de marcarlo como resuelto o finalizado.'
+                );
+                return;
+            }
+        }
         try {
             await api.put(`/api/tickets/${ticketId}/status`, { status: newStatus });
             toast.success("Estado actualizado.");
