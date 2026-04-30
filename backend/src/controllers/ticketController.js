@@ -680,6 +680,47 @@ const addCommentToTicket = asyncHandler(async (req, res) => {
     res.status(201).json({ success: true, message: 'Comentario añadido exitosamente.' });
 });
 
+/**
+ * Commits de GitHub que referencian este ticket (usa el token del usuario actual).
+ * @route GET /api/tickets/:id/github-commits
+ */
+const getTicketGithubCommits = asyncHandler(async (req, res) => {
+    const { id: ticketId } = req.params;
+    const { role, id: userId } = req.user;
+
+    const [tickets] = await pool.execute(
+        'SELECT t.id, t.user_id, t.github_repo FROM tickets t WHERE t.id = ?',
+        [ticketId]
+    );
+    if (tickets.length === 0) {
+        res.status(404);
+        throw new Error('Ticket no encontrado');
+    }
+    const ticket = tickets[0];
+    if (['client', 'boss', 'purchasing'].includes(role) && ticket.user_id !== userId) {
+        res.status(403);
+        throw new Error('No tienes permiso para ver este ticket.');
+    }
+
+    const repo = ticket.github_repo && String(ticket.github_repo).trim();
+    if (!repo) {
+        return res.status(200).json({ success: true, data: { commits: [] } });
+    }
+
+    const { getLatestCommits } = require('../services/githubService');
+    try {
+        const commits = await getLatestCommits(repo, ticket.id, userId);
+        return res.status(200).json({ success: true, data: { commits } });
+    } catch (err) {
+        const status =
+            err.statusCode && err.statusCode >= 400 && err.statusCode < 600 ? err.statusCode : 502;
+        return res.status(status).json({
+            success: false,
+            message: err.message || 'Error al consultar la API de GitHub.',
+        });
+    }
+});
+
 const getTicketComments = asyncHandler(async (req, res) => {
     const { id: ticketId } = req.params;
     const { role, id: userId } = req.user;
@@ -708,6 +749,7 @@ module.exports = {
     assignTicketToSelf,
     addCommentToTicket,
     getTicketComments,
+    getTicketGithubCommits,
     reassignTicket,
     getCategories,
     getDepartments,

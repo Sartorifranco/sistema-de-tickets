@@ -3,6 +3,8 @@ import { useAuth } from '../context/AuthContext';
 import api from '../config/axiosConfig';
 import { toast } from 'react-toastify';
 import PushNotificationButton from '../components/PushNotificationButton/PushNotificationButton';
+import DeveloperGithubSettings from '../components/Profile/DeveloperGithubSettings';
+import { isDesarrolloDepartmentName } from '../utils/ticketAccess';
 
 const ProfilePage: React.FC = () => {
     const { user } = useAuth();
@@ -188,6 +190,9 @@ const ProfilePage: React.FC = () => {
         return <div className="text-center p-8">Cargando perfil...</div>;
     }
 
+    const showDeveloperGithubSettings =
+        user.role === 'admin' || isDesarrolloDepartmentName(departmentName);
+
     return (
         <div className="container mx-auto p-4 sm:p-6 lg:p-8 space-y-8">
             <h1 className="text-3xl font-bold text-gray-800">Mi Perfil</h1>
@@ -202,6 +207,8 @@ const ProfilePage: React.FC = () => {
                     <div><strong>Departamento:</strong> {loadingDetails ? 'Cargando...' : departmentName}</div>
                 </div>
             </div>
+
+            <DeveloperGithubSettings visible={showDeveloperGithubSettings} />
 
             {canViewConfigStatus && configStatus && (
                 <div className="bg-white p-6 rounded-lg shadow-lg">

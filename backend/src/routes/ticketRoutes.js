@@ -10,6 +10,7 @@ const {
     deleteTicket,
     addCommentToTicket,
     getTicketComments,
+    getTicketGithubCommits,
     assignTicketToSelf,
     reassignTicket,
     getCategories,
@@ -40,6 +41,10 @@ router.route('/:id/reassign')
 
 router.route('/:id/status')
     .put(authorize(['admin', 'agent', 'client', 'boss', 'purchasing']), updateTicketStatus);
+
+router
+    .route('/:id/github-commits')
+    .get(authorize(['admin', 'agent']), getTicketGithubCommits);
 
 // Rutas para un ticket individual (por ID)
 router.route('/:id')

@@ -665,7 +665,8 @@ const TicketFormModal: React.FC<TicketFormModalProps> = ({
                             </select>
                             <div className="pt-2">
                                 <label className="block text-gray-800 font-medium text-sm">
-                                    Repositorio GitHub <span className="text-gray-500 font-normal">(opcional)</span>
+                                    Repositorio GitHub (owner/repo){' '}
+                                    <span className="text-gray-500 font-normal">(opcional)</span>
                                 </label>
                                 <input
                                     type="text"

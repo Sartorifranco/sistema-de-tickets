@@ -105,11 +105,15 @@ async function getLatestCommits(repo, ticketId, userId) {
             const msg = c.commit?.message || '';
             if (matchesTicket(msg) && c.sha && !seen.has(c.sha)) {
                 seen.add(c.sha);
+                const authorLogin = c.author && c.author.login ? c.author.login : '';
+                const authorName = (c.commit && c.commit.author && c.commit.author.name) ? c.commit.author.name : '';
                 matches.push({
                     sha: c.sha,
                     message: msg.split('\n')[0] || msg,
                     date: c.commit?.author?.date || null,
                     html_url: c.html_url || '',
+                    author_name: authorName,
+                    author_login: authorLogin,
                 });
             }
         }

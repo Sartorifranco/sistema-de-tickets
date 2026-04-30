@@ -10,6 +10,7 @@ import CommentForm from '../components/Common/CommentForm';
 import ContactPhoneRow from '../components/Common/ContactPhoneRow';
 import { InternalTaskBadge, isTicketInternalTask } from '../components/Tickets/InternalTaskBadge';
 import TicketWorklogSidebar from '../components/Tickets/TicketWorklogSidebar';
+import TicketGithubActivity from '../components/Tickets/TicketGithubActivity';
 import {
     staffAssignableUsers,
     ticketRealHoursValid,
@@ -244,6 +245,13 @@ const AdminTicketDetailPage: React.FC = () => {
                                     ))}
                                 </div>
                             </div>
+                        )}
+
+                        {ticket.github_repo && String(ticket.github_repo).trim() !== '' && (
+                            <TicketGithubActivity
+                                ticketId={ticket.id}
+                                githubRepo={String(ticket.github_repo).trim()}
+                            />
                         )}
 
                         <div className="bg-white p-6 rounded-lg shadow-md">
