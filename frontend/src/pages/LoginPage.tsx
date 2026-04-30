@@ -5,6 +5,9 @@ import { useNotification } from '../context/NotificationContext';
 import { toast } from 'react-toastify';
 import { clInput } from '../utils/cleanLightUi';
 
+const MIXKIT_VIDEO =
+    'https://assets.mixkit.co/videos/preview/mixkit-abstract-technology-network-loops-2-99-large.mp4';
+
 const LoginPage: React.FC = () => {
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
@@ -37,27 +40,27 @@ const LoginPage: React.FC = () => {
     };
 
     return (
-        <div className="flex h-screen min-h-0 w-full flex-col lg:flex-row font-medium">
-            {/* Video — mitad izquierda (desktop); arriba en móvil */}
-            <div className="relative h-[38vh] w-full shrink-0 overflow-hidden bg-slate-900 lg:h-full lg:w-1/2">
+        <div
+            className="flex h-screen min-h-0 w-full flex-col overflow-hidden font-medium md:flex-row"
+            style={{ fontFamily: "'Urbanist', ui-sans-serif, system-ui, sans-serif" }}
+        >
+            {/* Video — 50% desktop; bloque superior en móvil */}
+            <div className="relative h-[36vh] w-full shrink-0 overflow-hidden bg-slate-950 md:h-full md:w-1/2">
                 <video
                     autoPlay
                     muted
                     loop
                     playsInline
                     className="h-full w-full object-cover"
-                    src="/assets/video/it-systems.mp4"
+                    src={MIXKIT_VIDEO}
                 />
-                <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/40 to-transparent lg:bg-gradient-to-r lg:from-transparent lg:to-black/20" />
+                <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/50 via-transparent to-transparent md:bg-gradient-to-r md:from-transparent md:via-black/10 md:to-black/25" />
             </div>
 
-            {/* Formulario — mitad derecha */}
-            <div className="flex min-h-0 flex-1 flex-col items-center justify-center overflow-y-auto bg-gradient-to-br from-gray-100 via-white to-gray-50 px-4 py-10 sm:px-8 lg:w-1/2 lg:py-12">
+            {/* Formulario — 50% Clean & Light, fondo blanco */}
+            <div className="flex min-h-0 flex-1 flex-col items-center justify-center overflow-y-auto bg-white px-4 py-8 sm:px-8 md:w-1/2 md:py-12">
                 <div className="w-full max-w-md">
-                    <div
-                        className="rounded-2xl border border-white/60 bg-white/75 px-8 py-10 shadow-[0_8px_40px_rgba(0,0,0,0.08)] backdrop-blur-md sm:px-10 sm:py-12"
-                        style={{ fontFamily: "'Urbanist', ui-sans-serif, system-ui, sans-serif" }}
-                    >
+                    <div className="rounded-2xl border border-gray-100 bg-white px-6 py-9 shadow-sm sm:px-10 sm:py-11">
                         <div className="flex flex-col items-center text-center">
                             <img
                                 className="h-24 w-auto max-w-full object-contain drop-shadow-sm sm:h-28"
@@ -81,7 +84,7 @@ const LoginPage: React.FC = () => {
                                         type="email"
                                         autoComplete="email"
                                         required
-                                        className={`${clInput} rounded-xl border-gray-200/90 text-slate-900 placeholder:text-slate-400`}
+                                        className={`${clInput} rounded-xl border-gray-200 text-slate-900 placeholder:text-slate-400`}
                                         placeholder="nombre@empresa.com"
                                         value={email}
                                         onChange={(e) => setEmail(e.target.value)}
@@ -98,7 +101,7 @@ const LoginPage: React.FC = () => {
                                         type="password"
                                         autoComplete="current-password"
                                         required
-                                        className={`${clInput} rounded-xl border-gray-200/90 text-slate-900 placeholder:text-slate-400`}
+                                        className={`${clInput} rounded-xl border-gray-200 text-slate-900 placeholder:text-slate-400`}
                                         placeholder="••••••••"
                                         value={password}
                                         onChange={(e) => setPassword(e.target.value)}
@@ -109,10 +112,10 @@ const LoginPage: React.FC = () => {
 
                             <button
                                 type="submit"
-                                className="flex w-full justify-center rounded-xl bg-red-600 px-4 py-3 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-600 focus:ring-offset-2 disabled:bg-gray-400"
+                                className="flex w-full justify-center rounded-xl bg-[#DC2626] px-4 py-3 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-[#B91C1C] focus:outline-none focus:ring-2 focus:ring-[#DC2626] focus:ring-offset-2 disabled:bg-gray-400 disabled:hover:bg-gray-400"
                                 disabled={loading}
                             >
-                                {loading ? 'Iniciando sesión...' : 'Iniciar sesión'}
+                                {loading ? 'Iniciando sesión...' : 'Ingresar'}
                             </button>
                         </form>
 
@@ -120,7 +123,7 @@ const LoginPage: React.FC = () => {
                             ¿No tenés cuenta?{' '}
                             <Link
                                 to="/register"
-                                className="font-semibold text-red-600 underline-offset-2 hover:text-red-700 hover:underline"
+                                className="font-semibold text-[#DC2626] underline-offset-2 hover:text-[#B91C1C] hover:underline"
                             >
                                 Registrate aquí
                             </Link>

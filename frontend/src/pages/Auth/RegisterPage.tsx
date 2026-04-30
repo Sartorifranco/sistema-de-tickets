@@ -132,7 +132,7 @@ const RegisterPage: React.FC = () => {
                             <button
                                 type="button"
                                 onClick={() => navigate('/login')}
-                                className="mt-8 w-full rounded-xl bg-red-600 py-3 font-semibold text-white shadow-sm transition-colors hover:bg-red-700"
+                                className="mt-8 w-full rounded-xl bg-[#DC2626] py-3 font-semibold text-white shadow-sm transition-colors hover:bg-[#B91C1C] focus:outline-none focus:ring-2 focus:ring-[#DC2626] focus:ring-offset-2"
                             >
                                 Volver al inicio de sesión
                             </button>
@@ -140,9 +140,13 @@ const RegisterPage: React.FC = () => {
                     ) : (
                         <form onSubmit={handleSubmit} className="space-y-6">
                             {error && (
-                                <p className="rounded-xl border border-red-100 bg-red-50 p-3 text-center text-sm font-medium text-red-800">
+                                <div
+                                    role="alert"
+                                    aria-live="polite"
+                                    className="rounded-xl border border-red-200 bg-red-50/95 px-4 py-3 text-sm font-medium leading-relaxed text-red-900 shadow-sm"
+                                >
                                     {error}
-                                </p>
+                                </div>
                             )}
 
                             <section className="space-y-4 border-b border-gray-100 pb-6">
@@ -284,10 +288,10 @@ const RegisterPage: React.FC = () => {
 
                             <button
                                 type="submit"
-                                className="w-full rounded-xl bg-red-600 py-3 font-semibold text-white shadow-sm transition-colors hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-600 focus:ring-offset-2 disabled:bg-gray-400"
+                                className="w-full rounded-xl bg-[#DC2626] py-3 font-semibold text-white shadow-sm transition-colors hover:bg-[#B91C1C] focus:outline-none focus:ring-2 focus:ring-[#DC2626] focus:ring-offset-2 disabled:bg-gray-400 disabled:hover:bg-gray-400"
                                 disabled={loading}
                             >
-                                {loading ? 'Registrando...' : 'Finalizar registro'}
+                                {loading ? 'Registrando...' : 'Registrarse'}
                             </button>
                         </form>
                     )}
@@ -297,7 +301,7 @@ const RegisterPage: React.FC = () => {
                             ¿Ya tenés cuenta?{' '}
                             <Link
                                 to="/login"
-                                className="font-semibold text-red-600 underline-offset-2 hover:text-red-700 hover:underline"
+                                className="font-semibold text-[#DC2626] underline-offset-2 hover:text-[#B91C1C] hover:underline"
                             >
                                 Iniciá sesión aquí
                             </Link>
