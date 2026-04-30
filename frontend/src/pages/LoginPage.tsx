@@ -5,7 +5,8 @@ import { useNotification } from '../context/NotificationContext';
 import { toast } from 'react-toastify';
 import { clInput } from '../utils/cleanLightUi';
 
-const LOGIN_HERO_VIDEO = 'https://v1.exhibit.com/videos/exhibit-hero-v1.mp4';
+/** Ruta pública (colocar `login-video.mp4` en `public/assets/video/`). Forza remount si cambia la URL. */
+const VIDEO_SOURCE = '/assets/video/login-video.mp4';
 
 const LoginPage: React.FC = () => {
     const videoRef = useRef<HTMLVideoElement>(null);
@@ -24,25 +25,14 @@ const LoginPage: React.FC = () => {
         }
     }, [user, navigate]);
 
-    /** Refuerza reproducción si el navegador ignorara autoPlay al montar. */
+    /** Reproducción forzada tras 500 ms para evitar bloqueos tempranos del navegador. */
     useEffect(() => {
-        const el = videoRef.current;
-        if (!el) return;
-
-        const tryPlay = () => {
-            void el.play().catch(() => {
-                /* autoplay bloqueado u offline; el usuario sigue viendo el primer frame / poster del navegador */
-            });
-        };
-
-        tryPlay();
-        el.addEventListener('loadeddata', tryPlay);
-        el.addEventListener('canplay', tryPlay);
-
-        return () => {
-            el.removeEventListener('loadeddata', tryPlay);
-            el.removeEventListener('canplay', tryPlay);
-        };
+        const id = window.setTimeout(() => {
+            const el = videoRef.current;
+            if (!el) return;
+            void el.play().catch(() => {});
+        }, 500);
+        return () => window.clearTimeout(id);
     }, []);
 
     const handleSubmit = async (e: React.FormEvent) => {
@@ -60,32 +50,33 @@ const LoginPage: React.FC = () => {
         }
     };
 
-    const urbanist = { fontFamily: "'Urbanist', ui-sans-serif, system-ui, sans-serif" } as const;
+    const urbanist = { fontFamily: "'Urbanist', ui-sans-serif, system-ui, sans-serif", fontWeight: 500 as const };
 
     return (
         <div
-            className="flex h-screen min-h-0 w-full flex-col overflow-hidden font-medium md:flex-row"
-            style={{ ...urbanist, fontWeight: 500 }}
+            className="flex h-screen min-h-0 w-full flex-col overflow-hidden md:flex-row"
+            style={urbanist}
         >
-            {/* ~67% ancho en desktop (w-2/3), más protagonismo al video */}
-            <div className="relative h-[38vh] w-full min-h-0 shrink-0 overflow-hidden bg-slate-900 md:h-full md:w-2/3">
+            {/* 70% ancho desktop — video local */}
+            <div className="relative h-[38vh] w-full min-h-0 shrink-0 overflow-hidden bg-slate-900 md:h-full md:w-[70%] md:min-w-0 md:shrink-0">
                 <video
+                    key={VIDEO_SOURCE}
                     ref={videoRef}
                     autoPlay
                     muted
                     loop
                     playsInline
-                    preload="auto"
                     className="w-full h-full object-cover"
-                    src={LOGIN_HERO_VIDEO}
-                />
+                >
+                    <source src={VIDEO_SOURCE} type="video/mp4" />
+                </video>
             </div>
 
-            {/* ~33% formulario, centrado, Urbanist 500 */}
-            <div className="flex min-h-0 flex-1 flex-col items-center justify-center overflow-y-auto bg-white px-4 py-8 sm:px-6 md:w-1/3 md:py-12">
-                <div className="w-full max-w-sm">
+            {/* 30% — formulario centrado, Urbanist Medium (500) */}
+            <div className="flex min-h-0 w-full flex-1 flex-col items-center justify-center overflow-y-auto bg-white px-4 py-8 sm:px-6 md:w-[30%] md:max-w-none md:flex-none md:shrink-0 md:py-12">
+                <div className="w-full max-w-sm font-medium">
                     <div className="rounded-2xl border border-gray-100 bg-white px-6 py-9 shadow-sm sm:px-8 sm:py-10">
-                        <div className="flex flex-col items-center text-center font-medium">
+                        <div className="flex flex-col items-center text-center">
                             <img
                                 className="h-24 w-auto max-w-full object-contain drop-shadow-sm sm:h-28"
                                 src="/images/logo-grupo-bacar-horizontal.png"
@@ -96,7 +87,7 @@ const LoginPage: React.FC = () => {
                             <p className="mt-2 text-sm font-medium text-slate-600">Ingresá con tu cuenta corporativa</p>
                         </div>
 
-                        <form className="mt-10 space-y-6 font-medium" onSubmit={handleSubmit} noValidate>
+                        <form className="mt-10 space-y-6" onSubmit={handleSubmit} noValidate style={{ fontWeight: 500 }}>
                             <div className="space-y-5">
                                 <div>
                                     <label htmlFor="email-address" className="mb-1.5 block text-sm font-medium text-slate-900">
@@ -138,6 +129,7 @@ const LoginPage: React.FC = () => {
                                 type="submit"
                                 className="flex w-full justify-center rounded-xl bg-[#DC2626] px-4 py-3 text-sm !font-medium text-white shadow-sm transition-colors hover:bg-[#B91C1C] focus:outline-none focus:ring-2 focus:ring-[#DC2626] focus:ring-offset-2 disabled:bg-gray-400 disabled:hover:bg-gray-400"
                                 disabled={loading}
+                                style={{ fontWeight: 500 }}
                             >
                                 {loading ? 'Iniciando sesión...' : 'Ingresar'}
                             </button>
