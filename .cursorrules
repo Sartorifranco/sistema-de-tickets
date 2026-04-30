@@ -1,0 +1,29 @@
+# Reglas del proyecto (Cursor)
+
+## Commits y Git
+
+### Vinculación obligatoria con tickets de desarrollo
+
+REGLA DE GIT: Siempre que el usuario te pida realizar un commit, debés verificar cuál es el ID del ticket de desarrollo en el que se está trabajando (podés preguntarlo o mirar el nombre del archivo de prueba si existe). El mensaje del commit DEBE incluir obligatoriamente el formato #ID al final. Ejemplo: "feat: agrega lógica de encriptación #761"
+
+### Conventional Commits
+
+Cada mensaje de commit debe ser descriptivo y seguir la convención **Conventional Commits**:
+
+- **feat**: nueva funcionalidad
+- **fix**: corrección de bug
+- **docs**: documentación
+- **style**: formato, sin cambio de lógica
+- **refactor**: refactorización sin cambiar comportamiento
+- **test**: pruebas
+- **chore**: tareas de mantenimiento, build, deps
+
+Formato recomendado: `tipo(alcance opcional): descripción breve en imperativo #ID`
+
+Ejemplos válidos:
+
+- `feat(tickets): validación de horas al cerrar #761`
+- `fix(api): corrige CORS en producción #123`
+- `docs: actualiza guía de deploy #456`
+
+Si no hay ticket asociado al cambio, preguntá al usuario el ID antes de commitear o aclará en el mensaje si el usuario indicó explícitamente que no aplica.
