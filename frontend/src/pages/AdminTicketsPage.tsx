@@ -11,6 +11,7 @@ import KanbanBoard from '../components/Tickets/KanbanBoard';
 import { formatLocalDate } from '../utils/dateFormatter';
 import { InternalTaskBadge, isTicketInternalTask } from '../components/Tickets/InternalTaskBadge';
 import { ticketRealHoursValid, ticketRequiresRealHoursForClosure } from '../utils/ticketAccess';
+import { clCard, clInput, clTd, clTh, clThRight } from '../utils/cleanLightUi';
 
 // Interfaces para los datos de los filtros
 interface FilterData {
@@ -167,13 +168,13 @@ const AdminTicketsPage: React.FC = () => {
         <>
             <div className="container mx-auto p-4 sm:p-6 lg:p-8">
                 <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
-                    <h1 className="text-3xl font-bold text-gray-800">Panel de Tickets</h1>
-                    <div className="flex items-center gap-3">
-                        <div className="flex bg-gray-200 rounded-lg p-1">
+                    <h1 className="text-3xl font-bold text-gray-900 tracking-tight">Panel de Tickets</h1>
+                    <div className="flex items-center gap-3 flex-wrap">
+                        <div className="flex bg-gray-100/80 rounded-xl p-1 border border-gray-100">
                             <button
                                 onClick={() => setViewMode('table')}
-                                className={`flex items-center gap-2 px-3 py-2 rounded-md transition-colors ${
-                                    viewMode === 'table' ? 'bg-white shadow text-gray-800' : 'text-gray-600 hover:text-gray-800'
+                                className={`flex items-center gap-2 px-3 py-2 rounded-lg transition-colors ${
+                                    viewMode === 'table' ? 'bg-white shadow-sm border border-gray-100 text-gray-900' : 'text-gray-600 hover:text-gray-800'
                                 }`}
                                 title="Vista tabla"
                             >
@@ -182,8 +183,8 @@ const AdminTicketsPage: React.FC = () => {
                             </button>
                             <button
                                 onClick={() => setViewMode('kanban')}
-                                className={`flex items-center gap-2 px-3 py-2 rounded-md transition-colors ${
-                                    viewMode === 'kanban' ? 'bg-white shadow text-gray-800' : 'text-gray-600 hover:text-gray-800'
+                                className={`flex items-center gap-2 px-3 py-2 rounded-lg transition-colors ${
+                                    viewMode === 'kanban' ? 'bg-white shadow-sm border border-gray-100 text-gray-900' : 'text-gray-600 hover:text-gray-800'
                                 }`}
                                 title="Vista Kanban"
                             >
@@ -191,21 +192,21 @@ const AdminTicketsPage: React.FC = () => {
                                 <span className="hidden sm:inline text-sm font-medium">Kanban</span>
                             </button>
                         </div>
-                        <button onClick={() => setIsModalOpen(true)} className="bg-red-600 hover:bg-red-700 text-white font-bold py-2 px-4 rounded-lg">
+                        <button onClick={() => setIsModalOpen(true)} className="bg-red-600 hover:bg-red-700 text-white font-semibold py-2.5 px-5 rounded-xl shadow-sm">
                             Crear Nuevo Ticket
                         </button>
                     </div>
                 </div>
 
-                <div className="bg-white p-4 rounded-lg shadow-md mb-6">
-                    <h3 className="font-semibold mb-2">Filtrar Tickets</h3>
+                <div className={`${clCard} p-4 sm:p-5 mb-6`}>
+                    <h3 className="font-semibold mb-3 text-sm uppercase tracking-wide text-gray-500">Filtrar Tickets</h3>
                     {/* ✅ MODIFICACIÓN: Se cambia lg:grid-cols-6 a lg:grid-cols-7 */}
                     <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-4 items-end">
-                        <select name="companyId" value={filters.companyId} onChange={handleFilterChange} className="w-full p-2 border rounded-md text-sm">
+                        <select name="companyId" value={filters.companyId} onChange={handleFilterChange} className={clInput}>
                             <option value="">Todas las Empresas</option>
                             {filterData.companies.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
                         </select>
-                        <select name="agentId" value={filters.agentId} onChange={handleFilterChange} className="w-full p-2 border rounded-md text-sm">
+                        <select name="agentId" value={filters.agentId} onChange={handleFilterChange} className={clInput}>
                             <option value="">Todos los Agentes</option>
                             <option value="unassigned">Sin Asignar</option>
                             {filterData.agents.map(a => (
@@ -214,7 +215,7 @@ const AdminTicketsPage: React.FC = () => {
                                 </option>
                             ))}
                         </select>
-                        <select name="status" value={filters.status} onChange={handleFilterChange} className="w-full p-2 border rounded-md text-sm">
+                        <select name="status" value={filters.status} onChange={handleFilterChange} className={clInput}>
                             <option value="">Todos los Estados</option>
                             <option value="open">Abierto</option>
                             <option value="in-progress">En Progreso</option>
@@ -222,45 +223,45 @@ const AdminTicketsPage: React.FC = () => {
                             <option value="closed">Cerrado</option>
                         </select>
                         {/* ✅ AÑADIDO: Dropdown de Prioridad */}
-                        <select name="priority" value={filters.priority} onChange={handleFilterChange} className="w-full p-2 border rounded-md text-sm">
+                        <select name="priority" value={filters.priority} onChange={handleFilterChange} className={clInput}>
                             <option value="">Todas las Prioridades</option>
                             <option value="low">Baja</option>
                             <option value="medium">Media</option>
                             <option value="high">Alta</option>
                             <option value="urgent">Urgente</option>
                         </select>
-                        <input type="date" name="startDate" value={filters.startDate} onChange={handleFilterChange} className="w-full p-2 border rounded-md text-sm" />
-                        <input type="date" name="endDate" value={filters.endDate} onChange={handleFilterChange} className="w-full p-2 border rounded-md text-sm" />
-                        <button onClick={clearFilters} className="bg-gray-500 text-white p-2 rounded-md hover:bg-gray-600 text-sm">Limpiar</button>
+                        <input type="date" name="startDate" value={filters.startDate} onChange={handleFilterChange} className={clInput} />
+                        <input type="date" name="endDate" value={filters.endDate} onChange={handleFilterChange} className={clInput} />
+                        <button onClick={clearFilters} className="w-full sm:w-auto px-4 py-2.5 rounded-xl text-sm font-medium bg-gray-100 text-gray-800 border border-gray-200 hover:bg-gray-200/80">Limpiar</button>
                     </div>
                 </div>
 
-                <div className="bg-white p-4 sm:p-6 rounded-lg shadow-lg overflow-x-auto">
+                <div className={`${clCard} p-4 sm:p-6 overflow-x-auto`}>
                     {loading ? (
-                        <div className="text-center py-8">Cargando tickets...</div>
+                        <div className="text-center py-8 text-gray-600">Cargando tickets...</div>
                     ) : tickets.length === 0 ? (
                         <div className="text-center text-gray-500 py-8">No se encontraron tickets con los filtros seleccionados.</div>
                     ) : viewMode === 'kanban' ? (
                         <KanbanBoard tickets={tickets} onUpdateTicketStatus={handleUpdateTicketStatus} />
                     ) : (
-                        <table className="min-w-full divide-y divide-gray-200">
-                            <thead className="bg-gray-50">
+                        <table className="min-w-full divide-y divide-gray-100">
+                            <thead className="bg-gray-50/90">
                                 <tr>
-                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">ID</th>
-                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Cliente</th>
-                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Título</th>
-                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Agente Asignado</th>
-                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Fecha Creación</th>
-                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Estado</th>
-                                    <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">Acciones</th>
+                                    <th className={clTh}>ID</th>
+                                    <th className={clTh}>Cliente</th>
+                                    <th className={clTh}>Título</th>
+                                    <th className={clTh}>Agente Asignado</th>
+                                    <th className={clTh}>Fecha Creación</th>
+                                    <th className={clTh}>Estado</th>
+                                    <th className={clThRight}>Acciones</th>
                                 </tr>
                             </thead>
-                            <tbody className="bg-white divide-y divide-gray-200">
+                            <tbody className="bg-white divide-y divide-gray-100">
                                 {tickets.map(ticket => (
-                                    <tr key={ticket.id} className="hover:bg-gray-50">
-                                        <td className="px-6 py-4 whitespace-nowrap">{ticket.id}</td>
-                                        <td className="px-6 py-4 whitespace-nowrap">{ticket.client_name}</td>
-                                        <td className="px-6 py-4 font-medium">
+                                    <tr key={ticket.id} className="hover:bg-gray-50/80 transition-colors">
+                                        <td className={`${clTd} whitespace-nowrap text-gray-900`}>{ticket.id}</td>
+                                        <td className={`${clTd} whitespace-nowrap`}>{ticket.client_name}</td>
+                                        <td className={`${clTd} font-medium text-gray-900`}>
                                             <div className="flex flex-wrap items-center gap-2">
                                                 <span>{ticket.title}</span>
                                                 {isTicketInternalTask(ticket) && <InternalTaskBadge />}
@@ -279,15 +280,15 @@ const AdminTicketsPage: React.FC = () => {
                                                 </p>
                                             )}
                                         </td>
-                                        <td className="px-6 py-4 whitespace-nowrap">{ticket.agent_name || 'Sin Asignar'}</td>
-                                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                                        <td className={`${clTd} whitespace-nowrap`}>{ticket.agent_name || 'Sin Asignar'}</td>
+                                        <td className={`${clTd} whitespace-nowrap text-gray-600`}>
                                             {formatLocalDate(ticket.created_at)}
                                         </td>
-                                        <td className="px-6 py-4 whitespace-nowrap">
+                                        <td className={`${clTd} whitespace-nowrap`}>
                                             <StatusBadge status={ticket.status as TicketStatus} />
                                         </td>
-                                        <td className="px-6 py-4 whitespace-nowrap text-right">
-                                            <Link to={`/admin/tickets/${ticket.id}`} className="text-indigo-600 hover:underline font-semibold">Gestionar</Link>
+                                        <td className={`${clTd} whitespace-nowrap text-right`}>
+                                            <Link to={`/admin/tickets/${ticket.id}`} className="text-blue-700 hover:text-blue-900 font-semibold underline-offset-2 hover:underline">Gestionar</Link>
                                         </td>
                                     </tr>
                                 ))}

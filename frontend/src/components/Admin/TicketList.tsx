@@ -3,9 +3,11 @@ import ticketService from '../../services/ticketService';
 import { useAuth } from '../../context/AuthContext';
 import { useNotification } from '../../context/NotificationContext';
 import { isAxiosErrorTypeGuard, ApiResponseError } from '../../utils/typeGuards';
-import { TicketData } from '../../types'; // Ensure this is the correct, full type for a ticket
-import { ticketStatusTranslations, ticketPriorityTranslations } from '../../utils/traslations';
+import { TicketData, TicketStatus } from '../../types';
+import { ticketPriorityTranslations } from '../../utils/traslations';
 import { formatLocalDate } from '../../utils/dateFormatter';
+import StatusBadge from '../Tickets/StatusBadge';
+import { clCard, clTd, clTh, clThRight, priorityPillClass } from '../../utils/cleanLightUi';
 
 interface TicketListProps {
     onSelectTicket: (ticketId: number) => void;
@@ -60,34 +62,40 @@ const TicketList: React.FC<TicketListProps> = ({ onSelectTicket }) => {
     if (error) return <p className="p-8 text-center text-red-500">Error: {error}</p>;
 
     return (
-        <div className="p-4 bg-white rounded-lg shadow-md">
-            <h3 className="text-xl sm:text-2xl font-bold text-gray-800 mb-4">Ticket List</h3>
+        <div className={`${clCard} p-4 sm:p-6`}>
+            <h3 className="text-xl sm:text-2xl font-bold text-gray-900 tracking-tight mb-4">Ticket List</h3>
             {tickets.length === 0 ? (
                 <p className="text-gray-600 py-8 text-center">No tickets to display.</p>
             ) : (
                 <>
                     {/* Desktop Table View */}
-                    <table className="min-w-full divide-y divide-gray-200 hidden md:table">
-                        <thead className="bg-gray-50">
+                    <table className="min-w-full divide-y divide-gray-100 hidden md:table">
+                        <thead className="bg-gray-50/90">
                             <tr>
-                                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">ID</th>
-                                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Subject</th>
-                                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
-                                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Priority</th>
-                                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">User</th>
-                                <th scope="col" className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">Actions</th>
+                                <th scope="col" className={clTh}>ID</th>
+                                <th scope="col" className={clTh}>Subject</th>
+                                <th scope="col" className={clTh}>Status</th>
+                                <th scope="col" className={clTh}>Priority</th>
+                                <th scope="col" className={clTh}>User</th>
+                                <th scope="col" className={clThRight}>Actions</th>
                             </tr>
                         </thead>
-                        <tbody className="bg-white divide-y divide-gray-200">
+                        <tbody className="bg-white divide-y divide-gray-100">
                             {tickets.map((ticket) => (
-                                <tr key={ticket.id}>
-                                    <td className="px-6 py-4">{ticket.id}</td>
-                                    <td className="px-6 py-4">{ticket.title}</td>
-                                    <td className="px-6 py-4">{ticketStatusTranslations[ticket.status] || ticket.status}</td>
-                                    <td className="px-6 py-4">{ticketPriorityTranslations[ticket.priority] || ticket.priority}</td>
-                                    <td className="px-6 py-4">{ticket.user_username || 'N/A'}</td>
-                                    <td className="px-6 py-4 text-right">
-                                        <button onClick={() => onSelectTicket(ticket.id)} className="text-indigo-600 hover:underline">
+                                <tr key={ticket.id} className="hover:bg-gray-50/80 transition-colors">
+                                    <td className={clTd}>{ticket.id}</td>
+                                    <td className={clTd}>{ticket.title}</td>
+                                    <td className={clTd}>
+                                        <StatusBadge status={ticket.status as TicketStatus} />
+                                    </td>
+                                    <td className={clTd}>
+                                        <span className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold ${priorityPillClass(ticket.priority)}`}>
+                                            {ticketPriorityTranslations[ticket.priority] || ticket.priority}
+                                        </span>
+                                    </td>
+                                    <td className={clTd}>{ticket.user_username || 'N/A'}</td>
+                                    <td className={`${clTd} text-right`}>
+                                        <button type="button" onClick={() => onSelectTicket(ticket.id)} className="text-blue-700 hover:text-blue-900 font-semibold underline-offset-2 hover:underline">
                                             View Details
                                         </button>
                                     </td>
@@ -98,17 +106,22 @@ const TicketList: React.FC<TicketListProps> = ({ onSelectTicket }) => {
                     {/* Mobile Card View */}
                     <div className="md:hidden space-y-4">
                         {tickets.map((ticket) => (
-                            <div key={ticket.id} className="bg-gray-50 p-4 rounded-lg border">
-                                <div className="flex justify-between items-start">
-                                    <span className="font-bold text-gray-800 break-all pr-2">#{ticket.id} - {ticket.title}</span>
-                                    <span className="text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded-full flex-shrink-0">{ticketStatusTranslations[ticket.status]}</span>
+                            <div key={ticket.id} className={`${clCard} p-4`}>
+                                <div className="flex justify-between items-start gap-2">
+                                    <span className="font-bold text-gray-900 break-all pr-2">#{ticket.id} - {ticket.title}</span>
+                                    <span className="flex-shrink-0"><StatusBadge status={ticket.status as TicketStatus} /></span>
                                 </div>
                                 <div className="text-sm text-gray-600 mt-2 space-y-1">
                                     <p><strong>Client:</strong> {ticket.user_username || 'N/A'}</p>
-                                    <p><strong>Priority:</strong> {ticketPriorityTranslations[ticket.priority]}</p>
+                                    <p className="flex flex-wrap items-center gap-2">
+                                        <strong>Priority:</strong>
+                                        <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold ${priorityPillClass(ticket.priority)}`}>
+                                            {ticketPriorityTranslations[ticket.priority]}
+                                        </span>
+                                    </p>
                                 </div>
-                                <div className="mt-4 pt-2 border-t text-right">
-                                    <button onClick={() => onSelectTicket(ticket.id)} className="text-indigo-600 font-semibold hover:underline">
+                                <div className="mt-4 pt-2 border-t border-gray-100 text-right">
+                                    <button type="button" onClick={() => onSelectTicket(ticket.id)} className="text-blue-700 font-semibold hover:underline">
                                         View Details
                                     </button>
                                 </div>

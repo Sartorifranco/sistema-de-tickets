@@ -8,6 +8,7 @@ import { ticketStatusTranslations, ticketPriorityTranslations } from '../utils/t
 import TicketFormModal from '../components/Tickets/TicketFormModal';
 import { formatLocalDate } from '../utils/dateFormatter';
 import { ticketRealHoursValid, ticketRequiresRealHoursForClosure } from '../utils/ticketAccess';
+import { clCard, clInput, clTd, clTh, clThRight } from '../utils/cleanLightUi';
 
 const TabButton: React.FC<{
     label: string;
@@ -16,10 +17,10 @@ const TabButton: React.FC<{
 }> = ({ label, isActive, onClick }) => (
     <button
         onClick={onClick}
-        className={`px-4 py-2 text-sm font-medium rounded-md transition-colors duration-200 ${
+        className={`px-4 py-2 text-sm font-medium rounded-xl transition-colors duration-200 border ${
             isActive
-                ? 'bg-indigo-600 text-white shadow-md'
-                : 'bg-white text-gray-600 hover:bg-gray-100'
+                ? 'bg-white text-gray-900 shadow-sm border-gray-200'
+                : 'bg-transparent text-gray-600 hover:bg-white/80 border-transparent'
         }`}
     >
         {label}
@@ -60,13 +61,20 @@ const AgentTicketsPage: React.FC = () => {
     };
 
     const getStatusSelectClasses = (status: TicketStatus): string => {
-        const baseClasses = "w-full p-1 border rounded-md text-sm transition-colors duration-200";
+        const baseClasses =
+            'w-full min-w-[9rem] px-2 py-2 border rounded-xl text-sm transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-blue-100 focus:border-blue-400 bg-white';
         switch (status) {
-            case 'open':        return `${baseClasses} bg-blue-100 text-blue-800 border-blue-200`;
-            case 'in-progress': return `${baseClasses} bg-yellow-100 text-yellow-800 border-yellow-200`;
-            case 'resolved':    return `${baseClasses} bg-cyan-100 text-cyan-800 border-cyan-200`;
-            case 'closed':      return `${baseClasses} bg-green-100 text-green-800 border-green-200`;
-            default:            return `${baseClasses} bg-gray-100 text-gray-800 border-gray-200`;
+            case 'open':
+            case 'reopened':
+                return `${baseClasses} bg-sky-50 text-sky-900 border-sky-200`;
+            case 'in-progress':
+                return `${baseClasses} bg-blue-50 text-blue-900 border-blue-200`;
+            case 'resolved':
+                return `${baseClasses} bg-green-50 text-green-900 border-green-200`;
+            case 'closed':
+                return `${baseClasses} bg-gray-50 text-gray-900 border-gray-200`;
+            default:
+                return `${baseClasses} bg-gray-50 text-gray-900 border-gray-200`;
         }
     };
 
@@ -211,26 +219,26 @@ const AgentTicketsPage: React.FC = () => {
         <>
             <div className="container mx-auto p-4 sm:p-6 lg:p-8">
                 <div className="flex justify-between items-center mb-6">
-                    <h1 className="text-3xl font-bold text-gray-800">Panel de Agente</h1>
+                    <h1 className="text-3xl font-bold text-gray-900 tracking-tight">Panel de Agente</h1>
                     <button 
                         onClick={() => setIsModalOpen(true)}
-                        className="bg-red-600 hover:bg-red-700 text-white font-bold py-2 px-4 rounded-lg"
+                        className="bg-red-600 hover:bg-red-700 text-white font-semibold py-2.5 px-5 rounded-xl shadow-sm"
                     >
                         Crear Nuevo Ticket
                     </button>
                 </div>
 
-                <div className="flex space-x-2 mb-6 p-1 bg-gray-200 rounded-lg">
+                <div className="flex flex-wrap gap-1 mb-6 p-1 bg-gray-100/90 rounded-xl border border-gray-100">
                     <TabButton label="Mis Tickets Asignados" isActive={view === 'assigned'} onClick={() => handleViewChange('assigned')} />
                     <TabButton label="Tickets Sin Asignar" isActive={view === 'unassigned'} onClick={() => handleViewChange('unassigned')} />
                     <TabButton label="Todos los Tickets" isActive={view === 'all'} onClick={() => handleViewChange('all')} />
                 </div>
 
-                <div className="bg-white p-4 rounded-lg shadow-md mb-6">
-                    <h3 className="font-semibold mb-2 text-gray-700">Filtrar Tickets</h3>
+                <div className={`${clCard} p-4 sm:p-5 mb-6`}>
+                    <h3 className="font-semibold mb-3 text-sm uppercase tracking-wide text-gray-500">Filtrar Tickets</h3>
                     <div className={`grid grid-cols-1 sm:grid-cols-2 ${view === 'all' ? 'md:grid-cols-6' : 'md:grid-cols-5'} gap-4 items-end`}>
                         {view === 'all' && (
-                             <select name="agentId" value={filters.agentId} onChange={handleFilterChange} className="w-full p-2 border rounded-md text-sm">
+                             <select name="agentId" value={filters.agentId} onChange={handleFilterChange} className={clInput}>
                                 <option value="">Todos los Agentes</option>
                                 {agents.map(agent => (
                                     <option key={agent.id} value={agent.id}>
@@ -239,56 +247,56 @@ const AgentTicketsPage: React.FC = () => {
                                 ))}
                             </select>
                         )}
-                        <select name="status" value={filters.status} onChange={handleFilterChange} className="w-full p-2 border rounded-md text-sm">
+                        <select name="status" value={filters.status} onChange={handleFilterChange} className={clInput}>
                             <option value="">Todos los Estados</option>
                             <option value="open">Abierto</option>
                             <option value="in-progress">En Progreso</option>
                             <option value="resolved">Resuelto</option>
                             <option value="closed">Cerrado</option>
                         </select>
-                        <select name="priority" value={filters.priority} onChange={handleFilterChange} className="w-full p-2 border rounded-md text-sm">
+                        <select name="priority" value={filters.priority} onChange={handleFilterChange} className={clInput}>
                             <option value="">Todas las Prioridades</option>
                             <option value="low">Baja</option>
                             <option value="medium">Media</option>
                             <option value="high">Alta</option>
                             <option value="urgent">Urgente</option>
                         </select>
-                        <input type="date" name="startDate" value={filters.startDate} onChange={handleFilterChange} className="w-full p-2 border rounded-md text-sm" />
-                        <input type="date" name="endDate" value={filters.endDate} onChange={handleFilterChange} className="w-full p-2 border rounded-md text-sm" />
-                        <button onClick={clearFilters} className="bg-gray-500 text-white p-2 rounded-md hover:bg-gray-600 text-sm">Limpiar Filtros</button>
+                        <input type="date" name="startDate" value={filters.startDate} onChange={handleFilterChange} className={clInput} />
+                        <input type="date" name="endDate" value={filters.endDate} onChange={handleFilterChange} className={clInput} />
+                        <button onClick={clearFilters} className="w-full sm:w-auto px-4 py-2.5 rounded-xl text-sm font-medium bg-gray-100 text-gray-800 border border-gray-200 hover:bg-gray-200/80">Limpiar Filtros</button>
                     </div>
                 </div>
 
-                <div className="bg-white p-4 sm:p-6 rounded-lg shadow-lg overflow-x-auto">
+                <div className={`${clCard} p-4 sm:p-6 overflow-x-auto`}>
                     {tickets.length === 0 ? (
                         <div className="text-center text-gray-500 py-8">
                             <p className="text-lg">No hay tickets en esta vista.</p>
                         </div>
                     ) : (
-                        <table className="min-w-full divide-y divide-gray-200">
-                            <thead className="bg-gray-50">
+                        <table className="min-w-full divide-y divide-gray-100">
+                            <thead className="bg-gray-50/90">
                                 <tr>
-                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">ID</th>
-                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Título</th>
-                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Cliente</th>
-                                    {view === 'all' && <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Agente Asignado</th>}
-                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Fecha Creación</th>
-                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Estado</th>
-                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Prioridad</th>
-                                    <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">Acciones</th>
+                                    <th className={clTh}>ID</th>
+                                    <th className={clTh}>Título</th>
+                                    <th className={clTh}>Cliente</th>
+                                    {view === 'all' && <th className={clTh}>Agente Asignado</th>}
+                                    <th className={clTh}>Fecha Creación</th>
+                                    <th className={clTh}>Estado</th>
+                                    <th className={clTh}>Prioridad</th>
+                                    <th className={clThRight}>Acciones</th>
                                 </tr>
                             </thead>
-                            <tbody className="bg-white divide-y divide-gray-200">
+                            <tbody className="bg-white divide-y divide-gray-100">
                                 {tickets.map(ticket => (
-                                    <tr key={ticket.id}>
-                                        <td className="px-6 py-4 whitespace-nowrap">{ticket.id}</td>
-                                        <td className="px-6 py-4 font-medium">{ticket.title}</td>
-                                        <td className="px-6 py-4 whitespace-nowrap">{ticket.client_name}</td>
-                                        {view === 'all' && <td className="px-6 py-4 whitespace-nowrap">{ticket.agent_name || 'N/A'}</td>}
-                                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                                    <tr key={ticket.id} className="hover:bg-gray-50/80 transition-colors">
+                                        <td className={`${clTd} whitespace-nowrap`}>{ticket.id}</td>
+                                        <td className={`${clTd} font-medium text-gray-900`}>{ticket.title}</td>
+                                        <td className={`${clTd} whitespace-nowrap`}>{ticket.client_name}</td>
+                                        {view === 'all' && <td className={`${clTd} whitespace-nowrap`}>{ticket.agent_name || 'N/A'}</td>}
+                                        <td className={`${clTd} whitespace-nowrap text-gray-600`}>
                                             {formatLocalDate(ticket.created_at)}
                                         </td>
-                                        <td className="px-6 py-4 whitespace-nowrap">
+                                        <td className={`${clTd} whitespace-nowrap`}>
                                             <select 
                                                 value={ticket.status} 
                                                 onChange={(e) => handleStatusChange(ticket.id, e.target.value as TicketStatus)}
@@ -299,34 +307,34 @@ const AgentTicketsPage: React.FC = () => {
                                                 ))}
                                             </select>
                                         </td>
-                                        <td className="px-6 py-4 whitespace-nowrap">
+                                        <td className={`${clTd} whitespace-nowrap`}>
                                             <select 
                                                 value={ticket.priority} 
                                                 onChange={(e) => handlePriorityChange(ticket.id, e.target.value as TicketPriority)}
-                                                className="w-full p-1 border rounded-md text-sm bg-white"
+                                                className={`${clInput} py-2`}
                                             >
                                                 {Object.entries(ticketPriorityTranslations).map(([key, value]) => (
                                                     <option key={key} value={key}>{value}</option>
                                                 ))}
                                             </select>
                                         </td>
-                                        <td className="px-6 py-4 whitespace-nowrap text-right text-sm">
+                                        <td className={`${clTd} whitespace-nowrap text-right`}>
                                             {view === 'assigned' && (
-                                                <Link to={`/agent/tickets/${ticket.id}`} className="text-indigo-600 hover:underline font-semibold">Gestionar</Link>
+                                                <Link to={`/agent/tickets/${ticket.id}`} className="text-blue-700 hover:text-blue-900 font-semibold underline-offset-2 hover:underline">Gestionar</Link>
                                             )}
                                             {view === 'unassigned' && (
-                                                <div className="flex gap-4 justify-end items-center">
+                                                <div className="flex gap-4 justify-end items-center flex-wrap">
                                                     <Link 
                                                         to={`/agent/tickets/${ticket.id}`}
-                                                        className="text-indigo-600 hover:underline font-semibold"
+                                                        className="text-blue-700 hover:text-blue-900 font-semibold underline-offset-2 hover:underline"
                                                     >
                                                         Ver
                                                     </Link>
-                                                    <button onClick={() => handleTakeTicket(ticket.id)} className="px-3 py-1 bg-green-500 text-white rounded-md hover:bg-green-600">Tomar</button>
+                                                    <button type="button" onClick={() => handleTakeTicket(ticket.id)} className="px-3 py-1.5 bg-green-600 text-white rounded-full text-sm font-medium hover:bg-green-700 shadow-sm">Tomar</button>
                                                 </div>
                                             )}
                                             {view === 'all' && (
-                                                 <Link to={`/agent/tickets/${ticket.id}`} className="text-indigo-600 hover:underline font-semibold">Ver</Link>
+                                                 <Link to={`/agent/tickets/${ticket.id}`} className="text-blue-700 hover:text-blue-900 font-semibold underline-offset-2 hover:underline">Ver</Link>
                                             )}
                                         </td>
                                     </tr>

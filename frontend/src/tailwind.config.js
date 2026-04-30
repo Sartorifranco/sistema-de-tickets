@@ -10,6 +10,9 @@ module.exports = {
   // Extiende el tema predeterminado de Tailwind con tus colores y otras propiedades
   theme: {
     extend: {
+      fontFamily: {
+        sans: ['Urbanist', 'ui-sans-serif', 'system-ui', 'sans-serif'],
+      },
       colors: {
         // Colores de la aplicación, adaptados para modo claro y oscuro
         primary: {

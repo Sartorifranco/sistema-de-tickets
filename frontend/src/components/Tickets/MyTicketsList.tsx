@@ -2,12 +2,14 @@ import React, { useState, useEffect, useCallback } from 'react';
 import api from '../../config/axiosConfig';
 import { useAuth } from '../../context/AuthContext';
 import { useNotification } from '../../context/NotificationContext';
-import { TicketData, ApiResponseError, Department, User } from '../../types';
+import { TicketData, ApiResponseError, Department, User, TicketStatus } from '../../types';
 import { isAxiosErrorTypeGuard } from '../../utils/typeGuards';
-import { ticketStatusTranslations, ticketPriorityTranslations } from '../../utils/traslations';
+import { ticketPriorityTranslations } from '../../utils/traslations';
 import TicketDetailModal from './TicketDetailModal'; 
 import { formatLocalDate } from '../../utils/dateFormatter';
 import { InternalTaskBadge, isTicketInternalTask } from './InternalTaskBadge';
+import StatusBadge from './StatusBadge';
+import { clCard, clTd, clTh, clThRight, priorityPillClass } from '../../utils/cleanLightUi';
 
 const MyTicketsList: React.FC = () => {
     const { user, token } = useAuth();
@@ -70,30 +72,30 @@ const MyTicketsList: React.FC = () => {
     return (
         <>
             <div className="container mx-auto p-4 sm:p-6 lg:p-8">
-                <h1 className="text-2xl sm:text-3xl font-bold text-gray-800 mb-6">Mis Tickets</h1>
+                <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 tracking-tight mb-6">Mis Tickets</h1>
 
-                <div className="bg-white p-4 sm:p-6 rounded-lg shadow-lg">
+                <div className={`${clCard} p-4 sm:p-6`}>
                     {tickets.length === 0 ? (
                         <p className="text-center text-gray-500 py-8">No tienes tickets registrados.</p>
                     ) : (
                         <>
                             {/* Desktop Table View */}
-                            <table className="min-w-full divide-y divide-gray-200 hidden md:table">
-                                <thead className="bg-gray-50">
+                            <table className="min-w-full divide-y divide-gray-100 hidden md:table">
+                                <thead className="bg-gray-50/90">
                                     <tr>
-                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">ID</th>
-                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Título</th>
-                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Estado</th>
-                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Prioridad</th>
-                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Creado En</th>
-                                        <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">Acciones</th>
+                                        <th className={clTh}>ID</th>
+                                        <th className={clTh}>Título</th>
+                                        <th className={clTh}>Estado</th>
+                                        <th className={clTh}>Prioridad</th>
+                                        <th className={clTh}>Creado En</th>
+                                        <th className={clThRight}>Acciones</th>
                                     </tr>
                                 </thead>
-                                <tbody className="bg-white divide-y divide-gray-200">
+                                <tbody className="bg-white divide-y divide-gray-100">
                                     {tickets.map((ticket) => (
-                                        <tr key={ticket.id} className="hover:bg-gray-50">
-                                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{ticket.id}</td>
-                                            <td className="px-6 py-4 text-sm text-gray-900">
+                                        <tr key={ticket.id} className="hover:bg-gray-50/80 transition-colors">
+                                            <td className={`${clTd} whitespace-nowrap`}>{ticket.id}</td>
+                                            <td className={`${clTd}`}>
                                                 <div className="flex flex-wrap items-center gap-2">
                                                     <span className="break-words">{ticket.title}</span>
                                                     {isTicketInternalTask(ticket) && <InternalTaskBadge />}
@@ -112,13 +114,19 @@ const MyTicketsList: React.FC = () => {
                                                     </p>
                                                 )}
                                             </td>
-                                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{ticketStatusTranslations[ticket.status]}</td>
-                                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{ticketPriorityTranslations[ticket.priority]}</td>
-                                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{formatLocalDate(ticket.created_at)}</td>
-                                            <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                                            <td className={`${clTd} whitespace-nowrap`}>
+                                                <StatusBadge status={ticket.status as TicketStatus} />
+                                            </td>
+                                            <td className={`${clTd} whitespace-nowrap`}>
+                                                <span className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold ${priorityPillClass(ticket.priority)}`}>
+                                                    {ticketPriorityTranslations[ticket.priority]}
+                                                </span>
+                                            </td>
+                                            <td className={`${clTd} whitespace-nowrap text-gray-600`}>{formatLocalDate(ticket.created_at)}</td>
+                                            <td className={`${clTd} whitespace-nowrap text-right font-medium`}>
                                                 <button
                                                     onClick={() => handleViewDetails(ticket)}
-                                                    className="text-blue-600 hover:text-blue-900"
+                                                    className="text-blue-700 hover:text-blue-900 underline-offset-2 hover:underline"
                                                     title="Ver Detalles"
                                                 >
                                                     Ver Detalles
@@ -132,13 +140,13 @@ const MyTicketsList: React.FC = () => {
                             {/* Mobile Card View */}
                             <div className="md:hidden space-y-4">
                                 {tickets.map(ticket => (
-                                    <div key={ticket.id} className="bg-gray-50 p-4 rounded-lg border">
+                                    <div key={ticket.id} className={`${clCard} p-4`}>
                                         <div className="flex justify-between items-start gap-2">
                                             <span className="font-bold text-gray-800 break-words pr-2 flex flex-wrap items-center gap-2">
                                                 #{ticket.id} - {ticket.title}
                                                 {isTicketInternalTask(ticket) && <InternalTaskBadge />}
                                             </span>
-                                            <span className="text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded-full flex-shrink-0">{ticketStatusTranslations[ticket.status]}</span>
+                                            <span className="flex-shrink-0"><StatusBadge status={ticket.status as TicketStatus} /></span>
                                         </div>
                                         {isAdmin && [ticket.horas_estimadas, ticket.horas_reales].some((h) => h !== undefined && h !== null && h !== '') && (
                                             <p className="text-xs text-gray-500 mt-1">
@@ -154,11 +162,16 @@ const MyTicketsList: React.FC = () => {
                                             </p>
                                         )}
                                         <div className="text-sm text-gray-600 mt-2 space-y-1">
-                                            <p><strong>Prioridad:</strong> {ticketPriorityTranslations[ticket.priority]}</p>
+                                            <p className="flex flex-wrap items-center gap-2">
+                                                <strong>Prioridad:</strong>
+                                                <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold ${priorityPillClass(ticket.priority)}`}>
+                                                    {ticketPriorityTranslations[ticket.priority]}
+                                                </span>
+                                            </p>
                                             <p><strong>Creado:</strong> {formatLocalDate(ticket.created_at)}</p>
                                         </div>
-                                        <div className="mt-4 pt-2 border-t text-right">
-                                            <button onClick={() => handleViewDetails(ticket)} className="text-indigo-600 font-semibold hover:underline">
+                                        <div className="mt-4 pt-2 border-t border-gray-100 text-right">
+                                            <button onClick={() => handleViewDetails(ticket)} className="text-blue-700 font-semibold hover:underline">
                                                 Ver Detalles
                                             </button>
                                         </div>

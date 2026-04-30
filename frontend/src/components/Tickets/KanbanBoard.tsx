@@ -84,8 +84,8 @@ const KanbanCard: React.FC<{
             style={style}
             {...listeners}
             {...attributes}
-            className={`bg-white rounded-lg shadow-md p-4 cursor-grab active:cursor-grabbing hover:shadow-lg transition-shadow ${
-                isDragging ? 'opacity-90 shadow-xl z-50' : ''
+            className={`bg-white rounded-2xl border border-gray-100 shadow-sm p-4 cursor-grab active:cursor-grabbing hover:shadow-md transition-shadow ${
+                isDragging ? 'opacity-90 shadow-lg ring-2 ring-blue-100 z-50' : ''
             }`}
         >
             <Link to={`/admin/tickets/${ticket.id}`} className="block" onClick={(e) => isDragging && e.preventDefault()}>
@@ -115,13 +115,13 @@ const DroppableColumn: React.FC<{
     return (
         <div
             ref={setNodeRef}
-            className={`flex-shrink-0 w-72 rounded-xl p-4 min-h-[200px] transition-colors ${
-                isOver ? 'bg-slate-700 ring-2 ring-red-500' : 'bg-slate-800'
+            className={`flex-shrink-0 w-72 rounded-2xl border border-gray-100 bg-gray-50/90 p-4 min-h-[200px] transition-colors shadow-sm ${
+                isOver ? 'ring-2 ring-blue-200 bg-blue-50/60' : ''
             }`}
         >
             <div className="flex justify-between items-center mb-4">
-                <h3 className="font-semibold text-white">{label}</h3>
-                <span className="bg-slate-600 text-slate-200 text-sm font-medium px-2 py-0.5 rounded-full">
+                <h3 className="font-semibold text-gray-800 tracking-tight">{label}</h3>
+                <span className="bg-white border border-gray-200 text-gray-700 text-xs font-semibold px-2.5 py-0.5 rounded-full">
                     {tickets.length}
                 </span>
             </div>

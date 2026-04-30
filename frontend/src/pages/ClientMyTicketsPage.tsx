@@ -9,6 +9,7 @@ import { TicketData, Department, User, TicketStatus } from '../types';
 import { ticketStatusTranslations, ticketPriorityTranslations } from '../utils/traslations';
 import TicketFormModal from '../components/Tickets/TicketFormModal';
 import StatusBadge from '../components/Tickets/StatusBadge'; // <-- 1. IMPORTAMOS EL NUEVO COMPONENTE
+import { clCard, clInput, clTd, clTh, clThRight, priorityPillClass } from '../utils/cleanLightUi';
 
 const ClientTicketsPage: React.FC = () => {
     const { user } = useAuth();
@@ -82,32 +83,32 @@ const ClientTicketsPage: React.FC = () => {
         <>
             <div className="container mx-auto p-4 sm:p-6 lg:p-8">
                 <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-4 mb-6">
-                    <h1 className="text-2xl sm:text-3xl font-bold text-gray-800">Mis Tickets</h1>
+                    <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 tracking-tight">Mis Tickets</h1>
                     <button 
                         onClick={() => setIsModalOpen(true)}
-                        className="bg-red-600 hover:bg-red-700 text-white font-bold py-2 px-4 rounded-lg self-start sm:self-center"
+                        className="bg-red-600 hover:bg-red-700 text-white font-semibold py-2.5 px-5 rounded-xl shadow-sm self-start sm:self-center"
                     >
                         Crear Nuevo Ticket
                     </button>
                 </div>
 
-                <div className="bg-white p-4 rounded-lg shadow-md mb-6">
-                     <h3 className="font-semibold mb-2 text-gray-700">Filtrar Mis Tickets</h3>
+                <div className={`${clCard} p-4 sm:p-5 mb-6`}>
+                     <h3 className="font-semibold mb-3 text-sm uppercase tracking-wide text-gray-500">Filtrar Mis Tickets</h3>
                     <div className="grid grid-cols-1 sm:grid-cols-4 gap-4 items-end">
-                        <select name="status" value={filters.status} onChange={handleFilterChange} className="w-full p-2 border rounded-md text-sm">
+                        <select name="status" value={filters.status} onChange={handleFilterChange} className={clInput}>
                             <option value="">Todos los Estados</option>
                             <option value="open">Abierto</option>
                             <option value="in-progress">En Progreso</option>
                             <option value="resolved">Resuelto</option>
                             <option value="closed">Cerrado</option>
                         </select>
-                        <input type="date" name="startDate" value={filters.startDate} onChange={handleFilterChange} className="w-full p-2 border rounded-md text-sm" />
-                        <input type="date" name="endDate" value={filters.endDate} onChange={handleFilterChange} className="w-full p-2 border rounded-md text-sm" />
-                        <button onClick={clearFilters} className="bg-gray-500 text-white p-2 rounded-md hover:bg-gray-600 text-sm">Limpiar</button>
+                        <input type="date" name="startDate" value={filters.startDate} onChange={handleFilterChange} className={clInput} />
+                        <input type="date" name="endDate" value={filters.endDate} onChange={handleFilterChange} className={clInput} />
+                        <button onClick={clearFilters} className="w-full sm:w-auto px-4 py-2.5 rounded-xl text-sm font-medium bg-gray-100 text-gray-800 border border-gray-200 hover:bg-gray-200/80">Limpiar</button>
                     </div>
                 </div>
 
-                <div className="bg-white p-4 sm:p-6 rounded-lg shadow-lg overflow-x-auto">
+                <div className={`${clCard} p-4 sm:p-6 overflow-x-auto`}>
                     {loading ? (
                          <div className="text-center py-8">Cargando tickets...</div>
                     ) : tickets.length === 0 ? (
@@ -117,28 +118,32 @@ const ClientTicketsPage: React.FC = () => {
                     ) : (
                         <>
                             {/* VISTA DE TABLA PARA ESCRITORIO */}
-                            <table className="min-w-full divide-y divide-gray-200 hidden md:table">
-                                <thead className="bg-gray-50">
+                            <table className="min-w-full divide-y divide-gray-100 hidden md:table">
+                                <thead className="bg-gray-50/90">
                                     <tr>
-                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">ID</th>
-                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Título</th>
-                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Estado</th>
-                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Prioridad</th>
-                                        <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">Acciones</th>
+                                        <th className={clTh}>ID</th>
+                                        <th className={clTh}>Título</th>
+                                        <th className={clTh}>Estado</th>
+                                        <th className={clTh}>Prioridad</th>
+                                        <th className={clThRight}>Acciones</th>
                                     </tr>
                                 </thead>
-                                <tbody className="bg-white divide-y divide-gray-200">
+                                <tbody className="bg-white divide-y divide-gray-100">
                                     {tickets.map(ticket => (
-                                        <tr key={ticket.id} className="hover:bg-gray-50">
-                                            <td className="px-6 py-4 whitespace-nowrap">{ticket.id}</td>
-                                            <td className="px-6 py-4 whitespace-nowrap font-medium text-gray-900">{ticket.title}</td>
-                                            <td className="px-6 py-4 whitespace-nowrap">
+                                        <tr key={ticket.id} className="hover:bg-gray-50/80 transition-colors">
+                                            <td className={`${clTd} whitespace-nowrap`}>{ticket.id}</td>
+                                            <td className={`${clTd} whitespace-nowrap font-medium text-gray-900`}>{ticket.title}</td>
+                                            <td className={`${clTd} whitespace-nowrap`}>
                                                 {/* <-- 2. USAMOS EL COMPONENTE StatusBadge EN LA TABLA */}
                                                 <StatusBadge status={ticket.status as TicketStatus} />
                                             </td>
-                                            <td className="px-6 py-4 whitespace-nowrap">{ticketPriorityTranslations[ticket.priority] || ticket.priority}</td>
-                                            <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                                                <Link to={`/client/tickets/${ticket.id}`} className="text-indigo-600 hover:text-indigo-900">Ver Detalles</Link>
+                                            <td className={`${clTd} whitespace-nowrap`}>
+                                                <span className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold ${priorityPillClass(ticket.priority)}`}>
+                                                    {ticketPriorityTranslations[ticket.priority] || ticket.priority}
+                                                </span>
+                                            </td>
+                                            <td className={`${clTd} whitespace-nowrap text-right font-medium`}>
+                                                <Link to={`/client/tickets/${ticket.id}`} className="text-blue-700 hover:text-blue-900 underline-offset-2 hover:underline">Ver Detalles</Link>
                                             </td>
                                         </tr>
                                     ))}
@@ -147,19 +152,24 @@ const ClientTicketsPage: React.FC = () => {
                             {/* VISTA DE TARJETAS PARA MÓVIL */}
                             <div className="md:hidden space-y-4">
                                 {tickets.map(ticket => (
-                                    <div key={ticket.id} className="bg-gray-50 p-4 rounded-lg border">
-                                        <div className="flex justify-between items-start">
-                                            <span className="font-bold text-gray-800 break-all pr-2">#{ticket.id} - {ticket.title}</span>
+                                    <div key={ticket.id} className={`${clCard} p-4`}>
+                                        <div className="flex justify-between items-start gap-2">
+                                            <span className="font-bold text-gray-900 break-all pr-2">#{ticket.id} - {ticket.title}</span>
                                             <div className="flex-shrink-0">
                                                 {/* <-- 3. USAMOS EL COMPONENTE StatusBadge TAMBIÉN EN LA VISTA MÓVIL */}
                                                 <StatusBadge status={ticket.status as TicketStatus} />
                                             </div>
                                         </div>
                                         <div className="text-sm text-gray-600 mt-2">
-                                            <p><strong>Prioridad:</strong> {ticketPriorityTranslations[ticket.priority] || ticket.priority}</p>
+                                            <p className="flex flex-wrap items-center gap-2">
+                                                <strong>Prioridad:</strong>
+                                                <span className={`inline-flex items-center px-3 py-0.5 rounded-full text-xs font-semibold ${priorityPillClass(ticket.priority)}`}>
+                                                    {ticketPriorityTranslations[ticket.priority] || ticket.priority}
+                                                </span>
+                                            </p>
                                         </div>
-                                        <div className="mt-4 pt-2 border-t text-right">
-                                            <Link to={`/client/tickets/${ticket.id}`} className="text-indigo-600 font-semibold hover:underline">Ver Detalles</Link>
+                                        <div className="mt-4 pt-2 border-t border-gray-100 text-right">
+                                            <Link to={`/client/tickets/${ticket.id}`} className="text-blue-700 font-semibold hover:underline">Ver Detalles</Link>
                                         </div>
                                     </div>
                                 ))}
