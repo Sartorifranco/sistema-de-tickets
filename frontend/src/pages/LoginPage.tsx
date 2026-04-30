@@ -5,7 +5,8 @@ import { useNotification } from '../context/NotificationContext';
 import { toast } from 'react-toastify';
 import { clInput } from '../utils/cleanLightUi';
 
-const LOGIN_BG_GIF = '/assets/img/login-bg.gif';
+/** Video local en `public/assets/video/` (People Technology 4K). */
+const LOGIN_VIDEO = '/assets/video/login-video.mp4';
 
 const LoginPage: React.FC = () => {
     const [email, setEmail] = useState('');
@@ -42,9 +43,17 @@ const LoginPage: React.FC = () => {
 
     return (
         <div className="flex h-screen min-h-0 w-full flex-col overflow-hidden md:flex-row" style={urbanist}>
-            {/* 70% — GIF de fondo */}
+            {/* 70% — video de fondo */}
             <div className="relative h-[38vh] w-full min-h-0 shrink-0 overflow-hidden bg-slate-900 md:h-full md:w-[70%] md:min-w-0 md:shrink-0">
-                <img src={LOGIN_BG_GIF} alt="" className="w-full h-full object-cover" />
+                <video
+                    autoPlay
+                    muted
+                    loop
+                    playsInline
+                    preload="auto"
+                    className="w-full h-full object-cover"
+                    src={LOGIN_VIDEO}
+                />
             </div>
 
             {/* 30% — formulario centrado vertical y horizontalmente */}
