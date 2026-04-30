@@ -94,6 +94,26 @@ export function ticketRealHoursValid(value: unknown): boolean {
     return Number.isFinite(n) && n > 0;
 }
 
+/** `es_tarea_interna` en ticket o formulario (0/1, bool, string) */
+export function isTruthyInternalTask(value: unknown): boolean {
+    if (value === true || value === 1) return true;
+    if (value === false || value === 0 || value === null || value === undefined || value === '') return false;
+    const s = String(value).toLowerCase();
+    return s === '1' || s === 'true';
+}
+
+/**
+ * Solo Desarrollo o tarea interna exigen horas reales > 0 al pasar a resuelto/cerrado (gestión técnica).
+ */
+export function ticketRequiresRealHoursForClosure(
+    departmentName: string | null | undefined,
+    esTareaInterna: unknown
+): boolean {
+    if (isDesarrolloDepartmentName(departmentName)) return true;
+    if (isTruthyInternalTask(esTareaInterna)) return true;
+    return false;
+}
+
 /** Categoría de ticket por nombre exacto (mayúsculas), p. ej. DESARROLLO */
 export function findDesarrolloCategoryId(categories: { id: number; name: string }[]): number | undefined {
     return categories.find((c) => c.name?.trim().toUpperCase() === 'DESARROLLO')?.id;

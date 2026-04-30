@@ -10,7 +10,7 @@ import StatusBadge from '../components/Tickets/StatusBadge';
 import KanbanBoard from '../components/Tickets/KanbanBoard';
 import { formatLocalDate } from '../utils/dateFormatter';
 import { InternalTaskBadge, isTicketInternalTask } from '../components/Tickets/InternalTaskBadge';
-import { ticketRealHoursValid } from '../utils/ticketAccess';
+import { ticketRealHoursValid, ticketRequiresRealHoursForClosure } from '../utils/ticketAccess';
 
 // Interfaces para los datos de los filtros
 interface FilterData {
@@ -108,14 +108,18 @@ const AdminTicketsPage: React.FC = () => {
     
     const handleUpdateTicketStatus = useCallback(
         async (ticketId: number, newStatus: TicketStatus) => {
-            if (
-                user?.role !== 'client' &&
-                (newStatus === 'resolved' || newStatus === 'closed')
-            ) {
+            if (user?.role !== 'client' && (newStatus === 'resolved' || newStatus === 'closed')) {
                 const t = tickets.find((x) => x.id === ticketId);
-                if (!ticketRealHoursValid(t?.horas_reales)) {
+                if (
+                    t &&
+                    ticketRequiresRealHoursForClosure(
+                        t.ticket_department_name ?? t.department_name,
+                        t.es_tarea_interna
+                    ) &&
+                    !ticketRealHoursValid(t.horas_reales)
+                ) {
                     toast.warn(
-                        'Completá las horas reales del ticket antes de marcarlo como resuelto o finalizado.'
+                        'Este ticket (Desarrollo o tarea interna) requiere horas reales antes de resolver o cerrar.'
                     );
                     return;
                 }

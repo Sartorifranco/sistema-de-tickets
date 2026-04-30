@@ -9,7 +9,11 @@ import { formatLocalDate } from '../utils/dateFormatter';
 import CommentForm from '../components/Common/CommentForm';
 import { InternalTaskBadge, isTicketInternalTask } from '../components/Tickets/InternalTaskBadge';
 import TicketWorklogSidebar from '../components/Tickets/TicketWorklogSidebar';
-import { staffAssignableUsers, ticketRealHoursValid } from '../utils/ticketAccess';
+import {
+    staffAssignableUsers,
+    ticketRealHoursValid,
+    ticketRequiresRealHoursForClosure,
+} from '../utils/ticketAccess';
 
 type DetailedTicketData = TicketData & {
     ticket_category_name?: string;
@@ -79,12 +83,17 @@ const AdminTicketDetailPage: React.FC = () => {
     
     const handleStatusChange = async (newStatus: TicketStatus) => {
         if (!ticket) return;
+        const needsHoursClosure = ticketRequiresRealHoursForClosure(
+            ticket.ticket_department_name ?? ticket.department_name,
+            ticket.es_tarea_interna
+        );
         const staffNeedsRealHours =
             user?.role !== 'client' &&
-            (newStatus === 'resolved' || newStatus === 'closed');
+            (newStatus === 'resolved' || newStatus === 'closed') &&
+            needsHoursClosure;
         if (staffNeedsRealHours && !ticketRealHoursValid(ticket.horas_reales)) {
             toast.warn(
-                'Registrá las horas reales en «Registro de trabajo» (columna derecha) antes de resolver o cerrar el ticket.'
+                'Para este ticket (Desarrollo o tarea interna) registrá las horas reales en «Registro de trabajo» antes de resolver o cerrar.'
             );
             return;
         }
@@ -142,6 +151,13 @@ const AdminTicketDetailPage: React.FC = () => {
     if (error) return <div className="p-8 text-center text-red-500">{error}</div>;
     
     if (!ticket) return <div className="p-8 text-center">Ticket no encontrado.</div>;
+
+    const showWorklogSidebar =
+        (user?.role === 'admin' || user?.role === 'agent') &&
+        ticketRequiresRealHoursForClosure(
+            ticket.ticket_department_name ?? ticket.department_name,
+            ticket.es_tarea_interna
+        );
 
     return (
         <>
@@ -244,12 +260,13 @@ const AdminTicketDetailPage: React.FC = () => {
 
                     {/* Columna Derecha: Acciones */}
                     <div className="lg:col-span-1 space-y-6">
-                        {(user?.role === 'admin' || user?.role === 'agent') && (
+                        {showWorklogSidebar && (
                             <TicketWorklogSidebar
                                 ticketId={ticket.id}
                                 horasReales={ticket.horas_reales}
                                 status={ticket.status}
                                 departmentName={ticket.ticket_department_name ?? ticket.department_name ?? null}
+                                esTareaInterna={ticket.es_tarea_interna}
                                 disabled={ticket.status === 'closed'}
                                 onSaved={fetchTicketDetails}
                             />

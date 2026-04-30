@@ -2,7 +2,10 @@ import React, { useEffect, useState } from 'react';
 import { toast } from 'react-toastify';
 import api from '../../config/axiosConfig';
 import { TicketStatus } from '../../types';
-import { isDesarrolloDepartmentName } from '../../utils/ticketAccess';
+import {
+    isDesarrolloDepartmentName,
+    isTruthyInternalTask,
+} from '../../utils/ticketAccess';
 
 export interface TicketWorklogSidebarProps {
     ticketId: number;
@@ -10,6 +13,7 @@ export interface TicketWorklogSidebarProps {
     status: TicketStatus;
     /** Nombre del departamento (join API), p. ej. para detectar Desarrollo */
     departmentName?: string | null;
+    esTareaInterna?: boolean | number | string | null;
     disabled?: boolean;
     onSaved: () => void;
 }
@@ -41,6 +45,7 @@ const TicketWorklogSidebar: React.FC<TicketWorklogSidebarProps> = ({
     horasReales,
     status,
     departmentName,
+    esTareaInterna,
     disabled = false,
     onSaved,
 }) => {
@@ -56,8 +61,10 @@ const TicketWorklogSidebar: React.FC<TicketWorklogSidebarProps> = ({
         }
     }, [ticketId, horasReales]);
 
-    const highlightDevInProgress =
-        isDesarrolloDepartmentName(departmentName ?? undefined) && status === 'in-progress';
+    const isDevDept = isDesarrolloDepartmentName(departmentName ?? undefined);
+    const isInternal = isTruthyInternalTask(esTareaInterna);
+    const highlightReminder =
+        status === 'in-progress' && (isDevDept || isInternal);
 
     const persist = async () => {
         if (disabled || saving) return;
@@ -99,14 +106,16 @@ const TicketWorklogSidebar: React.FC<TicketWorklogSidebarProps> = ({
             <p className="text-xs text-gray-500 mb-4">Horas reales dedicadas al ticket</p>
             <div
                 className={
-                    highlightDevInProgress
+                    highlightReminder
                         ? 'rounded-md p-2 border-2 border-amber-300 bg-amber-50/70 ring-1 ring-amber-200/80'
                         : 'rounded-md p-2 border border-gray-200 bg-gray-50/50'
                 }
             >
-                {highlightDevInProgress && (
+                {highlightReminder && (
                     <p className="text-xs text-amber-900/90 mb-2 font-medium">
-                        Desarrollo en curso: registrá las horas antes de marcar como resuelto.
+                        {isDevDept
+                            ? 'Desarrollo en curso: registrá las horas antes de marcar como resuelto.'
+                            : 'Tarea interna en curso: registrá las horas antes de marcar como resuelto.'}
                     </p>
                 )}
                 <label htmlFor={`worklog-horas-${ticketId}`} className="block text-sm font-medium text-gray-700 mb-1">

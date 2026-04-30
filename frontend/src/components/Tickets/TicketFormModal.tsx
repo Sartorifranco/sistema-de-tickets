@@ -10,6 +10,7 @@ import {
     matchesBacarDepartmentDropdownOption,
     matchesStandardDepartmentDropdownOption,
     staffAssignableUsers,
+    ticketRequiresRealHoursForClosure,
 } from '../../utils/ticketAccess';
 
 /** Valores enviados al backend en `subcategoria` */
@@ -514,7 +515,17 @@ const TicketFormModal: React.FC<TicketFormModalProps> = ({
             delete payload.assigned_to_user_id;
         }
 
+        const selectedDeptName =
+            departments.find((d) => d.id === formData.department_id)?.name ??
+            filteredDepartments.find((d) => d.id === formData.department_id)?.name;
+        const requiresRealHoursControlUi = ticketRequiresRealHoursForClosure(
+            selectedDeptName,
+            formData.es_tarea_interna
+        );
+
         if (!initialData?.id) {
+            delete payload.horas_reales;
+        } else if (mayUseControlBlock && !requiresRealHoursControlUi) {
             delete payload.horas_reales;
         }
 
@@ -526,6 +537,14 @@ const TicketFormModal: React.FC<TicketFormModalProps> = ({
     if (!isOpen) return null;
 
     const isCreateMode = !initialData?.id;
+    const selectedDeptNameForUi =
+        departments.find((d) => d.id === formData.department_id)?.name ??
+        filteredDepartments.find((d) => d.id === formData.department_id)?.name;
+    const requiresRealHoursControlUi = ticketRequiresRealHoursForClosure(
+        selectedDeptNameForUi,
+        formData.es_tarea_interna
+    );
+    const showHorasRealesInControl = !isCreateMode && requiresRealHoursControlUi;
     const titleDisabled = !isOther && !isCustomCategory && !!formData.predefined_problem_id && !isDesarrolloArea;
 
     return (
@@ -861,7 +880,7 @@ const TicketFormModal: React.FC<TicketFormModalProps> = ({
                                 Marcar como tarea interna
                             </label>
                             <div
-                                className={`grid grid-cols-1 gap-4 ${!isCreateMode ? 'sm:grid-cols-2' : ''}`}
+                                className={`grid grid-cols-1 gap-4 ${showHorasRealesInControl ? 'sm:grid-cols-2' : ''}`}
                             >
                                 <div>
                                     <label className="block text-gray-700 text-sm font-medium">Horas estimadas</label>
@@ -881,7 +900,7 @@ const TicketFormModal: React.FC<TicketFormModalProps> = ({
                                         placeholder="0"
                                     />
                                 </div>
-                                {!isCreateMode && (
+                                {showHorasRealesInControl && (
                                     <div>
                                         <label className="block text-gray-700 text-sm font-medium">Horas reales</label>
                                         <input

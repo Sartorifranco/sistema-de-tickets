@@ -468,7 +468,11 @@ const updateTicketStatus = asyncHandler(async (req, res) => {
     }
 
     const [tickets] = await pool.execute(
-        'SELECT user_id, assigned_to_user_id, title, status, horas_reales FROM tickets WHERE id = ?',
+        `SELECT t.user_id, t.assigned_to_user_id, t.title, t.status, t.horas_reales, t.es_tarea_interna,
+                d.name AS department_name
+         FROM tickets t
+         LEFT JOIN departments d ON t.department_id = d.id
+         WHERE t.id = ?`,
         [ticketId]
     );
     if (tickets.length === 0) {
@@ -477,10 +481,17 @@ const updateTicketStatus = asyncHandler(async (req, res) => {
     }
     const ticket = tickets[0];
 
-    if ((newStatus === 'resolved' || newStatus === 'closed') && !realHoursMeaningful(ticket.horas_reales)) {
+    const requiresRealHoursClosure =
+        isDesarrolloDepartmentName(ticket.department_name) || parseCreateBool(ticket.es_tarea_interna, false);
+
+    if (
+        (newStatus === 'resolved' || newStatus === 'closed') &&
+        requiresRealHoursClosure &&
+        !realHoursMeaningful(ticket.horas_reales)
+    ) {
         res.status(400);
         throw new Error(
-            'Las horas reales son obligatorias y deben ser mayores a cero para resolver o cerrar el ticket.'
+            'Las horas reales son obligatorias (mayores a cero) para tickets de Desarrollo o tareas internas antes de resolver o cerrar.'
         );
     }
 

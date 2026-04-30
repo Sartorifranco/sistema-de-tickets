@@ -9,7 +9,7 @@ import { ticketStatusTranslations, ticketPriorityTranslations } from '../utils/t
 import { formatLocalDate } from '../utils/dateFormatter';
 import CommentForm from '../components/Common/CommentForm';
 import TicketWorklogSidebar from '../components/Tickets/TicketWorklogSidebar';
-import { staffAssignableUsers } from '../utils/ticketAccess';
+import { staffAssignableUsers, ticketRequiresRealHoursForClosure } from '../utils/ticketAccess';
 
 // ✅ AÑADIDO: Icono de Archivo Genérico
 const FileIcon: React.FC<{ className?: string }> = ({ className = "w-16 h-16" }) => (
@@ -124,6 +124,13 @@ const AgentTicketDetailPage: React.FC = () => {
     if (loading) return <div className="p-8 text-center text-lg">Cargando detalles del ticket...</div>;
     if (!ticket) return <div className="p-8 text-center text-lg">Ticket no encontrado.</div>;
 
+    const showWorklogSidebar =
+        (user?.role === 'admin' || user?.role === 'agent') &&
+        ticketRequiresRealHoursForClosure(
+            ticket.ticket_department_name ?? ticket.department_name,
+            ticket.es_tarea_interna
+        );
+
     return (
         <div className="container mx-auto p-4 sm:p-6 lg:p-8 bg-gray-50 min-h-screen">
             <div className="flex justify-between items-center mb-6">
@@ -220,12 +227,13 @@ const AgentTicketDetailPage: React.FC = () => {
 
                 {/* Columna Lateral de Acciones */}
                 <div className="lg:col-span-1 space-y-6">
-                    {(user?.role === 'admin' || user?.role === 'agent') && (
+                    {showWorklogSidebar && (
                         <TicketWorklogSidebar
                             ticketId={ticket.id}
                             horasReales={ticket.horas_reales}
                             status={ticket.status}
                             departmentName={ticket.ticket_department_name ?? ticket.department_name ?? null}
+                            esTareaInterna={ticket.es_tarea_interna}
                             disabled={ticket.status === 'closed'}
                             onSaved={fetchAllData}
                         />
