@@ -5,8 +5,19 @@ import { useNotification } from '../context/NotificationContext';
 import { toast } from 'react-toastify';
 import { clInput } from '../utils/cleanLightUi';
 
-/** Video local en `public/assets/video/` (People Technology 4K). */
+/** Video local en `public/assets/video/`. */
 const LOGIN_VIDEO = '/assets/video/login-video.mp4';
+
+/** Textura SVG muy sutil (ruido) para disimular bandas de compresión en clips suaves. */
+const GRAIN_TEXTURE =
+    "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 256 256'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E";
+
+const videoSharpStyle: React.CSSProperties = {
+    objectFit: 'cover',
+    imageRendering: 'auto',
+    // Refuerzo de nitidez perceptiva en escalado (compatible con la mayoría de navegadores)
+    filter: 'brightness(1.02) contrast(1.06) saturate(1.04)',
+};
 
 const LoginPage: React.FC = () => {
     const [email, setEmail] = useState('');
@@ -43,7 +54,7 @@ const LoginPage: React.FC = () => {
 
     return (
         <div className="flex h-screen min-h-0 w-full flex-col overflow-hidden md:flex-row" style={urbanist}>
-            {/* 70% — video + contraste + degradado hacia blanco (encaje con columna derecha) */}
+            {/* 70% — video escalado (recorta marca de agua), overlays y degradado fino */}
             <div className="relative h-[38vh] w-full min-h-0 shrink-0 overflow-hidden bg-slate-900 md:h-full md:w-[70%] md:min-w-0 md:shrink-0">
                 <video
                     autoPlay
@@ -51,33 +62,43 @@ const LoginPage: React.FC = () => {
                     loop
                     playsInline
                     preload="auto"
-                    className="relative z-0 h-full w-full object-cover"
+                    className="absolute left-1/2 top-1/2 z-0 min-h-full min-w-full -translate-x-1/2 -translate-y-1/2 origin-center scale-[1.12] transform-gpu object-cover will-change-transform"
                     src={LOGIN_VIDEO}
+                    style={videoSharpStyle}
                 />
-                {/* Contraste muy suave: el video sigue siendo protagonista */}
                 <div className="pointer-events-none absolute inset-0 z-[1] bg-black/10" aria-hidden />
-                {/* Difuminado solo en el último ~20% antes del formulario */}
                 <div
-                    className="pointer-events-none absolute inset-0 z-[2] bg-gradient-to-r from-transparent from-80% via-white/50 via-90% to-white"
+                    className="pointer-events-none absolute inset-0 z-[2] opacity-[0.045] mix-blend-soft-light"
+                    style={{
+                        backgroundImage: `url("${GRAIN_TEXTURE}")`,
+                        backgroundSize: '180px 180px',
+                    }}
+                    aria-hidden
+                />
+                {/* Unión suave con columna blanca: mismo blanco final (#fff) */}
+                <div
+                    className="pointer-events-none absolute inset-0 z-[3] bg-gradient-to-r from-transparent from-80% via-white/40 via-[91%] to-white"
                     aria-hidden
                 />
             </div>
 
-            {/* 30% — bg-white alineado al final del degradado */}
-            <div className="flex min-h-0 w-full flex-1 flex-col items-center justify-center overflow-y-auto bg-white px-4 py-8 sm:px-6 md:h-full md:w-[30%] md:flex-none md:shrink-0 md:py-10">
-                <div className="w-full max-w-sm px-6 py-4 font-medium sm:px-8 sm:py-6">
-                    <div className="flex flex-col items-center text-center">
+            {/* 30% — ancho completo del panel (sin max-w-sm) para alinear logo, textos e inputs */}
+            <div className="flex min-h-0 w-full flex-1 flex-col items-center justify-center overflow-y-auto bg-white px-5 py-8 sm:px-8 md:h-full md:w-[30%] md:flex-none md:shrink-0 md:px-8 md:py-10 lg:px-10">
+                <div className="flex w-full max-w-full flex-col font-medium">
+                    <div className="flex w-full flex-col items-center text-center">
                         <img
-                            className="h-24 w-auto max-w-full object-contain drop-shadow-sm sm:h-28"
+                            className="mx-auto h-24 w-auto max-w-[min(100%,260px)] object-contain drop-shadow-sm sm:h-28"
                             src="/images/logo-grupo-bacar-horizontal.png"
                             alt="Grupo BACAR"
                         />
                         <p className="mt-2 text-xs font-medium uppercase tracking-[0.2em] text-slate-500">Bacar OS</p>
                         <h1 className="mt-6 text-2xl font-medium leading-tight text-slate-900 sm:text-3xl">Bienvenido</h1>
-                        <p className="mt-2 text-sm font-medium text-slate-600">Ingresá con tu cuenta corporativa</p>
+                        <p className="mt-2 max-w-full text-sm font-medium leading-snug text-slate-600">
+                            Ingresá con tu cuenta corporativa
+                        </p>
                     </div>
 
-                    <form className="mt-10 space-y-6" onSubmit={handleSubmit} noValidate style={{ fontWeight: 500 }}>
+                    <form className="mt-10 w-full space-y-6" onSubmit={handleSubmit} noValidate style={{ fontWeight: 500 }}>
                         <div className="space-y-5">
                             <div>
                                 <label htmlFor="email-address" className="mb-1.5 block text-sm font-medium text-slate-900">
@@ -89,7 +110,7 @@ const LoginPage: React.FC = () => {
                                     type="email"
                                     autoComplete="email"
                                     required
-                                    className={`${clInput} !font-medium rounded-xl border-gray-200 text-slate-900 placeholder:text-slate-400`}
+                                    className={`${clInput} !font-medium w-full rounded-xl border-gray-200 text-slate-900 placeholder:text-slate-400`}
                                     placeholder="nombre@empresa.com"
                                     value={email}
                                     onChange={(e) => setEmail(e.target.value)}
@@ -106,7 +127,7 @@ const LoginPage: React.FC = () => {
                                     type="password"
                                     autoComplete="current-password"
                                     required
-                                    className={`${clInput} !font-medium rounded-xl border-gray-200 text-slate-900 placeholder:text-slate-400`}
+                                    className={`${clInput} !font-medium w-full rounded-xl border-gray-200 text-slate-900 placeholder:text-slate-400`}
                                     placeholder="••••••••"
                                     value={password}
                                     onChange={(e) => setPassword(e.target.value)}
