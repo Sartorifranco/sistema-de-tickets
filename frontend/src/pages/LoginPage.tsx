@@ -54,16 +54,16 @@ const LoginPage: React.FC = () => {
                     className="relative z-0 h-full w-full object-cover"
                     src={LOGIN_VIDEO}
                 />
-                {/* Contraste suave sobre todo el video */}
-                <div className="pointer-events-none absolute inset-0 z-[1] bg-black/20" aria-hidden />
-                {/* Glow: transparente → blanco en el borde derecho del panel */}
+                {/* Contraste muy suave: el video sigue siendo protagonista */}
+                <div className="pointer-events-none absolute inset-0 z-[1] bg-black/10" aria-hidden />
+                {/* Difuminado solo en el último ~20% antes del formulario */}
                 <div
-                    className="pointer-events-none absolute inset-0 z-[2] bg-gradient-to-r from-transparent to-white"
+                    className="pointer-events-none absolute inset-0 z-[2] bg-gradient-to-r from-transparent from-80% via-white/50 via-90% to-white"
                     aria-hidden
                 />
             </div>
 
-            {/* 30% — mismo blanco (#fff) que el final del degradado; contenido sin tarjeta recuadrada */}
+            {/* 30% — bg-white alineado al final del degradado */}
             <div className="flex min-h-0 w-full flex-1 flex-col items-center justify-center overflow-y-auto bg-white px-4 py-8 sm:px-6 md:h-full md:w-[30%] md:flex-none md:shrink-0 md:py-10">
                 <div className="w-full max-w-sm px-6 py-4 font-medium sm:px-8 sm:py-6">
                     <div className="flex flex-col items-center text-center">
