@@ -76,8 +76,9 @@ const LoginPage: React.FC = () => {
                     aria-hidden
                 />
                 {/* Unión suave con columna blanca: mismo blanco final (#fff) */}
+                {/* Difuminado solo en el último ~5% del panel (borde hacia el formulario) */}
                 <div
-                    className="pointer-events-none absolute inset-0 z-[3] bg-gradient-to-r from-transparent from-80% via-white/40 via-[91%] to-white"
+                    className="pointer-events-none absolute inset-0 z-[3] bg-gradient-to-r from-transparent from-[95%] to-white"
                     aria-hidden
                 />
             </div>
