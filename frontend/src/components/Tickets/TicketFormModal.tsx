@@ -177,9 +177,16 @@ const TicketFormModal: React.FC<TicketFormModalProps> = ({
         if (initialData?.id) {
             setFormData(buildFormFromTicket(initialData));
         } else {
-            setFormData({ ...EMPTY_FORM_BASE });
+            const base = { ...EMPTY_FORM_BASE };
+            if (
+                loggedInUser?.id &&
+                (currentUserRole === 'admin' || currentUserRole === 'agent')
+            ) {
+                base.user_id = loggedInUser.id;
+            }
+            setFormData(base);
         }
-    }, [isOpen, initialData?.id]);
+    }, [isOpen, initialData?.id, currentUserRole, loggedInUser?.id]);
 
     /** Datos remotos: categorías, ubicaciones, depositarios — no toca el texto que escribió el usuario */
     useEffect(() => {
@@ -462,10 +469,6 @@ const TicketFormModal: React.FC<TicketFormModalProps> = ({
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
-        if ((currentUserRole === 'admin' || currentUserRole === 'agent') && !formData.user_id) {
-            toast.warn('Por favor, selecciona el cliente para quien es este ticket.');
-            return;
-        }
 
         const desarrolloCatId = findDesarrolloCategoryId(categories);
         const resolvedCategoryId = isDesarrolloArea ? desarrolloCatId ?? formData.category_id : formData.category_id;
@@ -553,6 +556,20 @@ const TicketFormModal: React.FC<TicketFormModalProps> = ({
             delete payload.horas_reales;
         }
 
+        const creatingForSelfAsStaff =
+            !initialData?.id &&
+            showAdminStaffFields &&
+            loggedInUser?.id &&
+            (payload.user_id === undefined ||
+                payload.user_id === null ||
+                payload.user_id === loggedInUser.id);
+
+        if (creatingForSelfAsStaff && (currentUserRole === 'agent' || currentUserRole === 'admin')) {
+            if (payload.assigned_to_user_id === undefined || payload.assigned_to_user_id === null) {
+                payload.assigned_to_user_id = loggedInUser.id;
+            }
+        }
+
         setLoading(true);
         await onSave(payload, attachments);
         setLoading(false);
@@ -561,6 +578,15 @@ const TicketFormModal: React.FC<TicketFormModalProps> = ({
     if (!isOpen) return null;
 
     const isCreateMode = !initialData?.id;
+    const isSelfRequesterInUi =
+        showAdminStaffFields &&
+        !!loggedInUser?.id &&
+        (formData.user_id === undefined || formData.user_id === null || formData.user_id === loggedInUser.id);
+    const willAutoAssignToSelf =
+        isCreateMode &&
+        isSelfRequesterInUi &&
+        (currentUserRole === 'agent' || currentUserRole === 'admin') &&
+        (formData.assigned_to_user_id === undefined || formData.assigned_to_user_id === null);
     const selectedDeptNameForUi =
         departments.find((d) => d.id === formData.department_id)?.name ??
         filteredDepartments.find((d) => d.id === formData.department_id)?.name;
@@ -809,21 +835,46 @@ const TicketFormModal: React.FC<TicketFormModalProps> = ({
                         <div className="rounded-lg border border-slate-200 bg-slate-50/80 p-4 space-y-4">
                             <p className="text-sm font-semibold text-slate-800">Administración</p>
                             <div>
-                                <label className="block text-gray-700 font-medium">Ticket para (cliente)</label>
+                                <label className="block text-gray-700 font-medium">Solicitante</label>
+                                <p className="text-xs text-slate-600 mt-0.5 mb-1">
+                                    Podés registrarte a vos como solicitante o elegir un cliente.
+                                </p>
                                 <select
                                     name="user_id"
                                     value={formData.user_id || ''}
                                     onChange={handleChange}
                                     className={`${clInput} mt-1`}
-                                    required
                                 >
-                                    <option value="">-- Seleccioná un usuario --</option>
-                                    {users.filter((u) => u.role === 'client').map((client) => (
-                                        <option key={client.id} value={client.id}>
-                                            {client.username}
+                                    {loggedInUser?.id ? (
+                                        <option value={loggedInUser.id}>
+                                            Yo ({loggedInUser.username}) — a mi nombre
                                         </option>
-                                    ))}
+                                    ) : (
+                                        <option value="">— Seleccioná solicitante —</option>
+                                    )}
+                                    {users
+                                        .filter((u) => u.role === 'client')
+                                        .map((client) => (
+                                            <option key={client.id} value={client.id}>
+                                                {client.username}
+                                            </option>
+                                        ))}
                                 </select>
+                                <button
+                                    type="button"
+                                    className="mt-2 text-sm font-medium text-blue-700 hover:text-blue-900 underline-offset-2 hover:underline"
+                                    onClick={() => {
+                                        if (!loggedInUser?.id) return;
+                                        setFormData((prev) => ({
+                                            ...prev,
+                                            user_id: loggedInUser.id,
+                                        }));
+                                        setIsCustomCategory(false);
+                                        setIsOther(false);
+                                    }}
+                                >
+                                    Crear a mi nombre
+                                </button>
                             </div>
 
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -894,6 +945,11 @@ const TicketFormModal: React.FC<TicketFormModalProps> = ({
                                 <p className="text-xs text-gray-500 mt-1">
                                     Incluye tu usuario para usar el ticket como bitácora personal.
                                 </p>
+                                {willAutoAssignToSelf && loggedInUser?.username && (
+                                    <p className="text-xs mt-2 rounded-md border border-blue-200 bg-blue-50 text-blue-800 px-2 py-1">
+                                        Se autoasignara a {loggedInUser.username} al crear este ticket a tu nombre.
+                                    </p>
+                                )}
                             </div>
                         </div>
                     )}
