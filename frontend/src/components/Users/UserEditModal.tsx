@@ -5,6 +5,7 @@ import api from '../../config/axiosConfig';
 import { useNotification } from '../../context/NotificationContext';
 import { User, Department } from '../../types';
 import { isAxiosErrorTypeGuard, ApiResponseError } from '../../utils/typeGuards';
+import { clInput } from '../../utils/cleanLightUi';
 
 interface UserEditModalProps {
     isOpen: boolean;
@@ -132,11 +133,12 @@ const UserEditModal: React.FC<UserEditModalProps> = ({
                     <input
                         type="text"
                         id="username"
-                        className="shadow appearance-none border rounded-md w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                        className={clInput}
                         value={username}
                         onChange={(e) => setUsername(e.target.value)}
                         disabled={loading}
                         required
+                        autoComplete="username"
                     />
                 </div>
 

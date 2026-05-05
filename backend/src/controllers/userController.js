@@ -107,10 +107,22 @@ const updateUser = asyncHandler(async (req, res) => {
         throw new Error('Usuario no encontrado.');
     }
 
+    const usernameTrimmed = username != null && String(username).trim() !== '' ? String(username).trim() : null;
+    if (usernameTrimmed && usernameTrimmed !== user[0].username) {
+        const [dupUser] = await pool.execute('SELECT id FROM users WHERE username = ? AND id != ?', [usernameTrimmed, id]);
+        if (dupUser.length > 0) {
+            res.status(409);
+            throw new Error('El nombre de usuario ya está en uso.');
+        }
+    }
+
     const updateFields = [];
     const updateValues = [];
 
-    if (username) { updateFields.push('username = ?'); updateValues.push(username); }
+    if (usernameTrimmed) {
+        updateFields.push('username = ?');
+        updateValues.push(usernameTrimmed);
+    }
     if (email) { updateFields.push('email = ?'); updateValues.push(email); }
     if (role) { updateFields.push('role = ?'); updateValues.push(role); }
     if (department_id) { updateFields.push('department_id = ?'); updateValues.push(department_id); }

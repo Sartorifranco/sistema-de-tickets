@@ -6,6 +6,7 @@ import { useAuth } from '../../context/AuthContext';
 import { useNotification } from '../../context/NotificationContext';
 import { isAxiosErrorTypeGuard, ApiResponseError } from '../../utils/typeGuards';
 import { Department, User, UserRole } from '../../types';
+import { clInput } from '../../utils/cleanLightUi';
 
 interface UserFormProps {
     isOpen: boolean;
@@ -146,11 +147,12 @@ const UserForm: React.FC<UserFormProps> = ({ isOpen, onClose, initialData, depar
                             type="text"
                             id="username"
                             name="username"
-                            className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
+                            className={clInput}
                             value={formData.username}
                             onChange={handleChange}
                             required
                             disabled={loading}
+                            autoComplete="username"
                         />
                     </div>
                     <div className="mb-4">

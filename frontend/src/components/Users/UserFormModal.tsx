@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import api from '../../config/axiosConfig';
 import { User, Department, Company, NewUser, UpdateUser, UserRole } from '../../types';
 import { toast } from 'react-toastify';
+import { clInput } from '../../utils/cleanLightUi';
 
 interface UserFormModalProps {
     isOpen: boolean;
@@ -15,6 +16,7 @@ interface UserFormModalProps {
 const UserFormModal: React.FC<UserFormModalProps> = ({ isOpen, onClose, onSave, initialData, departments, companies }) => {
     
     const getInitialFormData = () => ({
+        username: initialData?.username?.trim() || '',
         firstName: '',
         lastName: '',
         email: initialData?.email || '',
@@ -58,15 +60,22 @@ const UserFormModal: React.FC<UserFormModalProps> = ({ isOpen, onClose, onSave, 
         setLoading(true);
         try {
             if (initialData) {
-                // UPDATE (Usa la función onSave del padre)
+                const usernameTrim = formData.username.trim();
+                if (!usernameTrim) {
+                    toast.warn('El nombre de usuario es obligatorio.');
+                    setLoading(false);
+                    return;
+                }
+                // UPDATE (incluye username para edición del nombre mostrado en login / listados)
                 const updateData: UpdateUser = {
+                    username: usernameTrim,
                     email: formData.email,
                     role: formData.role,
                     department_id: formData.department_id,
                     company_id: formData.company_id,
                 };
                 if (formData.password) updateData.password = formData.password;
-                
+
                 await onSave(updateData);
             } else {
                 // CREATE (Nuevo Usuario)
@@ -111,6 +120,25 @@ const UserFormModal: React.FC<UserFormModalProps> = ({ isOpen, onClose, onSave, 
                 </h2>
                 <form onSubmit={handleSubmit}>
                     
+                    {initialData && (
+                        <div className="mb-4">
+                            <label htmlFor="username" className="block text-gray-700 font-medium mb-1">
+                                Nombre de usuario
+                            </label>
+                            <input
+                                type="text"
+                                id="username"
+                                name="username"
+                                value={formData.username}
+                                onChange={handleChange}
+                                autoComplete="username"
+                                className={clInput}
+                                required
+                                disabled={loading}
+                            />
+                        </div>
+                    )}
+
                     {!initialData && (
                         <>
                             {/* CHECKBOX INTERNO */}
