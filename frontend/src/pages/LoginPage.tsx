@@ -54,8 +54,8 @@ const LoginPage: React.FC = () => {
 
     return (
         <div className="flex h-screen min-h-0 w-full flex-col overflow-hidden md:flex-row" style={urbanist}>
-            {/* 70% — video escalado (recorta marca de agua), overlays y degradado fino */}
-            <div className="relative h-[38vh] w-full min-h-0 shrink-0 overflow-hidden bg-slate-900 md:h-full md:w-[70%] md:min-w-0 md:shrink-0">
+            {/* 70% — video escalado (recorta marca de agua) + overlays suaves */}
+            <div className="relative z-0 h-[38vh] w-full min-h-0 shrink-0 overflow-hidden bg-slate-900 md:h-full md:w-[70%] md:min-w-0 md:shrink-0">
                 <video
                     autoPlay
                     muted
@@ -75,16 +75,10 @@ const LoginPage: React.FC = () => {
                     }}
                     aria-hidden
                 />
-                {/* Unión suave con columna blanca: mismo blanco final (#fff) */}
-                {/* Difuminado solo en el último ~5% del panel (borde hacia el formulario) */}
-                <div
-                    className="pointer-events-none absolute inset-0 z-[3] bg-gradient-to-r from-transparent from-[95%] to-white"
-                    aria-hidden
-                />
             </div>
 
-            {/* 30% — ancho completo del panel (sin max-w-sm) para alinear logo, textos e inputs */}
-            <div className="flex min-h-0 w-full flex-1 flex-col items-center justify-center overflow-y-auto bg-white px-5 py-8 sm:px-8 md:h-full md:w-[30%] md:flex-none md:shrink-0 md:px-8 md:py-10 lg:px-10">
+            {/* 30% — sombra hacia la izquierda (difuminado fijo ~4px de invasión blanca sobre el video) */}
+            <div className="relative z-10 flex min-h-0 w-full flex-1 flex-col items-center justify-center overflow-y-auto bg-white px-5 py-8 shadow-[-4px_0_4px_0_rgba(255,255,255,1)] sm:px-8 md:h-full md:w-[30%] md:flex-none md:shrink-0 md:px-8 md:py-10 lg:px-10">
                 <div className="flex w-full max-w-full flex-col font-medium">
                     <div className="flex w-full flex-col items-center text-center">
                         <img
