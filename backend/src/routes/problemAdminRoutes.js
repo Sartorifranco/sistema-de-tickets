@@ -2,7 +2,8 @@ const express = require('express');
 const router = express.Router();
 
 // 1. IMPORTAR MIDDLEWARES DE SEGURIDAD
-const { authenticateToken, authorize } = require('../middleware/authMiddleware');
+const { authenticateToken, authorizeAccess } = require('../middleware/authMiddleware');
+const { PERMISSION_KEYS: P } = require('../constants/permissions');
 
 // 2. IMPORTAR CONTROLADORES (Nombres deben coincidir con problemAdminController.js)
 const {
@@ -21,7 +22,7 @@ const {
 
 // 3. APLICAR SEGURIDAD
 router.use(authenticateToken);
-router.use(authorize('admin'));
+router.use(authorizeAccess(['admin'], { adminPermissions: [P.PROBLEMS_MANAGE] }));
 
 // --- RUTAS DE CATEGORÍAS Y PROBLEMAS ---
 router.get('/problems-all', getAllProblemsAdmin);

@@ -7,6 +7,8 @@ import NotificationBell from '../NotificationBell/NotificationBell';
 import FcmTokenHandler from '../FcmTokenHandler/FcmTokenHandler';
 import PushNotificationButton from '../PushNotificationButton/PushNotificationButton';
 import { canAccessPurchasingModule } from '../../config/purchasingFeatureFlag';
+import { PERMISSION_KEYS as P } from '../../constants/permissions';
+import { hasPermission } from '../../utils/permissions';
 
 const iconClass = 'w-5 h-5 flex-shrink-0';
 
@@ -32,22 +34,42 @@ const Layout: React.FC = () => {
                 return (
                     <>
                         <li className="text-xs uppercase tracking-wider font-bold text-slate-900 mt-2 mb-2 px-3">Admin</li>
-                        <li><NavLink to="/admin" end className={getLinkClassName}><Home className={iconClass} />Dashboard</NavLink></li>
+                        {hasPermission(user, P.DASHBOARD_VIEW) && (
+                            <li><NavLink to="/admin" end className={getLinkClassName}><Home className={iconClass} />Dashboard</NavLink></li>
+                        )}
                         <li><NavLink to="/profile" className={getLinkClassName}><User className={iconClass} />Mi Perfil</NavLink></li>
-                        <li><NavLink to="/admin/users" className={getLinkClassName}><Users className={iconClass} />Usuarios</NavLink></li>
-                        <li><NavLink to="/admin/companies" className={getLinkClassName}><Building className={iconClass} />Empresas</NavLink></li>
-                        <li><NavLink to="/admin/depositarios" className={getLinkClassName}><Landmark className={iconClass} />Gestión de Depositarios</NavLink></li>
-                        <li><NavLink to="/admin/equipos" className={getLinkClassName}><Monitor className={iconClass} />Monitoreo Equipos</NavLink></li>
-                        <li><NavLink to="/admin/monitoreo" className={getLinkClassName}><Activity className={iconClass} />Monitoreo en Tiempo Real</NavLink></li>
-                        <li><NavLink to="/admin/ubicaciones" className={getLinkClassName}><MapPin className={iconClass} />Ubicaciones</NavLink></li>
-                        <li><NavLink to="/admin/problemas" className={getLinkClassName}><AlertTriangle className={iconClass} />Problemáticas</NavLink></li>
-                        <li><NavLink to="/admin/tickets" className={getLinkClassName}><Ticket className={iconClass} />Tickets</NavLink></li>
-                        <li><NavLink to="/admin/reports" className={getLinkClassName}><BarChart3 className={iconClass} />Reportes</NavLink></li>
-                        {canAccessPurchasingModule(user?.email) && (
-                            <>
-                                <li><NavLink to="/purchases" end className={getLinkClassName}><ShoppingCart className={iconClass} />Compras</NavLink></li>
-                                <li><NavLink to="/purchases/invoices" className={getLinkClassName}><FileText className={iconClass} />Facturas</NavLink></li>
-                            </>
+                        {hasPermission(user, P.USERS_VIEW) && (
+                            <li><NavLink to="/admin/users" className={getLinkClassName}><Users className={iconClass} />Usuarios</NavLink></li>
+                        )}
+                        {hasPermission(user, P.COMPANIES_VIEW) && (
+                            <li><NavLink to="/admin/companies" className={getLinkClassName}><Building className={iconClass} />Empresas</NavLink></li>
+                        )}
+                        {hasPermission(user, P.DEPOSITARIOS_VIEW) && (
+                            <li><NavLink to="/admin/depositarios" className={getLinkClassName}><Landmark className={iconClass} />Gestión de Depositarios</NavLink></li>
+                        )}
+                        {hasPermission(user, P.MONITORING_EQUIPOS) && (
+                            <li><NavLink to="/admin/equipos" className={getLinkClassName}><Monitor className={iconClass} />Monitoreo Equipos</NavLink></li>
+                        )}
+                        {hasPermission(user, P.MONITORING_REALTIME) && (
+                            <li><NavLink to="/admin/monitoreo" className={getLinkClassName}><Activity className={iconClass} />Monitoreo en Tiempo Real</NavLink></li>
+                        )}
+                        {hasPermission(user, P.LOCATIONS_MANAGE) && (
+                            <li><NavLink to="/admin/ubicaciones" className={getLinkClassName}><MapPin className={iconClass} />Ubicaciones</NavLink></li>
+                        )}
+                        {hasPermission(user, P.PROBLEMS_MANAGE) && (
+                            <li><NavLink to="/admin/problemas" className={getLinkClassName}><AlertTriangle className={iconClass} />Problemáticas</NavLink></li>
+                        )}
+                        {hasPermission(user, P.TICKETS_VIEW) && (
+                            <li><NavLink to="/admin/tickets" className={getLinkClassName}><Ticket className={iconClass} />Tickets</NavLink></li>
+                        )}
+                        {hasPermission(user, P.REPORTS_VIEW) && (
+                            <li><NavLink to="/admin/reports" className={getLinkClassName}><BarChart3 className={iconClass} />Reportes</NavLink></li>
+                        )}
+                        {canAccessPurchasingModule(user?.email) && hasPermission(user, P.PURCHASES_VIEW) && (
+                            <li><NavLink to="/purchases" end className={getLinkClassName}><ShoppingCart className={iconClass} />Compras</NavLink></li>
+                        )}
+                        {canAccessPurchasingModule(user?.email) && hasPermission(user, P.PURCHASES_INVOICES) && (
+                            <li><NavLink to="/purchases/invoices" className={getLinkClassName}><FileText className={iconClass} />Facturas</NavLink></li>
                         )}
                     </>
                 );

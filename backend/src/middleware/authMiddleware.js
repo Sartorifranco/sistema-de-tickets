@@ -1,5 +1,6 @@
 const jwt = require('jsonwebtoken');
 const pool = require('../config/db');
+const { loadUserAuthExtras, userHasAllPermissions } = require('../services/userPermissionsService');
 
 /**
  * Middleware de autenticación JWT.
@@ -15,7 +16,6 @@ const pool = require('../config/db');
 const authenticateToken = async (req, res, next) => {
     const authHeader = req.headers.authorization;
 
-    // 1. Verificar presencia del header
     if (!authHeader || !authHeader.startsWith('Bearer ')) {
         return res.status(401).json({
             success: false,
@@ -26,7 +26,6 @@ const authenticateToken = async (req, res, next) => {
 
     const token = authHeader.split(' ')[1];
 
-    // 2. Verificar y decodificar el JWT (separado del lookup en BD)
     let decoded;
     try {
         decoded = jwt.verify(token, process.env.JWT_SECRET);
@@ -48,10 +47,10 @@ const authenticateToken = async (req, res, next) => {
         });
     }
 
-    // 3. Buscar el usuario en la BD con el id del payload
     try {
         const [rows] = await pool.execute(
             `SELECT u.id, u.username, u.email, u.role, u.department_id, u.company_id,
+                    u.is_super_admin,
                     c.name AS company_name
              FROM users u
              LEFT JOIN companies c ON u.company_id = c.id
@@ -67,15 +66,21 @@ const authenticateToken = async (req, res, next) => {
             });
         }
 
-        req.user = rows[0];
+        const user = rows[0];
+        const extras = await loadUserAuthExtras(user.id);
+        req.user = {
+            ...user,
+            is_super_admin: extras.is_super_admin,
+            permissions: extras.permissions,
+        };
         return next();
     } catch (dbError) {
-        // Los errores de BD se delegan al manejador global de Express
         console.error('[AuthMiddleware] Error de base de datos:', dbError.message);
         return next(dbError);
     }
 };
 
+/** Compatibilidad: solo verifica rol (sin RBAC para admin) */
 const authorize = (roles = []) => {
     if (typeof roles === 'string') {
         roles = [roles];
@@ -102,4 +107,70 @@ const authorize = (roles = []) => {
     };
 };
 
-module.exports = { authenticateToken, authorize };
+/**
+ * Control de acceso por rol + permisos granulares para admins.
+ *
+ * - Roles distintos de admin: solo deben estar en `roles`.
+ * - Admin super: acceso total.
+ * - Admin sin super: requiere `adminPermissions` (todas las claves listadas).
+ */
+const authorizeAccess = (roles = [], options = {}) => {
+    if (typeof roles === 'string') {
+        roles = [roles];
+    }
+    const adminPermissions = options.adminPermissions || [];
+
+    return (req, res, next) => {
+        if (!req.user) {
+            return res.status(401).json({
+                success: false,
+                message: 'No autorizado.',
+                code: 'NO_TOKEN',
+            });
+        }
+
+        const { role } = req.user;
+
+        if (!roles.includes(role)) {
+            return res.status(403).json({
+                success: false,
+                message: 'No tenés permiso para acceder a este recurso.',
+                code: 'FORBIDDEN',
+            });
+        }
+
+        if (role === 'admin' && adminPermissions.length > 0) {
+            if (!userHasAllPermissions(req.user, adminPermissions)) {
+                return res.status(403).json({
+                    success: false,
+                    message: 'No tenés permiso para esta acción.',
+                    code: 'FORBIDDEN',
+                });
+            }
+        }
+
+        return next();
+    };
+};
+
+/** Solo super admin o permiso permissions.manage */
+const requirePermissionsManager = (req, res, next) => {
+    if (!req.user) {
+        return res.status(401).json({ success: false, message: 'No autorizado.', code: 'NO_TOKEN' });
+    }
+    if (req.user.is_super_admin || userHasAllPermissions(req.user, ['permissions.manage'])) {
+        return next();
+    }
+    return res.status(403).json({
+        success: false,
+        message: 'Solo un super administrador puede gestionar permisos.',
+        code: 'FORBIDDEN',
+    });
+};
+
+module.exports = {
+    authenticateToken,
+    authorize,
+    authorizeAccess,
+    requirePermissionsManager,
+};

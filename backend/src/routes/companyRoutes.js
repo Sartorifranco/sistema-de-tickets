@@ -5,28 +5,27 @@ const {
     getCompanyById,
     createCompany,
     updateCompany,
-    deleteCompany
+    deleteCompany,
 } = require('../controllers/companyController');
 const { getDepartmentsByCompany } = require('../controllers/departmentController');
-const { authenticateToken, authorize } = require('../middleware/authMiddleware');
+const { authenticateToken, authorize, authorizeAccess } = require('../middleware/authMiddleware');
+const { PERMISSION_KEYS: P } = require('../constants/permissions');
 
 router.use(authenticateToken);
 
-// Rutas para /api/companies (Lista general)
-router.route('/')
-    // La lista completa la ven Admin y Agente (para filtros)
-    .get(authorize(['admin', 'agent']), getAllCompanies)
-    .post(authorize(['admin']), createCompany);
+router
+    .route('/')
+    .get(authorizeAccess(['admin', 'agent'], { adminPermissions: [P.COMPANIES_VIEW] }), getAllCompanies)
+    .post(authorizeAccess(['admin'], { adminPermissions: [P.COMPANIES_MANAGE] }), createCompany);
 
-// Rutas para /api/companies/:id (Detalle de UNA empresa)
-router.route('/:id')
-    // Todos los roles con perfil (cliente, jefe, compras, proveedor) necesitan ver su empresa.
+router
+    .route('/:id')
     .get(authorize(['admin', 'agent', 'client', 'boss', 'purchasing', 'supplier']), getCompanyById)
-    .put(authorize(['admin']), updateCompany)
-    .delete(authorize(['admin']), deleteCompany);
+    .put(authorizeAccess(['admin'], { adminPermissions: [P.COMPANIES_MANAGE] }), updateCompany)
+    .delete(authorizeAccess(['admin'], { adminPermissions: [P.COMPANIES_MANAGE] }), deleteCompany);
 
-// Ruta para departamentos
-router.route('/:companyId/departments')
-    .get(authorize(['admin', 'agent']), getDepartmentsByCompany);
+router
+    .route('/:companyId/departments')
+    .get(authorizeAccess(['admin', 'agent'], { adminPermissions: [P.COMPANIES_VIEW] }), getDepartmentsByCompany);
 
 module.exports = router;

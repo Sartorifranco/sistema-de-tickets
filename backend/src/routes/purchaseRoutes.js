@@ -4,7 +4,8 @@
  */
 const express = require('express');
 const router = express.Router();
-const { authenticateToken, authorize } = require('../middleware/authMiddleware');
+const { authenticateToken, authorize, authorizeAccess } = require('../middleware/authMiddleware');
+const { PERMISSION_KEYS: P } = require('../constants/permissions');
 const uploadMiddleware = require('../middleware/uploadMiddleware');
 const {
     magicApprove,
@@ -62,8 +63,16 @@ router.get('/pending-approvals', authorize(['boss']), getPendingApprovals);
 router.put('/:id/approve', authorize(['boss']), approveRequest);
 
 // Encargado de Compras (invoices debe ir antes de :purchaseId)
-router.get('/invoices', authorize(['purchasing', 'admin']), getInvoices);
-router.get('/metrics', authorize(['purchasing', 'admin']), getPurchaseMetrics);
+router.get(
+    '/invoices',
+    authorizeAccess(['purchasing', 'admin'], { adminPermissions: [P.PURCHASES_INVOICES] }),
+    getInvoices
+);
+router.get(
+    '/metrics',
+    authorizeAccess(['purchasing', 'admin'], { adminPermissions: [P.PURCHASES_VIEW] }),
+    getPurchaseMetrics
+);
 router.get('/dashboard', authorize(['purchasing']), getPurchasesDashboard);
 router.get('/all', authorize(['purchasing']), getAllPurchases);
 router.put('/:id/mark-received', authorize(['purchasing']), markPurchaseReceived);

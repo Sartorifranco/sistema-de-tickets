@@ -59,12 +59,17 @@ PORT=5040
 ### 2.3 Ejecutar migraciones
 
 ```bash
-# Si usas migraciones SQL manuales
-mysql -u root -p ticket_system < migrations/create_user_fcm_tokens.sql
+cd backend
 
-# O el script de migración
-node run-migration-fcm.js
+# RBAC (permisos granulares para admins) — obligatorio desde mayo 2026
+node scripts/run-rbac-migration.js
+
+# Otras migraciones (si aún no se aplicaron)
+# mysql -u root -p ticket_system < migrations/create_user_fcm_tokens.sql
+# node run-migration-fcm.js
 ```
+
+La migración RBAC crea `user_permissions`, agrega `users.is_super_admin` y marca como **super admin** a todos los admins existentes (no cambia el acceso actual hasta que edites permisos en la UI).
 
 ### 2.4 Iniciar con PM2 (recomendado)
 
@@ -181,9 +186,31 @@ cd sistema-de-tickets
 git pull origin main
 
 # Backend
-cd backend && npm install --production && pm2 restart sistema-tickets-api
+cd backend
+npm install --production
+node scripts/run-rbac-migration.js
+pm2 restart sistema-tickets-api
 
 # Frontend
-cd ../frontend && REACT_APP_BACKEND_URL=https://bacarsa.dyndns.org npm run build
-# Copiar frontend/build/* al directorio de Nginx
+cd ../frontend
+set REACT_APP_BACKEND_URL=https://bacarsa.dyndns.org
+npm install
+npm run build
+# Copiar frontend/build/* al directorio que sirve Nginx (o IIS)
 ```
+
+### Windows (servidor en `C:\ST - Bacar`)
+
+```cmd
+cd C:\ST - Bacar
+git pull origin main
+cd backend
+npm install --production
+node scripts\run-rbac-migration.js
+cd ..\frontend
+set REACT_APP_BACKEND_URL=https://bacarsa.dyndns.org
+npm install
+npm run build
+```
+
+Reiniciar el proceso Node (PM2, servicio de Windows o la consola donde corre `node src/app.js`).

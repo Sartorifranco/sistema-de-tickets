@@ -7,6 +7,9 @@ import { isAxiosErrorTypeGuard } from '../utils/typeGuards';
 import { toast } from 'react-toastify';
 import UserFormModal from '../components/Users/UserFormModal';
 import ResetPasswordModal from '../components/Users/ResetPasswordModal';
+import UserPermissionsModal from '../components/Users/UserPermissionsModal';
+import { PERMISSION_KEYS as P } from '../constants/permissions';
+import { canManagePermissions, hasPermission } from '../utils/permissions';
 
 const AdminUsersPage: React.FC = () => {
     const { user } = useAuth();
@@ -20,6 +23,8 @@ const AdminUsersPage: React.FC = () => {
     const [currentUser, setCurrentUser] = useState<User | null>(null);
     const [isResetModalOpen, setIsResetModalOpen] = useState(false);
     const [selectedUserForReset, setSelectedUserForReset] = useState<User | null>(null);
+    const [permissionsTarget, setPermissionsTarget] = useState<User | null>(null);
+    const [isPermissionsModalOpen, setIsPermissionsModalOpen] = useState(false);
 
     const [allDepartments, setAllDepartments] = useState<Department[]>([]);
     const [allCompanies, setAllCompanies] = useState<Company[]>([]);
@@ -52,7 +57,7 @@ const AdminUsersPage: React.FC = () => {
     }, [addNotification]);
 
     useEffect(() => {
-        if (user?.role === 'admin') {
+        if (user?.role === 'admin' && hasPermission(user, P.USERS_VIEW)) {
             fetchData();
         }
     }, [user, fetchData]);
@@ -126,9 +131,11 @@ const AdminUsersPage: React.FC = () => {
             <div className="container mx-auto p-4 sm:p-6 lg:p-8 bg-gray-50 min-h-screen">
                 <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-4 mb-6">
                     <h1 className="text-2xl sm:text-3xl font-bold text-gray-800">Gestión de Usuarios</h1>
-                    <button onClick={handleCreateUser} className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-lg shadow-md self-start sm:self-center">
-                        Crear Nuevo Usuario
-                    </button>
+                    {hasPermission(user, P.USERS_CREATE) && (
+                        <button onClick={handleCreateUser} className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-lg shadow-md self-start sm:self-center">
+                            Crear Nuevo Usuario
+                        </button>
+                    )}
                 </div>
 
                 <div className="mb-6">
@@ -170,9 +177,26 @@ const AdminUsersPage: React.FC = () => {
                                             <td className="px-6 py-4 whitespace-nowrap">{userItem.role}</td>
                                             <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{allCompanies.find(c => c.id === userItem.company_id)?.name || 'N/A'}</td>
                                             <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                                                <button onClick={() => handleEditUser(userItem)} className="text-indigo-600 hover:text-indigo-900 mr-4">Editar</button>
-                                                <button onClick={() => handleOpenResetModal(userItem)} className="text-yellow-600 hover:text-yellow-900 mr-4">Resetear</button>
-                                                <button onClick={() => handleDeleteUser(userItem.id)} className="text-red-600 hover:text-red-900">Eliminar</button>
+                                                {hasPermission(user, P.USERS_EDIT) && (
+                                                    <button onClick={() => handleEditUser(userItem)} className="text-indigo-600 hover:text-indigo-900 mr-4">Editar</button>
+                                                )}
+                                                {hasPermission(user, P.USERS_RESET_PASSWORD) && (
+                                                    <button onClick={() => handleOpenResetModal(userItem)} className="text-yellow-600 hover:text-yellow-900 mr-4">Resetear</button>
+                                                )}
+                                                {userItem.role === 'admin' && canManagePermissions(user) && (
+                                                    <button
+                                                        onClick={() => {
+                                                            setPermissionsTarget(userItem);
+                                                            setIsPermissionsModalOpen(true);
+                                                        }}
+                                                        className="text-blue-700 hover:text-blue-900 mr-4"
+                                                    >
+                                                        Permisos
+                                                    </button>
+                                                )}
+                                                {hasPermission(user, P.USERS_DELETE) && (
+                                                    <button onClick={() => handleDeleteUser(userItem.id)} className="text-red-600 hover:text-red-900">Eliminar</button>
+                                                )}
                                             </td>
                                         </tr>
                                     ))}
@@ -193,10 +217,27 @@ const AdminUsersPage: React.FC = () => {
                                         <div className="text-sm text-gray-600 mt-2">
                                             <p><strong>Empresa:</strong> {allCompanies.find(c => c.id === userItem.company_id)?.name || 'N/A'}</p>
                                         </div>
-                                        <div className="mt-4 pt-2 border-t flex justify-end gap-4 text-sm">
-                                            <button onClick={() => handleEditUser(userItem)} className="text-indigo-600 font-semibold hover:underline">Editar</button>
-                                            <button onClick={() => handleOpenResetModal(userItem)} className="text-yellow-600 font-semibold hover:underline">Resetear</button>
-                                            <button onClick={() => handleDeleteUser(userItem.id)} className="text-red-600 font-semibold hover:underline">Eliminar</button>
+                                        <div className="mt-4 pt-2 border-t flex justify-end gap-4 text-sm flex-wrap">
+                                            {hasPermission(user, P.USERS_EDIT) && (
+                                                <button onClick={() => handleEditUser(userItem)} className="text-indigo-600 font-semibold hover:underline">Editar</button>
+                                            )}
+                                            {hasPermission(user, P.USERS_RESET_PASSWORD) && (
+                                                <button onClick={() => handleOpenResetModal(userItem)} className="text-yellow-600 font-semibold hover:underline">Resetear</button>
+                                            )}
+                                            {userItem.role === 'admin' && canManagePermissions(user) && (
+                                                <button
+                                                    onClick={() => {
+                                                        setPermissionsTarget(userItem);
+                                                        setIsPermissionsModalOpen(true);
+                                                    }}
+                                                    className="text-blue-700 font-semibold hover:underline"
+                                                >
+                                                    Permisos
+                                                </button>
+                                            )}
+                                            {hasPermission(user, P.USERS_DELETE) && (
+                                                <button onClick={() => handleDeleteUser(userItem.id)} className="text-red-600 font-semibold hover:underline">Eliminar</button>
+                                            )}
                                         </div>
                                     </div>
                                 ))}
@@ -222,6 +263,17 @@ const AdminUsersPage: React.FC = () => {
                 onClose={() => setIsResetModalOpen(false)}
                 onConfirm={handleConfirmResetPassword}
                 user={selectedUserForReset}
+            />
+
+            <UserPermissionsModal
+                isOpen={isPermissionsModalOpen}
+                onClose={() => {
+                    setIsPermissionsModalOpen(false);
+                    setPermissionsTarget(null);
+                }}
+                targetUser={permissionsTarget}
+                onSaved={fetchData}
+                canGrantSuperAdmin={!!user?.is_super_admin}
             />
         </>
     );

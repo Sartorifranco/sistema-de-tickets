@@ -30,6 +30,7 @@ import ClientDashboard from './pages/ClientDashboard';
 import ClientTicketsPage from './pages/ClientMyTicketsPage';
 import ClientTicketDetailPage from './pages/ClientTicketDetailPage';
 import PrivateRoute from './components/Common/PrivateRoute';
+import { PERMISSION_KEYS as P } from './constants/permissions';
 import PurchasingRouteGuard from './components/Common/PurchasingRouteGuard';
 import ReportsPage from './pages/ReportsPage';
 import AdminProblemsPage from './pages/AdminProblemsPage'; 
@@ -103,20 +104,18 @@ const App: React.FC = () => {
                             <Route path="/profile" element={<PrivateRoute><ProfilePage /></PrivateRoute>} />
 
                             {/* Rutas de Admin */}
-                            <Route path="/admin" element={<PrivateRoute roles={['admin']}><AdminDashboard /></PrivateRoute>} />
-                            <Route path="/admin/users" element={<PrivateRoute roles={['admin']}><AdminUsersPage /></PrivateRoute>} />
-                            <Route path="/admin/companies" element={<PrivateRoute roles={['admin']}><AdminCompaniesPage /></PrivateRoute>} />
-                            <Route path="/admin/companies/:companyId/departments" element={<PrivateRoute roles={['admin']}><AdminCompanyDepartmentsPage /></PrivateRoute>} />
-                            <Route path="/admin/tickets" element={<PrivateRoute roles={['admin']}><AdminTicketsPage /></PrivateRoute>} />
-                            <Route path="/admin/tickets/:id" element={<PrivateRoute roles={['admin']}><AdminTicketDetailPage /></PrivateRoute>} />
-                            <Route path="/admin/reports" element={<PrivateRoute roles={['admin']}><AdminReportsPage /></PrivateRoute>} />
-                            <Route path="/admin/problemas" element={<PrivateRoute roles={['admin']}><AdminProblemsPage /></PrivateRoute>} />
-                            <Route path="/admin/ubicaciones" element={<PrivateRoute roles={['admin']}><AdminLocationsPage /></PrivateRoute>} />
-                            
-                            {/* ✅ NUEVO: Ruta para Depositarios (Admin) */}
-                            <Route path="/admin/depositarios" element={<PrivateRoute roles={['admin']}><DepositariosPage /></PrivateRoute>} />
-                            <Route path="/admin/equipos" element={<PrivateRoute roles={['admin']}><EquipmentMonitoringPage /></PrivateRoute>} />
-                            <Route path="/admin/monitoreo" element={<PrivateRoute roles={['admin']}><MonitoringPage /></PrivateRoute>} />
+                            <Route path="/admin" element={<PrivateRoute roles={['admin']} permission={P.DASHBOARD_VIEW}><AdminDashboard /></PrivateRoute>} />
+                            <Route path="/admin/users" element={<PrivateRoute roles={['admin']} permission={P.USERS_VIEW}><AdminUsersPage /></PrivateRoute>} />
+                            <Route path="/admin/companies" element={<PrivateRoute roles={['admin']} permission={P.COMPANIES_VIEW}><AdminCompaniesPage /></PrivateRoute>} />
+                            <Route path="/admin/companies/:companyId/departments" element={<PrivateRoute roles={['admin']} permission={P.COMPANIES_MANAGE}><AdminCompanyDepartmentsPage /></PrivateRoute>} />
+                            <Route path="/admin/tickets" element={<PrivateRoute roles={['admin']} permission={P.TICKETS_VIEW}><AdminTicketsPage /></PrivateRoute>} />
+                            <Route path="/admin/tickets/:id" element={<PrivateRoute roles={['admin']} permission={P.TICKETS_VIEW}><AdminTicketDetailPage /></PrivateRoute>} />
+                            <Route path="/admin/reports" element={<PrivateRoute roles={['admin']} permission={P.REPORTS_VIEW}><AdminReportsPage /></PrivateRoute>} />
+                            <Route path="/admin/problemas" element={<PrivateRoute roles={['admin']} permission={P.PROBLEMS_MANAGE}><AdminProblemsPage /></PrivateRoute>} />
+                            <Route path="/admin/ubicaciones" element={<PrivateRoute roles={['admin']} permission={P.LOCATIONS_MANAGE}><AdminLocationsPage /></PrivateRoute>} />
+                            <Route path="/admin/depositarios" element={<PrivateRoute roles={['admin']} permission={P.DEPOSITARIOS_VIEW}><DepositariosPage /></PrivateRoute>} />
+                            <Route path="/admin/equipos" element={<PrivateRoute roles={['admin']} permission={P.MONITORING_EQUIPOS}><EquipmentMonitoringPage /></PrivateRoute>} />
+                            <Route path="/admin/monitoreo" element={<PrivateRoute roles={['admin']} permission={P.MONITORING_REALTIME}><MonitoringPage /></PrivateRoute>} />
 
                             {/* Rutas de Agente */}
                             <Route path="/agent" element={<PrivateRoute roles={['agent']}><AgentDashboard /></PrivateRoute>} />
@@ -139,9 +138,9 @@ const App: React.FC = () => {
                             <Route path="/purchases/new" element={<PrivateRoute><PurchasingRouteGuard><PurchaseRequestPage /></PurchasingRouteGuard></PrivateRoute>} />
                             <Route path="/purchases/approvals" element={<PrivateRoute roles={['boss']}><PurchasingRouteGuard><BossApprovalPage /></PurchasingRouteGuard></PrivateRoute>} />
                             <Route path="/purchases/management" element={<PrivateRoute roles={['purchasing']}><PurchasingRouteGuard><PurchasingAgentPage /></PurchasingRouteGuard></PrivateRoute>} />
-                            <Route path="/purchases/metrics" element={<PrivateRoute roles={['purchasing', 'admin']}><PurchasingRouteGuard><PurchasingMetricsPage /></PurchasingRouteGuard></PrivateRoute>} />
+                            <Route path="/purchases/metrics" element={<PrivateRoute roles={['purchasing', 'admin']} permission={P.PURCHASES_VIEW}><PurchasingRouteGuard><PurchasingMetricsPage /></PurchasingRouteGuard></PrivateRoute>} />
                             <Route path="/purchases/management/:purchaseId" element={<PrivateRoute roles={['purchasing']}><PurchasingRouteGuard><PurchaseDetailPage /></PurchasingRouteGuard></PrivateRoute>} />
-                            <Route path="/purchases/invoices" element={<PrivateRoute roles={['purchasing', 'admin']}><PurchasingRouteGuard><InvoicesPage /></PurchasingRouteGuard></PrivateRoute>} />
+                            <Route path="/purchases/invoices" element={<PrivateRoute roles={['purchasing', 'admin']} permission={P.PURCHASES_INVOICES}><PurchasingRouteGuard><InvoicesPage /></PurchasingRouteGuard></PrivateRoute>} />
                         </Route>
 
                         <Route path="*" element={<NotFoundPage />} />

@@ -1,46 +1,53 @@
 const express = require('express');
 const router = express.Router();
-const { 
-    createUser, 
-    getAllUsers, 
-    getUserById, 
-    updateUser, 
+const {
+    createUser,
+    getAllUsers,
+    getUserById,
+    updateUser,
     deleteUser,
-    getAgentStats, 
-    changePassword, 
+    getAgentStats,
+    changePassword,
     adminResetPassword,
     getAgents,
     getAgentActiveTickets,
     getMyNotificationPreferences,
-    updateMyNotificationPreferences
+    updateMyNotificationPreferences,
 } = require('../controllers/userController');
-const { authenticateToken, authorize } = require('../middleware/authMiddleware');
+const { authenticateToken, authorizeAccess } = require('../middleware/authMiddleware');
+const { PERMISSION_KEYS: P } = require('../constants/permissions');
 
-// Proteger todas las rutas
 router.use(authenticateToken);
 
-// --- RUTAS DE GESTIÓN DE USUARIOS ---
+router
+    .route('/')
+    .get(authorizeAccess(['admin', 'agent'], { adminPermissions: [P.USERS_VIEW] }), getAllUsers)
+    .post(authorizeAccess(['admin', 'agent'], { adminPermissions: [P.USERS_CREATE] }), createUser);
 
-router.route('/')
-    .get(authorize(['admin', 'agent']), getAllUsers) // ✅ Agentes pueden ver la lista (para asignar)
-    .post(authorize(['admin', 'agent']), createUser); // ✅ CRÍTICO: Agentes pueden crear usuarios (Internos)
+router.route('/agents').get(authorizeAccess(['admin', 'agent'], { adminPermissions: [P.USERS_VIEW] }), getAgents);
 
-router.route('/agents')
-    .get(authorize(['admin', 'agent']), getAgents);
-
-router.route('/me/notification-preferences')
+router
+    .route('/me/notification-preferences')
     .get(getMyNotificationPreferences)
     .put(updateMyNotificationPreferences);
 
-router.route('/:id')
-    .get(authorize(['admin', 'agent']), getUserById)
-    .put(authorize(['admin']), updateUser)   // Solo admin edita datos sensibles por ahora
-    .delete(authorize(['admin']), deleteUser); // Solo admin borra
+router
+    .route('/:id')
+    .get(authorizeAccess(['admin', 'agent'], { adminPermissions: [P.USERS_VIEW] }), getUserById)
+    .put(authorizeAccess(['admin'], { adminPermissions: [P.USERS_EDIT] }), updateUser)
+    .delete(authorizeAccess(['admin'], { adminPermissions: [P.USERS_DELETE] }), deleteUser);
 
-// --- OTRAS RUTAS ---
-router.get('/:id/stats', authorize(['admin', 'agent']), getAgentStats);
+router.get('/:id/stats', authorizeAccess(['admin', 'agent'], { adminPermissions: [P.USERS_VIEW] }), getAgentStats);
 router.put('/change-password', changePassword);
-router.put('/:id/reset-password', authorize(['admin']), adminResetPassword);
-router.get('/:id/active-tickets', authorize(['admin', 'agent']), getAgentActiveTickets);
+router.put(
+    '/:id/reset-password',
+    authorizeAccess(['admin'], { adminPermissions: [P.USERS_RESET_PASSWORD] }),
+    adminResetPassword
+);
+router.get(
+    '/:id/active-tickets',
+    authorizeAccess(['admin', 'agent'], { adminPermissions: [P.TICKETS_VIEW] }),
+    getAgentActiveTickets
+);
 
 module.exports = router;

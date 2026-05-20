@@ -4,6 +4,7 @@ const jwt = require('jsonwebtoken');
 const asyncHandler = require('express-async-handler');
 const crypto = require('crypto');
 const { sendActivationEmail, sendWelcomeEmail } = require('../services/emailService');
+const { buildAuthUserPayload } = require('../services/userPermissionsService');
 
 // ✅ --- registerUser (VERSIÓN MEJORADA) ---
 // Ahora genera el username automáticamente en formato camelCase y asegura que sea único.
@@ -119,21 +120,14 @@ const loginUser = asyncHandler(async (req, res) => {
         ? await pool.execute('SELECT name FROM companies WHERE id = ?', [user.company_id])
         : [[{ name: null }]];
     const company_name = companyRow[0]?.name || null;
+    const userPayload = await buildAuthUserPayload({ ...user, company_name });
 
     res.status(200).json({
         success: true,
         message: 'Inicio de sesión exitoso',
         token,
         refreshToken,
-        user: {
-            id: user.id,
-            username: user.username,
-            email: user.email,
-            role: user.role,
-            company_id: user.company_id,
-            department_id: user.department_id,
-            company_name,
-        },
+        user: userPayload,
     });
 });
 
@@ -144,16 +138,8 @@ const getMe = asyncHandler(async (req, res) => {
         res.status(404);
         throw new Error('Usuario no encontrado.');
     }
-    res.status(200).json({ success: true, user: {
-            id: user.id,
-            username: user.username,
-            email: user.email,
-            role: user.role,
-            company_id: user.company_id,
-            department_id: user.department_id,
-            company_name: user.company_name || null,
-        },
-    });
+    const userPayload = await buildAuthUserPayload(user);
+    res.status(200).json({ success: true, user: userPayload });
 });
 
 // --- validateInvitationToken (Proveedores - Público) ---
@@ -246,6 +232,7 @@ const refreshTokenHandler = asyncHandler(async (req, res) => {
 
     const [rows] = await pool.execute(
         `SELECT u.id, u.username, u.email, u.role, u.department_id, u.company_id,
+                u.is_super_admin,
                 c.name AS company_name
          FROM users u LEFT JOIN companies c ON u.company_id = c.id WHERE u.id = ?`,
         [decoded.id]
@@ -267,18 +254,11 @@ const refreshTokenHandler = asyncHandler(async (req, res) => {
         { expiresIn: '7d' }
     );
 
+    const userPayload = await buildAuthUserPayload(user);
     res.status(200).json({
         success: true,
         token: newAccessToken,
-        user: {
-            id: user.id,
-            username: user.username,
-            email: user.email,
-            role: user.role,
-            company_id: user.company_id,
-            department_id: user.department_id,
-            company_name: user.company_name || null,
-        },
+        user: userPayload,
     });
 });
 

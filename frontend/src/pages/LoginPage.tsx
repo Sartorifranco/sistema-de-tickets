@@ -4,6 +4,7 @@ import { useAuth } from '../context/AuthContext';
 import { useNotification } from '../context/NotificationContext';
 import { toast } from 'react-toastify';
 import { clInput } from '../utils/cleanLightUi';
+import { getDefaultPathForUser } from '../utils/permissions';
 
 /** Video local en `public/assets/video/`. */
 const LOGIN_VIDEO = '/assets/video/login-video.mp4';
@@ -29,9 +30,7 @@ const LoginPage: React.FC = () => {
 
     useEffect(() => {
         if (user) {
-            if (user.role === 'supplier') navigate('/purchases', { replace: true });
-            else if (user.role === 'boss' || user.role === 'purchasing') navigate('/client', { replace: true });
-            else navigate(`/${user.role}`, { replace: true });
+            navigate(getDefaultPathForUser(user), { replace: true });
         }
     }, [user, navigate]);
 

@@ -43,8 +43,11 @@ export interface User {
     department_id: number | null;
     company_id: number | null;
     company_name?: string;
-    created_at: string;
-    updated_at: string;
+    created_at?: string;
+    updated_at?: string;
+    /** RBAC: solo rol admin */
+    is_super_admin?: boolean;
+    permissions?: string[];
 }
 
 // ====================================================================

@@ -17,45 +17,55 @@ const {
     getDepartments,
 } = require('../controllers/ticketController');
 
-const { authenticateToken, authorize } = require('../middleware/authMiddleware');
+const { authenticateToken, authorize, authorizeAccess } = require('../middleware/authMiddleware');
+const { PERMISSION_KEYS: P } = require('../constants/permissions');
 const upload = require('../middleware/uploadMiddleware');
 
-// Este middleware se aplica a todas las rutas de este archivo
 router.use(authenticateToken);
 
-// Rutas para que el formulario pueda obtener las categorías y departamentos.
 router.get('/categories', authorize(['admin', 'agent', 'client', 'boss', 'purchasing']), getCategories);
 router.get('/departments', authorize(['admin', 'agent', 'client', 'boss', 'purchasing']), getDepartments);
 
-// Rutas para la colección de tickets
-router.route('/')
-    .get(authorize(['admin', 'agent', 'client', 'boss', 'purchasing']), getTickets)
-    .post(upload.array('attachments'), authorize(['client', 'admin', 'agent', 'boss', 'purchasing']), createTicket);
+router
+    .route('/')
+    .get(authorizeAccess(['admin', 'agent', 'client', 'boss', 'purchasing'], { adminPermissions: [P.TICKETS_VIEW] }), getTickets)
+    .post(
+        upload.array('attachments'),
+        authorize(['client', 'admin', 'agent', 'boss', 'purchasing']),
+        createTicket
+    );
 
-// Rutas para acciones específicas sobre un ticket
-router.route('/:id/assign')
-    .put(authorize(['admin', 'agent']), assignTicketToSelf);
+router
+    .route('/:id/assign')
+    .put(authorizeAccess(['admin', 'agent'], { adminPermissions: [P.TICKETS_ASSIGN] }), assignTicketToSelf);
 
-router.route('/:id/reassign')
-    .put(authorize(['admin', 'agent']), reassignTicket);
+router
+    .route('/:id/reassign')
+    .put(authorizeAccess(['admin', 'agent'], { adminPermissions: [P.TICKETS_ASSIGN] }), reassignTicket);
 
-router.route('/:id/status')
+router
+    .route('/:id/status')
     .put(authorize(['admin', 'agent', 'client', 'boss', 'purchasing']), updateTicketStatus);
 
 router
     .route('/:id/github-commits')
-    .get(authorize(['admin', 'agent']), getTicketGithubCommits);
+    .get(authorizeAccess(['admin', 'agent'], { adminPermissions: [P.TICKETS_VIEW] }), getTicketGithubCommits);
 
-// Rutas para un ticket individual (por ID)
-router.route('/:id')
-    .get(authorize(['admin', 'agent', 'client', 'boss', 'purchasing']), getTicketById)
-    .put(authorize(['admin', 'agent']), updateTicket)
-    .delete(authorize(['admin']), deleteTicket);
+router
+    .route('/:id')
+    .get(
+        authorizeAccess(['admin', 'agent', 'client', 'boss', 'purchasing'], { adminPermissions: [P.TICKETS_VIEW] }),
+        getTicketById
+    )
+    .put(authorizeAccess(['admin', 'agent'], { adminPermissions: [P.TICKETS_EDIT] }), updateTicket)
+    .delete(authorizeAccess(['admin'], { adminPermissions: [P.TICKETS_DELETE] }), deleteTicket);
 
-// Rutas para los comentarios de un ticket
-router.route('/:id/comments')
-    .get(authorize(['admin', 'agent', 'client', 'boss', 'purchasing']), getTicketComments)
+router
+    .route('/:id/comments')
+    .get(
+        authorizeAccess(['admin', 'agent', 'client', 'boss', 'purchasing'], { adminPermissions: [P.TICKETS_VIEW] }),
+        getTicketComments
+    )
     .post(authorize(['admin', 'agent', 'client', 'boss', 'purchasing']), addCommentToTicket);
 
 module.exports = router;
-

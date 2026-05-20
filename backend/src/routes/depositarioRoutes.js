@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
-const { authenticateToken, authorize } = require('../middleware/authMiddleware');
+const { authenticateToken, authorizeAccess } = require('../middleware/authMiddleware');
+const { PERMISSION_KEYS: P } = require('../constants/permissions');
 const {
     getDepositarios,
     createDepositario,
@@ -14,39 +15,41 @@ const {
     getRouteHistory,
     getDepositaryReports,
     getDepositaryAnalysis,
-    finalizeRoute // <--- 1. IMPORTANTE: Que esté importado aquí
+    finalizeRoute,
 } = require('../controllers/depositarioController');
+
+const depView = { adminPermissions: [P.DEPOSITARIOS_VIEW] };
+const depManage = { adminPermissions: [P.DEPOSITARIOS_MANAGE] };
+const monEquipos = { adminPermissions: [P.MONITORING_EQUIPOS] };
 
 router.use(authenticateToken);
 
-// Rutas Generales
-router.route('/')
+router
+    .route('/')
     .get(getDepositarios)
-    .post(authorize(['admin', 'agent']), createDepositario);
+    .post(authorizeAccess(['admin', 'agent'], depManage), createDepositario);
 
-// Métricas, Mapa y REPORTES
 router.get('/metrics', getDepositarioMetrics);
-router.get('/map-data', authorize(['admin', 'agent']), getMapData);
-router.get('/reports', authorize(['admin', 'agent']), getDepositaryReports); 
+router.get('/map-data', authorizeAccess(['admin', 'agent'], monEquipos), getMapData);
+router.get('/reports', authorizeAccess(['admin', 'agent'], depView), getDepositaryReports);
 
-// Análisis IA Individual
-router.get('/:id/analysis', authorize(['admin', 'agent']), getDepositaryAnalysis);
+router.get('/:id/analysis', authorizeAccess(['admin', 'agent'], depView), getDepositaryAnalysis);
 
-// Rutas de Hoja de Ruta
-router.route('/route')
-    .post(authorize(['admin', 'agent']), saveRoute)
-    .get(authorize(['admin', 'agent']), getRouteHistory);
+router
+    .route('/route')
+    .post(authorizeAccess(['admin', 'agent'], depManage), saveRoute)
+    .get(authorizeAccess(['admin', 'agent'], depView), getRouteHistory);
 
-// NUEVA RUTA PARA FINALIZAR Y ENVIAR MAIL (Esta es la que te falta o no se cargó)
-router.post('/route/finalize', authorize(['admin', 'agent']), finalizeRoute); 
+router.post('/route/finalize', authorizeAccess(['admin', 'agent'], depManage), finalizeRoute);
 
-// Rutas Específicas por ID
-router.route('/:id')
-    .put(authorize(['admin']), updateDepositario)
-    .delete(authorize(['admin']), deleteDepositario);
+router
+    .route('/:id')
+    .put(authorizeAccess(['admin'], depManage), updateDepositario)
+    .delete(authorizeAccess(['admin'], depManage), deleteDepositario);
 
-router.route('/:id/maintenance')
+router
+    .route('/:id/maintenance')
     .get(getMaintenanceHistory)
-    .post(authorize(['admin', 'agent']), addMaintenance);
+    .post(authorizeAccess(['admin', 'agent'], depManage), addMaintenance);
 
 module.exports = router;
