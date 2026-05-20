@@ -120,7 +120,7 @@ const PERMISSION_GROUPS = [
     {
         id: 'permissions',
         label: 'Permisos',
-        permissions: [{ key: PERMISSION_KEYS.PERMISSIONS_MANAGE, label: 'Gestionar permisos de otros admins' }],
+        permissions: [{ key: PERMISSION_KEYS.PERMISSIONS_MANAGE, label: 'Gestionar permisos de admins y agentes' }],
     },
 ];
 
@@ -133,9 +133,55 @@ const LIMITED_ADMIN_PRESET = [
     PERMISSION_KEYS.TICKETS_ASSIGN,
 ];
 
+/** Permisos que un agente puede recibir (excluye administración global) */
+const ADMIN_ONLY_PERMISSION_KEYS = new Set([
+    PERMISSION_KEYS.DASHBOARD_VIEW,
+    PERMISSION_KEYS.TICKETS_DELETE,
+    PERMISSION_KEYS.USERS_EDIT,
+    PERMISSION_KEYS.USERS_DELETE,
+    PERMISSION_KEYS.USERS_RESET_PASSWORD,
+    PERMISSION_KEYS.COMPANIES_VIEW,
+    PERMISSION_KEYS.COMPANIES_MANAGE,
+    PERMISSION_KEYS.LOCATIONS_MANAGE,
+    PERMISSION_KEYS.PROBLEMS_MANAGE,
+    PERMISSION_KEYS.BACAR_KEYS_MANAGE,
+    PERMISSION_KEYS.PERMISSIONS_MANAGE,
+]);
+
+const AGENT_ASSIGNABLE_KEYS = ALL_PERMISSION_KEYS.filter((k) => !ADMIN_ONLY_PERMISSION_KEYS.has(k));
+
+function filterPermissionGroups(groups, allowedKeys) {
+    const allowed = new Set(allowedKeys);
+    return groups
+        .map((g) => ({
+            ...g,
+            permissions: g.permissions.filter((p) => allowed.has(p.key)),
+        }))
+        .filter((g) => g.permissions.length > 0);
+}
+
+const AGENT_PERMISSION_GROUPS = filterPermissionGroups(PERMISSION_GROUPS, AGENT_ASSIGNABLE_KEYS);
+
+/** Agente sin filas en user_permissions: acceso operativo completo (compatibilidad) */
+const AGENT_DEFAULT_PRESET = [...AGENT_ASSIGNABLE_KEYS];
+
+const LIMITED_AGENT_PRESET = [
+    PERMISSION_KEYS.TICKETS_VIEW,
+    PERMISSION_KEYS.TICKETS_CREATE,
+    PERMISSION_KEYS.TICKETS_EDIT,
+    PERMISSION_KEYS.TICKETS_ASSIGN,
+];
+
+const STAFF_ROLES_WITH_PERMISSIONS = ['admin', 'agent'];
+
 module.exports = {
     PERMISSION_KEYS,
     ALL_PERMISSION_KEYS,
     PERMISSION_GROUPS,
     LIMITED_ADMIN_PRESET,
+    AGENT_ASSIGNABLE_KEYS,
+    AGENT_PERMISSION_GROUPS,
+    AGENT_DEFAULT_PRESET,
+    LIMITED_AGENT_PRESET,
+    STAFF_ROLES_WITH_PERMISSIONS,
 };

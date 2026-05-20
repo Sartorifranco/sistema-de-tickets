@@ -155,14 +155,13 @@ const AdminUsersPage: React.FC = () => {
 
                 {user?.role === 'admin' && !canManagePermissions(user) && (
                     <div className="mb-4 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
-                        Para ver el botón <strong>Permisos</strong> necesitás ser super administrador.
-                        Cerrá sesión y volvé a entrar. Si el problema continúa, pedile a otro super admin que te
-                        active el flag en la base de datos (<code>is_super_admin = 1</code>).
+                        Para ver el botón <strong>Permisos</strong> necesitás ser super administrador o tener el
+                        permiso de gestión de permisos. Cerrá sesión y volvé a entrar.
                     </div>
                 )}
                 {canManagePermissions(user) && (
                     <p className="mb-4 text-sm text-slate-600">
-                        En filas con rol <strong>admin</strong>, usá <strong>Permisos</strong> para definir qué puede ver cada uno.
+                        En filas con rol <strong>admin</strong> o <strong>agent</strong>, usá <strong>Permisos</strong> para definir qué puede ver cada uno.
                         {isSuperAdmin(user) && (
                             <span className="ml-1 text-emerald-700">(Tu usuario es super administrador.)</span>
                         )}
@@ -199,7 +198,8 @@ const AdminUsersPage: React.FC = () => {
                                                 {hasPermission(user, P.USERS_RESET_PASSWORD) && (
                                                     <button onClick={() => handleOpenResetModal(userItem)} className="text-yellow-600 hover:text-yellow-900 mr-4">Resetear</button>
                                                 )}
-                                                {userItem.role === 'admin' && canManagePermissions(user) && (
+                                                {(userItem.role === 'admin' || userItem.role === 'agent') &&
+                                                    canManagePermissions(user) && (
                                                     <button
                                                         onClick={() => {
                                                             setPermissionsTarget(userItem);
@@ -240,7 +240,8 @@ const AdminUsersPage: React.FC = () => {
                                             {hasPermission(user, P.USERS_RESET_PASSWORD) && (
                                                 <button onClick={() => handleOpenResetModal(userItem)} className="text-yellow-600 font-semibold hover:underline">Resetear</button>
                                             )}
-                                            {userItem.role === 'admin' && canManagePermissions(user) && (
+                                            {(userItem.role === 'admin' || userItem.role === 'agent') &&
+                                                canManagePermissions(user) && (
                                                 <button
                                                     onClick={() => {
                                                         setPermissionsTarget(userItem);

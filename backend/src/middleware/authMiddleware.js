@@ -108,17 +108,17 @@ const authorize = (roles = []) => {
 };
 
 /**
- * Control de acceso por rol + permisos granulares para admins.
+ * Control de acceso por rol + permisos granulares (admin y agente).
  *
- * - Roles distintos de admin: solo deben estar en `roles`.
+ * - Cliente y otros roles: solo deben estar en `roles`.
  * - Admin super: acceso total.
- * - Admin sin super: requiere `adminPermissions` (todas las claves listadas).
+ * - Admin/agente: requiere permisos listados en `permissions` o `adminPermissions`.
  */
 const authorizeAccess = (roles = [], options = {}) => {
     if (typeof roles === 'string') {
         roles = [roles];
     }
-    const adminPermissions = options.adminPermissions || [];
+    const requiredPermissions = options.permissions || options.adminPermissions || [];
 
     return (req, res, next) => {
         if (!req.user) {
@@ -139,8 +139,8 @@ const authorizeAccess = (roles = [], options = {}) => {
             });
         }
 
-        if (role === 'admin' && adminPermissions.length > 0) {
-            if (!userHasAllPermissions(req.user, adminPermissions)) {
+        if ((role === 'admin' || role === 'agent') && requiredPermissions.length > 0) {
+            if (!userHasAllPermissions(req.user, requiredPermissions)) {
                 return res.status(403).json({
                     success: false,
                     message: 'No tenés permiso para esta acción.',
@@ -163,7 +163,7 @@ const requirePermissionsManager = (req, res, next) => {
     }
     return res.status(403).json({
         success: false,
-        message: 'Solo un super administrador puede gestionar permisos.',
+        message: 'No tenés permiso para gestionar permisos de otros usuarios.',
         code: 'FORBIDDEN',
     });
 };

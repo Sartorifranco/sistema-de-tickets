@@ -1,12 +1,14 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import api from '../../config/axiosConfig';
-import { User } from '../../types';
+import { User, UserRole } from '../../types';
 import {
+    AGENT_PERMISSION_GROUPS,
     LIMITED_ADMIN_PRESET,
+    LIMITED_AGENT_PRESET,
     PERMISSION_GROUPS,
     PermissionKey,
 } from '../../constants/permissions';
-import { clInput, clModalPanel } from '../../utils/cleanLightUi';
+import { clModalPanel } from '../../utils/cleanLightUi';
 import { toast } from 'react-toastify';
 
 interface UserPermissionsModalProps {
@@ -28,14 +30,24 @@ const UserPermissionsModal: React.FC<UserPermissionsModalProps> = ({
     const [saving, setSaving] = useState(false);
     const [isSuperAdmin, setIsSuperAdmin] = useState(false);
     const [selected, setSelected] = useState<Set<PermissionKey>>(new Set());
+    const [targetRole, setTargetRole] = useState<UserRole>('admin');
+
+    const permissionGroups = useMemo(
+        () => (targetRole === 'agent' ? AGENT_PERMISSION_GROUPS : PERMISSION_GROUPS),
+        [targetRole]
+    );
+
+    const isAgentTarget = targetRole === 'agent';
 
     useEffect(() => {
         if (!isOpen || !targetUser) return;
+        setTargetRole(targetUser.role);
         const load = async () => {
             setLoading(true);
             try {
                 const res = await api.get(`/api/permissions/users/${targetUser.id}`);
                 const data = res.data.data;
+                setTargetRole(data.role || targetUser.role);
                 setIsSuperAdmin(!!data.is_super_admin);
                 setSelected(new Set((data.permissions || []) as PermissionKey[]));
             } catch {
@@ -58,19 +70,22 @@ const UserPermissionsModal: React.FC<UserPermissionsModalProps> = ({
         });
     };
 
-    const applyPreset = () => {
+    const applyLimitedPreset = () => {
         setIsSuperAdmin(false);
-        setSelected(new Set(LIMITED_ADMIN_PRESET));
+        setSelected(new Set(isAgentTarget ? LIMITED_AGENT_PRESET : LIMITED_ADMIN_PRESET));
     };
 
     const handleSave = async () => {
         if (!targetUser) return;
         setSaving(true);
         try {
-            await api.put(`/api/permissions/users/${targetUser.id}`, {
+            const body: { permissions: PermissionKey[]; is_super_admin?: boolean } = {
                 permissions: Array.from(selected),
-                is_super_admin: isSuperAdmin,
-            });
+            };
+            if (!isAgentTarget) {
+                body.is_super_admin = isSuperAdmin;
+            }
+            await api.put(`/api/permissions/users/${targetUser.id}`, body);
             toast.success('Permisos guardados.');
             onSaved();
             onClose();
@@ -86,14 +101,16 @@ const UserPermissionsModal: React.FC<UserPermissionsModalProps> = ({
 
     if (!isOpen || !targetUser) return null;
 
+    const title = isAgentTarget ? 'Permisos de agente' : 'Permisos de administrador';
+
     return (
         <div className="fixed inset-0 bg-black/60 flex justify-center items-center z-50 p-4">
             <div className={`${clModalPanel} max-w-2xl w-full max-h-[90vh] overflow-y-auto p-6`}>
                 <div className="flex justify-between items-start mb-4 border-b pb-3">
                     <div>
-                        <h2 className="text-xl font-bold text-gray-900">Permisos de administrador</h2>
+                        <h2 className="text-xl font-bold text-gray-900">{title}</h2>
                         <p className="text-sm text-gray-600 mt-1">
-                            {targetUser.username} — definí qué secciones puede usar en el sistema.
+                            {targetUser.username} ({targetRole}) — definí qué secciones puede usar.
                         </p>
                     </div>
                     <button type="button" onClick={onClose} className="text-gray-500 hover:text-gray-800 text-2xl leading-none">
@@ -105,7 +122,7 @@ const UserPermissionsModal: React.FC<UserPermissionsModalProps> = ({
                     <p className="text-center py-8 text-gray-600">Cargando permisos...</p>
                 ) : (
                     <>
-                        {canGrantSuperAdmin && (
+                        {canGrantSuperAdmin && !isAgentTarget && (
                             <label className="flex items-center gap-2 mb-4 p-3 rounded-lg border border-amber-200 bg-amber-50 cursor-pointer">
                                 <input
                                     type="checkbox"
@@ -124,15 +141,24 @@ const UserPermissionsModal: React.FC<UserPermissionsModalProps> = ({
                                 <div className="flex flex-wrap gap-2 mb-4">
                                     <button
                                         type="button"
-                                        onClick={applyPreset}
+                                        onClick={applyLimitedPreset}
                                         className="text-sm px-3 py-1.5 rounded-lg border border-blue-200 bg-blue-50 text-blue-800 hover:bg-blue-100"
                                     >
-                                        Perfil limitado (solo tickets)
+                                        {isAgentTarget
+                                            ? 'Perfil limitado (solo tickets)'
+                                            : 'Perfil limitado (solo tickets + dashboard)'}
                                     </button>
                                 </div>
 
+                                {isAgentTarget && (
+                                    <p className="text-xs text-slate-600 mb-3">
+                                        Los agentes no pueden recibir permisos de administración global (empresas,
+                                        problemáticas, super admin, etc.).
+                                    </p>
+                                )}
+
                                 <div className="space-y-4">
-                                    {PERMISSION_GROUPS.map((group) => (
+                                    {permissionGroups.map((group) => (
                                         <div key={group.id} className="border border-slate-200 rounded-lg p-3">
                                             <p className="text-sm font-semibold text-slate-800 mb-2">{group.label}</p>
                                             <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">

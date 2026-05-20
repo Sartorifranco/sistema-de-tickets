@@ -1,5 +1,9 @@
 const pool = require('../config/db');
-const { ALL_PERMISSION_KEYS } = require('../constants/permissions');
+const {
+    ALL_PERMISSION_KEYS,
+    AGENT_ASSIGNABLE_KEYS,
+    AGENT_DEFAULT_PRESET,
+} = require('../constants/permissions');
 
 async function loadUserPermissions(userId) {
     const [rows] = await pool.execute(
@@ -11,21 +15,41 @@ async function loadUserPermissions(userId) {
 
 async function loadUserAuthExtras(userId) {
     const [[userRow]] = await pool.execute(
-        'SELECT is_super_admin FROM users WHERE id = ?',
+        'SELECT role, is_super_admin FROM users WHERE id = ?',
         [userId]
     );
-    const isSuperAdmin = !!(userRow && userRow.is_super_admin);
+    if (!userRow) {
+        return { is_super_admin: false, permissions: [] };
+    }
+
+    const role = userRow.role;
+    const isSuperAdmin = role === 'admin' && !!userRow.is_super_admin;
+
     if (isSuperAdmin) {
         return { is_super_admin: true, permissions: ALL_PERMISSION_KEYS };
     }
-    const permissions = await loadUserPermissions(userId);
-    return { is_super_admin: false, permissions };
+
+    const stored = await loadUserPermissions(userId);
+
+    if (stored.length > 0) {
+        return { is_super_admin: false, permissions: stored };
+    }
+
+    if (role === 'agent') {
+        return { is_super_admin: false, permissions: [...AGENT_DEFAULT_PRESET] };
+    }
+
+    return { is_super_admin: false, permissions: [] };
+}
+
+function isStaffWithRbac(user) {
+    return user && (user.role === 'admin' || user.role === 'agent');
 }
 
 function userHasPermission(user, permissionKey) {
     if (!user) return false;
     if (user.is_super_admin) return true;
-    if (user.role !== 'admin') return false;
+    if (!isStaffWithRbac(user)) return false;
     const list = user.permissions || [];
     return list.includes(permissionKey);
 }
@@ -33,7 +57,7 @@ function userHasPermission(user, permissionKey) {
 function userHasAnyPermission(user, keys) {
     if (!user) return false;
     if (user.is_super_admin) return true;
-    if (user.role !== 'admin') return false;
+    if (!isStaffWithRbac(user)) return false;
     const list = user.permissions || [];
     return keys.some((k) => list.includes(k));
 }
@@ -41,13 +65,26 @@ function userHasAnyPermission(user, keys) {
 function userHasAllPermissions(user, keys) {
     if (!user) return false;
     if (user.is_super_admin) return true;
-    if (user.role !== 'admin') return false;
+    if (!isStaffWithRbac(user)) return false;
     const list = user.permissions || [];
     return keys.every((k) => list.includes(k));
 }
 
 async function setUserPermissions(targetUserId, permissionKeys, isSuperAdmin) {
-    const valid = permissionKeys.filter((k) => ALL_PERMISSION_KEYS.includes(k));
+    const [[target]] = await pool.execute('SELECT role FROM users WHERE id = ?', [targetUserId]);
+    if (!target) {
+        throw new Error('Usuario no encontrado.');
+    }
+
+    let valid;
+    if (target.role === 'agent') {
+        valid = permissionKeys.filter((k) => AGENT_ASSIGNABLE_KEYS.includes(k));
+    } else if (target.role === 'admin') {
+        valid = permissionKeys.filter((k) => ALL_PERMISSION_KEYS.includes(k));
+    } else {
+        throw new Error('Solo admin y agente pueden tener permisos granulares.');
+    }
+
     const conn = await pool.getConnection();
     try {
         await conn.beginTransaction();
@@ -58,7 +95,7 @@ async function setUserPermissions(targetUserId, permissionKeys, isSuperAdmin) {
                 [targetUserId, key]
             );
         }
-        if (typeof isSuperAdmin === 'boolean') {
+        if (typeof isSuperAdmin === 'boolean' && target.role === 'admin') {
             await conn.execute('UPDATE users SET is_super_admin = ? WHERE id = ?', [
                 isSuperAdmin ? 1 : 0,
                 targetUserId,

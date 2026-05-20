@@ -2,8 +2,11 @@ const asyncHandler = require('express-async-handler');
 const pool = require('../config/db');
 const {
     PERMISSION_GROUPS,
+    AGENT_PERMISSION_GROUPS,
     ALL_PERMISSION_KEYS,
     LIMITED_ADMIN_PRESET,
+    LIMITED_AGENT_PRESET,
+    STAFF_ROLES_WITH_PERMISSIONS,
 } = require('../constants/permissions');
 const {
     loadUserAuthExtras,
@@ -16,8 +19,10 @@ const getCatalog = asyncHandler(async (req, res) => {
         success: true,
         data: {
             groups: PERMISSION_GROUPS,
+            agentGroups: AGENT_PERMISSION_GROUPS,
             allKeys: ALL_PERMISSION_KEYS,
             limitedAdminPreset: LIMITED_ADMIN_PRESET,
+            limitedAgentPreset: LIMITED_AGENT_PRESET,
         },
     });
 });
@@ -32,9 +37,9 @@ const getUserPermissions = asyncHandler(async (req, res) => {
         res.status(404);
         throw new Error('Usuario no encontrado.');
     }
-    if (target.role !== 'admin') {
+    if (!STAFF_ROLES_WITH_PERMISSIONS.includes(target.role)) {
         res.status(400);
-        throw new Error('Los permisos granulares solo aplican a usuarios con rol admin.');
+        throw new Error('Los permisos granulares solo aplican a usuarios admin o agente.');
     }
     const extras = await loadUserAuthExtras(targetId);
     res.status(200).json({
@@ -42,7 +47,8 @@ const getUserPermissions = asyncHandler(async (req, res) => {
         data: {
             userId: target.id,
             username: target.username,
-            is_super_admin: extras.is_super_admin,
+            role: target.role,
+            is_super_admin: target.role === 'admin' ? !!extras.is_super_admin : false,
             permissions: extras.permissions,
         },
     });
@@ -60,17 +66,17 @@ const updateUserPermissions = asyncHandler(async (req, res) => {
         res.status(404);
         throw new Error('Usuario no encontrado.');
     }
-    if (target.role !== 'admin') {
+    if (!STAFF_ROLES_WITH_PERMISSIONS.includes(target.role)) {
         res.status(400);
-        throw new Error('Solo se pueden asignar permisos a usuarios admin.');
+        throw new Error('Solo se pueden asignar permisos a usuarios admin o agente.');
     }
 
-    if (targetId === req.user.id && isSuperAdmin === false && target.is_super_admin) {
+    if (target.role === 'admin' && targetId === req.user.id && isSuperAdmin === false && target.is_super_admin) {
         res.status(400);
         throw new Error('No podés quitarte el rol de super administrador a vos mismo.');
     }
 
-    if (target.is_super_admin && isSuperAdmin === false) {
+    if (target.role === 'admin' && target.is_super_admin && isSuperAdmin === false) {
         const remaining = await countSuperAdmins(targetId);
         if (remaining < 1) {
             res.status(400);
@@ -78,7 +84,7 @@ const updateUserPermissions = asyncHandler(async (req, res) => {
         }
     }
 
-    if (!req.user.is_super_admin && isSuperAdmin === true) {
+    if (target.role === 'admin' && !req.user.is_super_admin && isSuperAdmin === true) {
         res.status(403);
         throw new Error('Solo un super administrador puede otorgar super administrador.');
     }
@@ -93,7 +99,7 @@ const updateUserPermissions = asyncHandler(async (req, res) => {
     const extras = await setUserPermissions(
         targetId,
         keys,
-        typeof isSuperAdmin === 'boolean' ? isSuperAdmin : undefined
+        target.role === 'admin' && typeof isSuperAdmin === 'boolean' ? isSuperAdmin : undefined
     );
 
     res.status(200).json({
@@ -101,7 +107,8 @@ const updateUserPermissions = asyncHandler(async (req, res) => {
         message: 'Permisos actualizados.',
         data: {
             userId: targetId,
-            is_super_admin: extras.is_super_admin,
+            role: target.role,
+            is_super_admin: target.role === 'admin' ? extras.is_super_admin : false,
             permissions: extras.permissions,
         },
     });

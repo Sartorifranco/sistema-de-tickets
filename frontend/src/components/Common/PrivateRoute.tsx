@@ -7,9 +7,9 @@ import { hasAnyPermission, hasPermission } from '../../utils/permissions';
 interface PrivateRouteProps {
     children: React.ReactElement;
     roles?: string[];
-    /** Permiso requerido si el usuario es admin (RBAC) */
+    /** Permiso requerido para admin o agente (RBAC) */
     permission?: PermissionKey;
-    /** Cualquiera de estos permisos (admin) */
+    /** Cualquiera de estos permisos (admin/agente) */
     anyPermission?: PermissionKey[];
 }
 
@@ -31,7 +31,7 @@ const PrivateRoute: React.FC<PrivateRouteProps> = ({ children, roles, permission
         );
     }
 
-    if (user?.role === 'admin') {
+    if (user?.role === 'admin' || user?.role === 'agent') {
         if (permission && !hasPermission(user, permission)) {
             return (
                 <div className="p-8 text-center text-red-500">

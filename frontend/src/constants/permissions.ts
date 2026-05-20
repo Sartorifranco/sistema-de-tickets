@@ -127,7 +127,7 @@ export const PERMISSION_GROUPS: PermissionGroup[] = [
     {
         id: 'permissions',
         label: 'Permisos',
-        permissions: [{ key: PERMISSION_KEYS.PERMISSIONS_MANAGE, label: 'Gestionar permisos de otros admins' }],
+        permissions: [{ key: PERMISSION_KEYS.PERMISSIONS_MANAGE, label: 'Gestionar permisos de admins y agentes' }],
     },
 ];
 
@@ -138,3 +138,38 @@ export const LIMITED_ADMIN_PRESET: PermissionKey[] = [
     PERMISSION_KEYS.TICKETS_EDIT,
     PERMISSION_KEYS.TICKETS_ASSIGN,
 ];
+
+const ADMIN_ONLY_PERMISSION_KEYS = new Set<PermissionKey>([
+    PERMISSION_KEYS.DASHBOARD_VIEW,
+    PERMISSION_KEYS.TICKETS_DELETE,
+    PERMISSION_KEYS.USERS_EDIT,
+    PERMISSION_KEYS.USERS_DELETE,
+    PERMISSION_KEYS.USERS_RESET_PASSWORD,
+    PERMISSION_KEYS.COMPANIES_VIEW,
+    PERMISSION_KEYS.COMPANIES_MANAGE,
+    PERMISSION_KEYS.LOCATIONS_MANAGE,
+    PERMISSION_KEYS.PROBLEMS_MANAGE,
+    PERMISSION_KEYS.BACAR_KEYS_MANAGE,
+    PERMISSION_KEYS.PERMISSIONS_MANAGE,
+]);
+
+export const AGENT_ASSIGNABLE_KEYS: PermissionKey[] = (
+    Object.values(PERMISSION_KEYS) as PermissionKey[]
+).filter((k) => !ADMIN_ONLY_PERMISSION_KEYS.has(k));
+
+export const AGENT_PERMISSION_GROUPS: PermissionGroup[] = PERMISSION_GROUPS.map((g) => ({
+    ...g,
+    permissions: g.permissions.filter((p) => AGENT_ASSIGNABLE_KEYS.includes(p.key)),
+})).filter((g) => g.permissions.length > 0);
+
+export const LIMITED_AGENT_PRESET: PermissionKey[] = [
+    PERMISSION_KEYS.TICKETS_VIEW,
+    PERMISSION_KEYS.TICKETS_CREATE,
+    PERMISSION_KEYS.TICKETS_EDIT,
+    PERMISSION_KEYS.TICKETS_ASSIGN,
+];
+
+/** Agente sin permisos guardados en BD: preset operativo completo */
+export const AGENT_DEFAULT_PRESET: PermissionKey[] = [...AGENT_ASSIGNABLE_KEYS];
+
+export const STAFF_ROLES_WITH_PERMISSIONS = ['admin', 'agent'] as const;

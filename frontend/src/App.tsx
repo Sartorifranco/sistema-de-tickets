@@ -121,14 +121,12 @@ const App: React.FC = () => {
 
                             {/* Rutas de Agente */}
                             <Route path="/agent" element={<PrivateRoute roles={['agent']}><AgentDashboard /></PrivateRoute>} />
-                            <Route path="/agent/tickets" element={<PrivateRoute roles={['agent']}><AgentTicketsPage /></PrivateRoute>} />
-                            <Route path="/agent/tickets/:id" element={<PrivateRoute roles={['agent']}><AgentTicketDetailPage /></PrivateRoute>} />
-                            <Route path="/reports" element={<PrivateRoute roles={['admin', 'agent']}><ReportsPage /></PrivateRoute>} />
-                            
-                            {/* ✅ NUEVO: Ruta para Depositarios (Agente) - Usamos el mismo componente */}
-                            <Route path="/agent/depositarios" element={<PrivateRoute roles={['agent']}><DepositariosPage /></PrivateRoute>} />
-                            <Route path="/agent/equipos" element={<PrivateRoute roles={['agent']}><EquipmentMonitoringPage /></PrivateRoute>} />
-                            <Route path="/agent/monitoreo" element={<PrivateRoute roles={['agent']}><MonitoringPage /></PrivateRoute>} />
+                            <Route path="/agent/tickets" element={<PrivateRoute roles={['agent']} permission={P.TICKETS_VIEW}><AgentTicketsPage /></PrivateRoute>} />
+                            <Route path="/agent/tickets/:id" element={<PrivateRoute roles={['agent']} permission={P.TICKETS_VIEW}><AgentTicketDetailPage /></PrivateRoute>} />
+                            <Route path="/reports" element={<PrivateRoute roles={['admin', 'agent']} permission={P.REPORTS_VIEW}><ReportsPage /></PrivateRoute>} />
+                            <Route path="/agent/depositarios" element={<PrivateRoute roles={['agent']} permission={P.DEPOSITARIOS_VIEW}><DepositariosPage /></PrivateRoute>} />
+                            <Route path="/agent/equipos" element={<PrivateRoute roles={['agent']} permission={P.MONITORING_EQUIPOS}><EquipmentMonitoringPage /></PrivateRoute>} />
+                            <Route path="/agent/monitoreo" element={<PrivateRoute roles={['agent']} permission={P.MONITORING_REALTIME}><MonitoringPage /></PrivateRoute>} />
                             <Route path="/agent/tesoreria-maquinas" element={<PrivateRoute roles={['agent']} permission={P.TREASURY_MACHINES_VIEW}><TreasuryMachinesDashboard /></PrivateRoute>} />
                             
                             {/* Rutas de Cliente (también para Jefe y Compras - empleados Bacar) */}
