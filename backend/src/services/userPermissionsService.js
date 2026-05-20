@@ -84,7 +84,7 @@ async function buildAuthUserPayload(userRow) {
         company_id: userRow.company_id,
         department_id: userRow.department_id,
         company_name: userRow.company_name || null,
-        is_super_admin: extras.is_super_admin,
+        is_super_admin: Boolean(extras.is_super_admin),
         permissions: extras.permissions,
     };
 }

@@ -9,7 +9,7 @@ import UserFormModal from '../components/Users/UserFormModal';
 import ResetPasswordModal from '../components/Users/ResetPasswordModal';
 import UserPermissionsModal from '../components/Users/UserPermissionsModal';
 import { PERMISSION_KEYS as P } from '../constants/permissions';
-import { canManagePermissions, hasPermission } from '../utils/permissions';
+import { canManagePermissions, hasPermission, isSuperAdmin } from '../utils/permissions';
 
 const AdminUsersPage: React.FC = () => {
     const { user } = useAuth();
@@ -152,6 +152,22 @@ const AdminUsersPage: React.FC = () => {
                         ))}
                     </select>
                 </div>
+
+                {user?.role === 'admin' && !canManagePermissions(user) && (
+                    <div className="mb-4 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+                        Para ver el botón <strong>Permisos</strong> necesitás ser super administrador.
+                        Cerrá sesión y volvé a entrar. Si el problema continúa, pedile a otro super admin que te
+                        active el flag en la base de datos (<code>is_super_admin = 1</code>).
+                    </div>
+                )}
+                {canManagePermissions(user) && (
+                    <p className="mb-4 text-sm text-slate-600">
+                        En filas con rol <strong>admin</strong>, usá <strong>Permisos</strong> para definir qué puede ver cada uno.
+                        {isSuperAdmin(user) && (
+                            <span className="ml-1 text-emerald-700">(Tu usuario es super administrador.)</span>
+                        )}
+                    </p>
+                )}
 
                 <div className="bg-white p-4 sm:p-6 rounded-lg shadow-lg">
                     {filteredUsers.length === 0 ? (

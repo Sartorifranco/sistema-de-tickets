@@ -2,6 +2,7 @@ import React, { createContext, useState, useContext, useEffect, useCallback, Rea
 import api from '../config/axiosConfig';
 import { User, ApiResponseError } from '../types';
 import { isAxiosErrorTypeGuard } from '../utils/typeGuards';
+import { normalizeAuthUser } from '../utils/permissions';
 
 interface LoginData {
     email: string;
@@ -57,8 +58,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
                 try {
                     api.defaults.headers.common['Authorization'] = `Bearer ${storedToken}`;
                     const response = await api.get('/api/auth/me');
-                    const userData = response.data.user;
-                    // Usar token actual de localStorage (puede haberse actualizado por refresh del interceptor)
+                    const userData = normalizeAuthUser(response.data.user);
                     setUser(userData);
                     setIsAuthenticated(true);
                     setToken(localStorage.getItem('token'));
@@ -86,7 +86,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
                 if (newRefreshToken) localStorage.setItem('refreshToken', newRefreshToken);
                 api.defaults.headers.common['Authorization'] = `Bearer ${newToken}`;
                 setToken(newToken);
-                setUser(userData);
+                setUser(normalizeAuthUser(userData));
                 setIsAuthenticated(true);
     
                 setLoading(false);
@@ -113,7 +113,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
             localStorage.setItem('token', newToken);
             api.defaults.headers.common['Authorization'] = `Bearer ${newToken}`;
             setToken(newToken);
-            setUser(userData);
+            setUser(normalizeAuthUser(userData));
             setIsAuthenticated(true);
             return true;
         } catch {
