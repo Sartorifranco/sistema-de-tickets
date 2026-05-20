@@ -24,6 +24,8 @@ export const PERMISSION_KEYS = {
     PURCHASES_VIEW: 'purchases.view',
     PURCHASES_INVOICES: 'purchases.invoices',
     BACAR_KEYS_MANAGE: 'bacar_keys.manage',
+    TREASURY_MACHINES_VIEW: 'treasury_machines.view',
+    TREASURY_MACHINES_MANAGE: 'treasury_machines.manage',
     PERMISSIONS_MANAGE: 'permissions.manage',
 } as const;
 
@@ -82,6 +84,14 @@ export const PERMISSION_GROUPS: PermissionGroup[] = [
         permissions: [
             { key: PERMISSION_KEYS.DEPOSITARIOS_VIEW, label: 'Ver depositarios' },
             { key: PERMISSION_KEYS.DEPOSITARIOS_MANAGE, label: 'Gestionar depositarios' },
+        ],
+    },
+    {
+        id: 'treasury',
+        label: 'Máquinas de tesorería',
+        permissions: [
+            { key: PERMISSION_KEYS.TREASURY_MACHINES_VIEW, label: 'Ver máquinas de tesorería' },
+            { key: PERMISSION_KEYS.TREASURY_MACHINES_MANAGE, label: 'Gestionar máquinas y mantenimientos' },
         ],
     },
     {

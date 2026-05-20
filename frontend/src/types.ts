@@ -295,3 +295,49 @@ export interface MaintenanceRecord {
     observations: string;
     created_at: string;
 }
+
+// ====================================================================
+// TREASURY MACHINES
+// ====================================================================
+export type TreasuryMachineType =
+    | 'Contadora'
+    | 'Clasificadora'
+    | 'Ensachetadora'
+    | 'Selladora'
+    | 'Otra';
+
+export type TreasuryMachineStatus = 'operativa' | 'reparacion' | 'baja';
+
+export type MachineMaintenanceType = 'preventivo' | 'correctivo';
+
+export interface TreasuryMachine {
+    id: number;
+    type: TreasuryMachineType | string;
+    brand: string;
+    model: string;
+    serial_number: string;
+    location: string;
+    counted_bills: number | null;
+    status: TreasuryMachineStatus;
+    created_at?: string;
+    updated_at?: string;
+}
+
+export interface MachineMaintenance {
+    id: number;
+    machine_id: number;
+    maintenance_type: MachineMaintenanceType;
+    user_id: number | null;
+    user_name?: string | null;
+    observations: string;
+    previous_status: TreasuryMachineStatus;
+    new_status: TreasuryMachineStatus;
+    created_at: string;
+}
+
+export interface TreasuryMachinesStats {
+    operativa: number;
+    reparacion: number;
+    baja: number;
+    byType: { type: string; count: number }[];
+}

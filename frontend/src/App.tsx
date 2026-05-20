@@ -39,6 +39,7 @@ import AdminLocationsPage from './pages/AdminLocationPage';
 import DepositariosPage from './pages/DepositariosPage';
 import EquipmentMonitoringPage from './pages/EquipmentMonitoringPage';
 import MonitoringPage from './pages/MonitoringPage';
+import TreasuryMachinesDashboard from './pages/TreasuryMachinesDashboard';
 import MyPurchasesPage from './pages/MyPurchasesPage';
 import PurchaseRequestPage from './pages/PurchaseRequestPage';
 import BossApprovalPage from './pages/BossApprovalPage';
@@ -116,6 +117,7 @@ const App: React.FC = () => {
                             <Route path="/admin/depositarios" element={<PrivateRoute roles={['admin']} permission={P.DEPOSITARIOS_VIEW}><DepositariosPage /></PrivateRoute>} />
                             <Route path="/admin/equipos" element={<PrivateRoute roles={['admin']} permission={P.MONITORING_EQUIPOS}><EquipmentMonitoringPage /></PrivateRoute>} />
                             <Route path="/admin/monitoreo" element={<PrivateRoute roles={['admin']} permission={P.MONITORING_REALTIME}><MonitoringPage /></PrivateRoute>} />
+                            <Route path="/admin/tesoreria-maquinas" element={<PrivateRoute roles={['admin']} permission={P.TREASURY_MACHINES_VIEW}><TreasuryMachinesDashboard /></PrivateRoute>} />
 
                             {/* Rutas de Agente */}
                             <Route path="/agent" element={<PrivateRoute roles={['agent']}><AgentDashboard /></PrivateRoute>} />
@@ -127,6 +129,7 @@ const App: React.FC = () => {
                             <Route path="/agent/depositarios" element={<PrivateRoute roles={['agent']}><DepositariosPage /></PrivateRoute>} />
                             <Route path="/agent/equipos" element={<PrivateRoute roles={['agent']}><EquipmentMonitoringPage /></PrivateRoute>} />
                             <Route path="/agent/monitoreo" element={<PrivateRoute roles={['agent']}><MonitoringPage /></PrivateRoute>} />
+                            <Route path="/agent/tesoreria-maquinas" element={<PrivateRoute roles={['agent']} permission={P.TREASURY_MACHINES_VIEW}><TreasuryMachinesDashboard /></PrivateRoute>} />
                             
                             {/* Rutas de Cliente (también para Jefe y Compras - empleados Bacar) */}
                             <Route path="/client" element={<PrivateRoute roles={['client', 'boss', 'purchasing']}><ClientDashboard /></PrivateRoute>} />

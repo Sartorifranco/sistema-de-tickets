@@ -64,6 +64,9 @@ cd backend
 # RBAC (permisos granulares para admins) — obligatorio desde mayo 2026
 node scripts/run-rbac-migration.js
 
+# Máquinas de tesorería
+node scripts/run-treasury-machines-migration.js
+
 # Otras migraciones (si aún no se aplicaron)
 # mysql -u root -p ticket_system < migrations/create_user_fcm_tokens.sql
 # node run-migration-fcm.js

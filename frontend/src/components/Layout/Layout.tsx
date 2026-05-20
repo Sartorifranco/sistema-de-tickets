@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { NavLink, Outlet } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { toast } from 'react-toastify';
-import { Home, User, Users, Building, MapPin, AlertTriangle, Ticket, BarChart3, Landmark, Monitor, Activity, ShoppingCart, FileText, CheckCircle, PlusCircle, ClipboardList } from 'lucide-react';
+import { Home, User, Users, Building, MapPin, AlertTriangle, Ticket, BarChart3, Landmark, Monitor, Activity, ShoppingCart, FileText, CheckCircle, PlusCircle, ClipboardList, Banknote } from 'lucide-react';
 import NotificationBell from '../NotificationBell/NotificationBell';
 import FcmTokenHandler from '../FcmTokenHandler/FcmTokenHandler';
 import PushNotificationButton from '../PushNotificationButton/PushNotificationButton';
@@ -47,6 +47,9 @@ const Layout: React.FC = () => {
                         {hasPermission(user, P.DEPOSITARIOS_VIEW) && (
                             <li><NavLink to="/admin/depositarios" className={getLinkClassName}><Landmark className={iconClass} />Gestión de Depositarios</NavLink></li>
                         )}
+                        {hasPermission(user, P.TREASURY_MACHINES_VIEW) && (
+                            <li><NavLink to="/admin/tesoreria-maquinas" className={getLinkClassName}><Banknote className={iconClass} />Máquinas Tesorería</NavLink></li>
+                        )}
                         {hasPermission(user, P.MONITORING_EQUIPOS) && (
                             <li><NavLink to="/admin/equipos" className={getLinkClassName}><Monitor className={iconClass} />Monitoreo Equipos</NavLink></li>
                         )}
@@ -81,6 +84,9 @@ const Layout: React.FC = () => {
                         <li><NavLink to="/profile" className={getLinkClassName}><User className={iconClass} />Mi Perfil</NavLink></li>
                         <li><NavLink to="/agent/tickets" className={getLinkClassName}><Ticket className={iconClass} />Mis Tickets</NavLink></li>
                         <li><NavLink to="/agent/depositarios" className={getLinkClassName}><Landmark className={iconClass} />Mantenimiento Equipos</NavLink></li>
+                        {hasPermission(user, P.TREASURY_MACHINES_VIEW) && (
+                            <li><NavLink to="/agent/tesoreria-maquinas" className={getLinkClassName}><Banknote className={iconClass} />Máquinas Tesorería</NavLink></li>
+                        )}
                         <li><NavLink to="/agent/equipos" className={getLinkClassName}><Monitor className={iconClass} />Monitoreo Equipos</NavLink></li>
                         <li><NavLink to="/agent/monitoreo" className={getLinkClassName}><Activity className={iconClass} />Monitoreo en Tiempo Real</NavLink></li>
                         {canAccessPurchasingModule(user?.email) && (
