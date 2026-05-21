@@ -38,14 +38,10 @@ router
     .get(getMyNotificationPreferences)
     .put(updateMyNotificationPreferences);
 
-router
-    .route('/:id')
-    .get(authorizeAccess(['admin', 'agent'], { adminPermissions: [P.USERS_VIEW] }), getUserById)
-    .put(authorizeAccess(['admin'], { adminPermissions: [P.USERS_EDIT] }), updateUser)
-    .delete(authorizeAccess(['admin'], { adminPermissions: [P.USERS_DELETE] }), deleteUser);
+/** Rutas literales antes de /:id — si no, PUT /change-password matchea como id y exige users.edit */
+router.put('/change-password', changePassword);
 
 router.get('/:id/stats', authorizeAccess(['admin', 'agent'], { adminPermissions: [P.USERS_VIEW] }), getAgentStats);
-router.put('/change-password', changePassword);
 router.put(
     '/:id/reset-password',
     authorizeAccess(['admin'], { adminPermissions: [P.USERS_RESET_PASSWORD] }),
@@ -56,5 +52,11 @@ router.get(
     authorizeAccess(['admin', 'agent'], { adminPermissions: [P.TICKETS_VIEW] }),
     getAgentActiveTickets
 );
+
+router
+    .route('/:id')
+    .get(authorizeAccess(['admin', 'agent'], { adminPermissions: [P.USERS_VIEW] }), getUserById)
+    .put(authorizeAccess(['admin'], { adminPermissions: [P.USERS_EDIT] }), updateUser)
+    .delete(authorizeAccess(['admin'], { adminPermissions: [P.USERS_DELETE] }), deleteUser);
 
 module.exports = router;
