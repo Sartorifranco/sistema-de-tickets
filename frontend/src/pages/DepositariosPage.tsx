@@ -361,12 +361,15 @@ const DepositariosPage: React.FC = () => {
             if (searchTerm) params.append('search', searchTerm);
             if (filterCompany) params.append('companyId', filterCompany);
 
-            const [depRes, compRes] = await Promise.all([
-                api.get(`/api/depositarios?${params.toString()}`),
-                api.get('/api/companies')
-            ]);
+            const depRes = await api.get(`/api/depositarios?${params.toString()}`);
             setDepositarios(depRes.data.data);
-            setCompanies(compRes.data.data);
+
+            try {
+                const compRes = await api.get('/api/companies');
+                setCompanies(compRes.data.data);
+            } catch {
+                setCompanies([]);
+            }
         } catch (error) {
             toast.error("Error al cargar datos");
         } finally {

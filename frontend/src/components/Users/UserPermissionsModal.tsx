@@ -87,6 +87,12 @@ const UserPermissionsModal: React.FC<UserPermissionsModalProps> = ({
             }
             await api.put(`/api/permissions/users/${targetUser.id}`, body);
             toast.success('Permisos guardados.');
+            if (isAgentTarget) {
+                toast.info(
+                    `${targetUser.username} debe cerrar sesión y volver a entrar para que los cambios surtan efecto.`,
+                    { autoClose: 9000 }
+                );
+            }
             onSaved();
             onClose();
         } catch (err: unknown) {

@@ -26,7 +26,7 @@ router.use(authenticateToken);
 
 router
     .route('/')
-    .get(getDepositarios)
+    .get(authorizeAccess(['admin', 'agent'], depView), getDepositarios)
     .post(authorizeAccess(['admin', 'agent'], depManage), createDepositario);
 
 router.get('/metrics', getDepositarioMetrics);
@@ -49,7 +49,7 @@ router
 
 router
     .route('/:id/maintenance')
-    .get(getMaintenanceHistory)
+    .get(authorizeAccess(['admin', 'agent'], depView), getMaintenanceHistory)
     .post(authorizeAccess(['admin', 'agent'], depManage), addMaintenance);
 
 module.exports = router;

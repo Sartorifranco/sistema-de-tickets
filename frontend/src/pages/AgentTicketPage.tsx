@@ -9,6 +9,8 @@ import TicketFormModal from '../components/Tickets/TicketFormModal';
 import { formatLocalDate } from '../utils/dateFormatter';
 import { ticketRealHoursValid, ticketRequiresRealHoursForClosure } from '../utils/ticketAccess';
 import { clCard, clInput, clTd, clTh, clThRight } from '../utils/cleanLightUi';
+import { hasAnyPermission } from '../utils/permissions';
+import { PERMISSION_KEYS as P } from '../constants/permissions';
 
 const TabButton: React.FC<{
     label: string;
@@ -91,16 +93,18 @@ const AgentTicketsPage: React.FC = () => {
             if (filters.agentId) params.append('agentId', filters.agentId);
             if (filters.priority) params.append('priority', filters.priority); 
 
-            const [ticketsResponse, agentsResponse, usersResponse, deptsResponse] = await Promise.all([
-                api.get(`/api/tickets?${params.toString()}`),
-                api.get('/api/users/agents'),
-                api.get('/api/users'),
-                api.get('/api/departments')
-            ]);
+            const ticketsResponse = await api.get(`/api/tickets?${params.toString()}`);
             setTickets(ticketsResponse.data.data || []);
+
+            const canLoadUserLists = hasAnyPermission(user, [P.USERS_VIEW, P.TICKETS_VIEW]);
+            const [deptsResponse, agentsResponse, usersResponse] = await Promise.all([
+                api.get('/api/departments'),
+                canLoadUserLists ? api.get('/api/users/agents') : Promise.resolve({ data: { data: [] } }),
+                canLoadUserLists ? api.get('/api/users') : Promise.resolve({ data: { data: [] } }),
+            ]);
+            setDepartments(deptsResponse.data.data || []);
             setAgents(agentsResponse.data.data || []);
             setAllUsers(usersResponse.data.data || []);
-            setDepartments(deptsResponse.data.data || []);
         } catch (err) {
             const errorMessage = "No se pudieron cargar los datos.";
             setError(errorMessage);

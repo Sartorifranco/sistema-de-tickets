@@ -13,9 +13,15 @@ const { PERMISSION_KEYS: P } = require('../constants/permissions');
 
 router.use(authenticateToken);
 
+const companyListAccess = {
+    adminPermissions: [P.COMPANIES_VIEW],
+    agentPermissions: [P.DEPOSITARIOS_VIEW, P.COMPANIES_VIEW],
+    permissionMode: 'any',
+};
+
 router
     .route('/')
-    .get(authorizeAccess(['admin', 'agent'], { adminPermissions: [P.COMPANIES_VIEW] }), getAllCompanies)
+    .get(authorizeAccess(['admin', 'agent'], companyListAccess), getAllCompanies)
     .post(authorizeAccess(['admin'], { adminPermissions: [P.COMPANIES_MANAGE] }), createCompany);
 
 router
@@ -26,6 +32,6 @@ router
 
 router
     .route('/:companyId/departments')
-    .get(authorizeAccess(['admin', 'agent'], { adminPermissions: [P.COMPANIES_VIEW] }), getDepartmentsByCompany);
+    .get(authorizeAccess(['admin', 'agent'], companyListAccess), getDepartmentsByCompany);
 
 module.exports = router;

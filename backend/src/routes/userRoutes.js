@@ -19,12 +19,19 @@ const { PERMISSION_KEYS: P } = require('../constants/permissions');
 
 router.use(authenticateToken);
 
+/** Agentes con tickets.view necesitan listar usuarios/agentes para filtros y alta de tickets */
+const staffUsersReadAccess = {
+    adminPermissions: [P.USERS_VIEW],
+    agentPermissions: [P.USERS_VIEW, P.TICKETS_VIEW],
+    permissionMode: 'any',
+};
+
 router
     .route('/')
-    .get(authorizeAccess(['admin', 'agent'], { adminPermissions: [P.USERS_VIEW] }), getAllUsers)
+    .get(authorizeAccess(['admin', 'agent'], staffUsersReadAccess), getAllUsers)
     .post(authorizeAccess(['admin', 'agent'], { adminPermissions: [P.USERS_CREATE] }), createUser);
 
-router.route('/agents').get(authorizeAccess(['admin', 'agent'], { adminPermissions: [P.USERS_VIEW] }), getAgents);
+router.route('/agents').get(authorizeAccess(['admin', 'agent'], staffUsersReadAccess), getAgents);
 
 router
     .route('/me/notification-preferences')

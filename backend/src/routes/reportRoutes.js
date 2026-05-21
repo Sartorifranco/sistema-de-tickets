@@ -5,7 +5,7 @@ const { authenticateToken, authorizeAccess } = require('../middleware/authMiddle
 const { PERMISSION_KEYS: P } = require('../constants/permissions');
 
 router.use(authenticateToken);
-router.use(authorizeAccess(['admin'], { adminPermissions: [P.REPORTS_VIEW] }));
+router.use(authorizeAccess(['admin', 'agent'], { adminPermissions: [P.REPORTS_VIEW] }));
 
 router.get('/', getReports);
 

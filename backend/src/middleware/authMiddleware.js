@@ -1,6 +1,10 @@
 const jwt = require('jsonwebtoken');
 const pool = require('../config/db');
-const { loadUserAuthExtras, userHasAllPermissions } = require('../services/userPermissionsService');
+const {
+    loadUserAuthExtras,
+    userHasAllPermissions,
+    userHasAnyPermission,
+} = require('../services/userPermissionsService');
 
 /**
  * Middleware de autenticación JWT.
@@ -114,11 +118,29 @@ const authorize = (roles = []) => {
  * - Admin super: acceso total.
  * - Admin/agente: requiere permisos listados en `permissions` o `adminPermissions`.
  */
+function staffPassesPermissionCheck(user, keys, mode) {
+    if (!keys.length) return true;
+    if (mode === 'any') {
+        return userHasAnyPermission(user, keys);
+    }
+    return userHasAllPermissions(user, keys);
+}
+
+/**
+ * Control de acceso por rol + permisos granulares (admin y agente).
+ *
+ * Opciones:
+ * - permissions / adminPermissions: permisos para admin (y agente si no hay agentPermissions).
+ * - agentPermissions: permisos alternativos solo para agente (p. ej. depositarios.view en lugar de companies.view).
+ * - permissionMode: 'all' (default) | 'any' — requiere todos o al menos uno.
+ */
 const authorizeAccess = (roles = [], options = {}) => {
     if (typeof roles === 'string') {
         roles = [roles];
     }
-    const requiredPermissions = options.permissions || options.adminPermissions || [];
+    const adminPermissions = options.permissions || options.adminPermissions || [];
+    const agentPermissions = options.agentPermissions ?? adminPermissions;
+    const permissionMode = options.permissionMode === 'any' ? 'any' : 'all';
 
     return (req, res, next) => {
         if (!req.user) {
@@ -139,8 +161,9 @@ const authorizeAccess = (roles = [], options = {}) => {
             });
         }
 
-        if ((role === 'admin' || role === 'agent') && requiredPermissions.length > 0) {
-            if (!userHasAllPermissions(req.user, requiredPermissions)) {
+        if (role === 'admin' || role === 'agent') {
+            const keys = role === 'agent' ? agentPermissions : adminPermissions;
+            if (!staffPassesPermissionCheck(req.user, keys, permissionMode)) {
                 return res.status(403).json({
                     success: false,
                     message: 'No tenés permiso para esta acción.',
