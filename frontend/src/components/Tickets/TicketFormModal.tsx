@@ -188,31 +188,44 @@ const TicketFormModal: React.FC<TicketFormModalProps> = ({
         }
     }, [isOpen, initialData?.id, currentUserRole, loggedInUser?.id]);
 
-    /** Datos remotos: categorías, ubicaciones, depositarios — no toca el texto que escribió el usuario */
+    /** Datos remotos: categorías (crítico), ubicaciones y depositarios (opcionales) */
     useEffect(() => {
         if (!isOpen) return;
         const fetchModalData = async () => {
-            try {
-                let locationsUrl: string;
-                if (currentUserRole === 'client') {
-                    locationsUrl = '/api/locations/0';
-                    if (targetCompanyId && targetCompanyId !== '0') {
-                        locationsUrl = `/api/locations/${targetCompanyId}`;
-                    }
-                } else {
+            let locationsUrl: string;
+            if (currentUserRole === 'client') {
+                locationsUrl = '/api/locations/0';
+                if (targetCompanyId && targetCompanyId !== '0') {
                     locationsUrl = `/api/locations/${targetCompanyId}`;
                 }
-                const safeCompanyId = targetCompanyId || '0';
-                const [catRes, locRes, depRes] = await Promise.all([
-                    api.get(`/api/problems/categories/${safeCompanyId}`),
-                    api.get(locationsUrl),
-                    api.get(`/api/depositarios?companyId=${safeCompanyId}`),
-                ]);
+            } else {
+                locationsUrl = `/api/locations/${targetCompanyId}`;
+            }
+            const safeCompanyId = targetCompanyId || '0';
+
+            try {
+                const catRes = await api.get(`/api/problems/categories/${safeCompanyId}`);
                 setCategories(catRes.data.data || []);
+            } catch (error) {
+                console.error('Error cargando categorías:', error);
+                setCategories([]);
+                toast.error('No se pudieron cargar las categorías del problema. Recargá la página o contactá a soporte.');
+            }
+
+            try {
+                const locRes = await api.get(locationsUrl);
                 setLocations(locRes.data.data || []);
+            } catch (error) {
+                console.error('Error cargando ubicaciones:', error);
+                setLocations([]);
+            }
+
+            try {
+                const depRes = await api.get(`/api/depositarios?companyId=${safeCompanyId}`);
                 setDepositarios(depRes.data.data || []);
             } catch (error) {
-                console.error('Error cargando datos iniciales:', error);
+                console.error('Error cargando depositarios (opcional):', error);
+                setDepositarios([]);
             }
         };
         fetchModalData();
@@ -708,8 +721,13 @@ const TicketFormModal: React.FC<TicketFormModalProps> = ({
                                     onChange={handleChange}
                                     className={`${clInput} mt-1 transition-all ${isAnalyzing ? 'opacity-50' : 'opacity-100'}`}
                                     required
+                                    disabled={categories.length === 0}
                                 >
-                                    <option value="">-- Seleccioná una categoría --</option>
+                                    <option value="">
+                                        {categories.length === 0
+                                            ? '-- Sin categorías disponibles --'
+                                            : '-- Seleccioná una categoría --'}
+                                    </option>
                                     {categories.map((cat) => {
                                         const isSpecial = cat.name.includes('Area de');
                                         return (

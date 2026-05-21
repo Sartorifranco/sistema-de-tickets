@@ -18,7 +18,11 @@ const {
     finalizeRoute,
 } = require('../controllers/depositarioController');
 
-const depView = { adminPermissions: [P.DEPOSITARIOS_VIEW] };
+const depView = {
+    adminPermissions: [P.DEPOSITARIOS_VIEW],
+    agentPermissions: [P.DEPOSITARIOS_VIEW, P.TICKETS_VIEW],
+    permissionMode: 'any',
+};
 const depManage = { adminPermissions: [P.DEPOSITARIOS_MANAGE] };
 const monEquipos = { adminPermissions: [P.MONITORING_EQUIPOS] };
 
@@ -26,7 +30,10 @@ router.use(authenticateToken);
 
 router
     .route('/')
-    .get(authorizeAccess(['admin', 'agent'], depView), getDepositarios)
+    .get(
+        authorizeAccess(['admin', 'agent', 'client', 'boss', 'purchasing'], depView),
+        getDepositarios
+    )
     .post(authorizeAccess(['admin', 'agent'], depManage), createDepositario);
 
 router.get('/metrics', getDepositarioMetrics);
