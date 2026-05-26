@@ -34,30 +34,90 @@ const registerUser = asyncHandler(async (req, res) => {
     }
     // ------------------------------------
 
-    const [existingEmail] = await pool.execute('SELECT id FROM users WHERE email = ?', [email]);
-    if (existingEmail.length > 0) {
-        res.status(400);
-        throw new Error('El email ya está en uso.');
-    }
+    const emailNorm = String(email).trim().toLowerCase();
+    const [existingEmailRows] = await pool.execute(
+        'SELECT id, is_active FROM users WHERE email = ?',
+        [emailNorm]
+    );
 
     const salt = await bcrypt.genSalt(10);
     const hashedPassword = await bcrypt.hash(password, salt);
     const activationToken = crypto.randomBytes(32).toString('hex');
-    const activationTokenExpires = new Date(Date.now() + 8 * 60 * 60 * 1000); // 8 hours
+    const activationTokenExpires = new Date(Date.now() + 8 * 60 * 60 * 1000);
+
+    if (existingEmailRows.length > 0) {
+        const existing = existingEmailRows[0];
+        if (existing.is_active) {
+            return res.status(409).json({
+                success: false,
+                message: 'El email ya está en uso. Iniciá sesión o contactá al administrador.',
+                code: 'EMAIL_IN_USE',
+            });
+        }
+        await pool.execute(
+            `UPDATE users SET password = ?, company_id = ?, department_id = ?, first_name = ?, last_name = ?,
+             activation_token = ?, activation_token_expires = ?, is_active = 0
+             WHERE id = ?`,
+            [
+                hashedPassword,
+                company_id,
+                department_id,
+                firstName,
+                lastName,
+                activationToken,
+                activationTokenExpires,
+                existing.id,
+            ]
+        );
+        const mail = await sendActivationEmail(emailNorm, activationToken);
+        if (!mail.ok) {
+            return res.status(503).json({
+                success: false,
+                message:
+                    'Tu registro quedó guardado pero no pudimos enviar el email. Pedí al administrador que reenvíe la activación.',
+                code: 'EMAIL_SEND_FAILED',
+            });
+        }
+        return res.status(200).json({
+            success: true,
+            message: 'Ya habías iniciado el registro. Te reenviamos el correo de activación.',
+        });
+    }
 
     const sql = `
         INSERT INTO users 
         (username, email, password, role, company_id, department_id, first_name, last_name, is_active, activation_token, activation_token_expires) 
         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `;
-    const params = [username, email, hashedPassword, 'client', company_id, department_id, firstName, lastName, false, activationToken, activationTokenExpires];
-    
-    await pool.execute(sql, params);
-    await sendActivationEmail(email, activationToken);
+    const params = [
+        username,
+        emailNorm,
+        hashedPassword,
+        'client',
+        company_id,
+        department_id,
+        firstName,
+        lastName,
+        false,
+        activationToken,
+        activationTokenExpires,
+    ];
 
-    res.status(201).json({
+    await pool.execute(sql, params);
+    const mail = await sendActivationEmail(emailNorm, activationToken);
+
+    if (!mail.ok) {
+        return res.status(503).json({
+            success: false,
+            message:
+                'Tu cuenta fue creada pero no pudimos enviar el email de activación. Contactá al administrador del sistema.',
+            code: 'EMAIL_SEND_FAILED',
+        });
+    }
+
+    return res.status(201).json({
         success: true,
-        message: 'Registro exitoso. Por favor, revisa tu email para activar tu cuenta.',
+        message: 'Registro exitoso. Revisá tu email (incluida la carpeta de spam) para activar tu cuenta.',
     });
 });
 

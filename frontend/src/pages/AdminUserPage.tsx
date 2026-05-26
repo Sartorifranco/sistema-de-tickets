@@ -269,6 +269,7 @@ const AdminUsersPage: React.FC = () => {
                     isOpen={isUserModalOpen}
                     onClose={() => setIsUserModalOpen(false)}
                     onSave={handleSaveUser}
+                    onCreated={fetchData}
                     initialData={currentUser}
                     departments={allDepartments}
                     companies={allCompanies}

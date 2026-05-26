@@ -1,25 +1,24 @@
 const asyncHandler = require('express-async-handler');
+const crypto = require('crypto');
 const pool = require('../config/db');
 const bcrypt = require('bcryptjs');
+const { sendActivationEmail, sendWelcomeEmail } = require('../services/emailService');
 
 // @desc    Crear nuevo usuario (por Admin)
 const createUser = asyncHandler(async (req, res) => {
-    // ✅ RECIBIMOS EL FLAG isInternal
     const { firstName, lastName, email, password, company_id, department_id, role, isInternal } = req.body;
 
-    // Validación básica: Nombre y Empresa siempre requeridos
     if (!firstName || !lastName || !company_id) {
-        res.status(400).json({ message: 'Nombre, Apellido y Empresa son obligatorios.' });
-        return;
+        return res.status(400).json({ success: false, message: 'Nombre, Apellido y Empresa son obligatorios.' });
     }
 
-    // Validación condicional: Si NO es interno, pedimos email y password
     if (!isInternal && (!email || !password)) {
-        res.status(400).json({ message: 'Email y Contraseña son obligatorios para usuarios regulares.' });
-        return;
+        return res.status(400).json({
+            success: false,
+            message: 'Email y Contraseña son obligatorios para usuarios regulares.',
+        });
     }
 
-    // Generar username único basado en nombre (ej. juanperez -> juanperez1)
     const baseUsername = (firstName.trim().charAt(0) + lastName.trim()).toLowerCase().replace(/\s+/g, '');
     let username = baseUsername;
     let counter = 1;
@@ -31,32 +30,125 @@ const createUser = asyncHandler(async (req, res) => {
         [existingUser] = await pool.execute('SELECT id FROM users WHERE username = ?', [username]);
     }
 
-    // Validación de email duplicado (Solo si no es interno)
-    if (!isInternal) {
-        const [existingEmail] = await pool.execute('SELECT id FROM users WHERE email = ?', [email]);
-        if (existingEmail.length > 0) {
-            res.status(409);
-            throw new Error('El email ya está en uso.');
-        }
-    }
-
-    // Generar datos automáticos para internos (Email falso y password random)
-    const finalEmail = isInternal ? `internal.${Date.now()}@sistema.local` : email;
+    const finalEmail = isInternal ? `internal.${Date.now()}@sistema.local` : String(email).trim().toLowerCase();
     const finalPasswordRaw = isInternal ? Math.random().toString(36).slice(-10) : password;
-
     const salt = await bcrypt.genSalt(10);
     const hashedPassword = await bcrypt.hash(finalPasswordRaw, salt);
     const userRole = role || 'client';
 
+    if (!isInternal) {
+        const [existingEmailRows] = await pool.execute(
+            'SELECT id, username, is_active FROM users WHERE email = ?',
+            [finalEmail]
+        );
+        if (existingEmailRows.length > 0) {
+            const existing = existingEmailRows[0];
+            if (!existing.is_active) {
+                await pool.execute(
+                    `UPDATE users SET password = ?, role = ?, department_id = ?, company_id = ?,
+                     first_name = ?, last_name = ?, is_active = 1,
+                     activation_token = NULL, activation_token_expires = NULL
+                     WHERE id = ?`,
+                    [
+                        hashedPassword,
+                        userRole,
+                        department_id || null,
+                        company_id,
+                        firstName,
+                        lastName,
+                        existing.id,
+                    ]
+                );
+                await sendWelcomeEmail(finalEmail, existing.username);
+                return res.status(200).json({
+                    success: true,
+                    message:
+                        'Ese email tenía un registro pendiente (sin activar). El usuario fue activado con los datos ingresados.',
+                    data: {
+                        id: existing.id,
+                        username: existing.username,
+                        email: finalEmail,
+                        role: userRole,
+                        recovered: true,
+                    },
+                });
+            }
+            return res.status(409).json({
+                success: false,
+                message: 'El email ya está en uso por un usuario activo.',
+                code: 'EMAIL_IN_USE',
+            });
+        }
+    }
+
     const [result] = await pool.execute(
-        'INSERT INTO users (username, email, password, role, department_id, company_id, first_name, last_name) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
+        `INSERT INTO users (username, email, password, role, department_id, company_id, first_name, last_name, is_active)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1)`,
         [username, finalEmail, hashedPassword, userRole, department_id || null, company_id, firstName, lastName]
     );
 
-    res.status(201).json({
+    if (!isInternal) {
+        await sendWelcomeEmail(finalEmail, username);
+    }
+
+    return res.status(201).json({
         success: true,
-        message: 'Usuario creado exitosamente.',
-        data: { id: result.insertId, username, email: finalEmail, role: userRole, first_name: firstName, last_name: lastName },
+        message: 'Usuario creado exitosamente. Ya puede iniciar sesión.',
+        data: {
+            id: result.insertId,
+            username,
+            email: finalEmail,
+            role: userRole,
+            first_name: firstName,
+            last_name: lastName,
+        },
+    });
+});
+
+// @desc    Reenviar correo de activación (admin)
+const resendUserActivation = asyncHandler(async (req, res) => {
+    const email = String(req.body.email || '')
+        .trim()
+        .toLowerCase();
+    if (!email) {
+        return res.status(400).json({ success: false, message: 'Indicá el email del usuario.' });
+    }
+
+    const [rows] = await pool.execute(
+        'SELECT id, username, is_active FROM users WHERE email = ?',
+        [email]
+    );
+    if (!rows.length) {
+        return res.status(404).json({ success: false, message: 'No hay usuario con ese email.' });
+    }
+    const user = rows[0];
+    if (user.is_active) {
+        return res.status(400).json({
+            success: false,
+            message: 'El usuario ya está activo. Puede iniciar sesión o usar "olvidé mi contraseña" si corresponde.',
+        });
+    }
+
+    const activationToken = crypto.randomBytes(32).toString('hex');
+    const activationTokenExpires = new Date(Date.now() + 8 * 60 * 60 * 1000);
+    await pool.execute(
+        'UPDATE users SET activation_token = ?, activation_token_expires = ? WHERE id = ?',
+        [activationToken, activationTokenExpires, user.id]
+    );
+
+    const mail = await sendActivationEmail(email, activationToken);
+    if (!mail.ok) {
+        return res.status(503).json({
+            success: false,
+            message:
+                'No se pudo enviar el correo. Verificá EMAIL_HOST, EMAIL_USER y EMAIL_PASS en el servidor, o activá el usuario manualmente.',
+            detail: mail.error,
+        });
+    }
+
+    return res.status(200).json({
+        success: true,
+        message: `Correo de activación reenviado a ${email}.`,
     });
 });
 
@@ -354,6 +446,7 @@ const getAgentActiveTickets = asyncHandler(async (req, res) => {
 
 module.exports = {
     createUser,
+    resendUserActivation,
     getAllUsers,
     getUserById,
     updateUser,

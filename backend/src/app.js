@@ -131,6 +131,19 @@ io.on('connection', (socket) => {
   });
 });
 
+// --- 7b. MANEJO DE ERRORES (JSON para API; evita HTML "Conflict" en el cliente) ---
+app.use((err, req, res, next) => {
+    if (res.headersSent) {
+        return next(err);
+    }
+    const statusCode = res.statusCode >= 400 ? res.statusCode : 500;
+    const message = err.message || 'Error interno del servidor.';
+    if (req.path.startsWith('/api')) {
+        return res.status(statusCode).json({ success: false, message });
+    }
+    return res.status(statusCode).send(message);
+});
+
 // --- 8. SERVIR FRONTEND (PRODUCCIÓN) ---
 // NOTA: app.use('/api/notifications', ...) está ARRIBA para que POST /register-token no caiga aquí
 app.use(express.static(path.join(__dirname, '../../frontend/build')));

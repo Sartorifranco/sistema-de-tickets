@@ -8,12 +8,22 @@ interface UserFormModalProps {
     isOpen: boolean;
     onClose: () => void;
     onSave: (userData: NewUser | UpdateUser) => Promise<void>;
+    /** Tras crear usuario desde el modal (el alta va por POST /api/users aquí) */
+    onCreated?: () => void;
     initialData: User | null;
     departments: Department[];
     companies: Company[];
 }
 
-const UserFormModal: React.FC<UserFormModalProps> = ({ isOpen, onClose, onSave, initialData, departments, companies }) => {
+const UserFormModal: React.FC<UserFormModalProps> = ({
+    isOpen,
+    onClose,
+    onSave,
+    onCreated,
+    initialData,
+    departments,
+    companies,
+}) => {
     
     const getInitialFormData = () => ({
         username: initialData?.username?.trim() || '',
@@ -92,18 +102,22 @@ const UserFormModal: React.FC<UserFormModalProps> = ({ isOpen, onClose, onSave, 
 
                 // ⚠️ CAMBIO CLAVE: Usamos '/users' en lugar de '/auth/register'
                 // Esto asegura que use la función createUser del backend (la que modificamos)
-                await api.post('/api/users', newData);
-                
-                toast.success('Usuario creado exitosamente.');
-                
-                // Recargar para ver el nuevo usuario en la tabla
-                window.location.reload(); 
+                const res = await api.post('/api/users', newData);
+                const successMsg = res.data?.message || 'Usuario creado exitosamente.';
+                toast.success(successMsg);
+                onCreated?.();
             }
             
             onClose();
         } catch (error: any) {
             console.error('Error:', error);
-            const msg = error.response?.data?.message || 'Error al guardar usuario';
+            const data = error.response?.data;
+            let msg = 'Error al guardar usuario';
+            if (typeof data === 'object' && data?.message) {
+                msg = data.message;
+            } else if (error.response?.status === 409) {
+                msg = 'El email ya está registrado. Si el usuario no activó la cuenta, volvé a crearlo con el mismo email para activarlo, o usá Reenviar activación.';
+            }
             toast.error(msg);
         } finally {
             setLoading(false);

@@ -1,23 +1,32 @@
 const nodemailer = require('nodemailer');
-require('dotenv').config(); // Asegura que las variables de entorno se carguen
+require('dotenv').config();
 
 const transporter = nodemailer.createTransport({
     host: process.env.EMAIL_HOST,
     port: process.env.EMAIL_PORT,
-    secure: process.env.EMAIL_PORT == 465, // true para 465, false para otros puertos
+    secure: process.env.EMAIL_PORT == 465,
     auth: {
         user: process.env.EMAIL_USER,
         pass: process.env.EMAIL_PASS,
     },
 });
 
+function isEmailConfigured() {
+    return !!(process.env.EMAIL_HOST && process.env.EMAIL_USER && process.env.EMAIL_PASS);
+}
+
 const sendActivationEmail = async (to, token) => {
-    // ✅ Se utiliza la variable de entorno para construir el enlace correctamente
-    const activationUrl = `${process.env.FRONTEND_URL}/activate-account?token=${token}`;
+    if (!isEmailConfigured()) {
+        console.error('[EmailService] SMTP no configurado (EMAIL_HOST, EMAIL_USER, EMAIL_PASS).');
+        return { ok: false, error: 'Servidor de correo no configurado.' };
+    }
+
+    const frontendUrl = process.env.FRONTEND_URL || 'http://bacarsa.dyndns.org:8001';
+    const activationUrl = `${frontendUrl}/activate-account?token=${token}`;
 
     const mailOptions = {
         from: `"Sistema de Tickets BACAR" <${process.env.EMAIL_USER}>`,
-        to: to,
+        to,
         subject: 'Activa tu cuenta en el Sistema de Tickets de Grupo Bacar',
         html: `
             <div style="font-family: Arial, sans-serif; color: #333;">
@@ -37,18 +46,23 @@ const sendActivationEmail = async (to, token) => {
     try {
         await transporter.sendMail(mailOptions);
         console.log(`[EmailService] Correo de activación enviado a ${to}`);
+        return { ok: true };
     } catch (error) {
-        console.error('[EmailService] Error al enviar el correo de activación:', error);
-        // En un entorno de producción, aquí podrías añadir un sistema de reintentos o logging más robusto.
+        console.error('[EmailService] Error al enviar el correo de activación:', error.message);
+        return { ok: false, error: error.message };
     }
 };
 
 const sendWelcomeEmail = async (to, username) => {
-    const loginUrl = `${process.env.FRONTEND_URL}/login`;
+    if (!isEmailConfigured()) {
+        return { ok: false, error: 'Servidor de correo no configurado.' };
+    }
+
+    const loginUrl = `${process.env.FRONTEND_URL || 'http://bacarsa.dyndns.org:8001'}/login`;
 
     const mailOptions = {
         from: `"Sistema de Tickets de Grupo Bacar" <${process.env.EMAIL_USER}>`,
-        to: to,
+        to,
         subject: '¡Tu cuenta ha sido activada!',
         html: `
             <div style="font-family: Arial, sans-serif; color: #333;">
@@ -67,15 +81,21 @@ const sendWelcomeEmail = async (to, username) => {
     try {
         await transporter.sendMail(mailOptions);
         console.log(`[EmailService] Correo de bienvenida enviado a ${to}`);
+        return { ok: true };
     } catch (error) {
-        console.error('[EmailService] Error al enviar el correo de bienvenida:', error);
+        console.error('[EmailService] Error al enviar el correo de bienvenida:', error.message);
+        return { ok: false, error: error.message };
     }
 };
 
 const sendSupplierInvitationEmail = async (to, companyName, invitationUrl) => {
+    if (!isEmailConfigured()) {
+        return { ok: false, error: 'Servidor de correo no configurado.' };
+    }
+
     const mailOptions = {
         from: `"Compras - Grupo Bacar" <${process.env.EMAIL_USER}>`,
-        to: to,
+        to,
         subject: 'Invitación como Proveedor - Portal de Compras BACAR',
         html: `
             <div style="font-family: Arial, sans-serif; color: #333;">
@@ -94,8 +114,10 @@ const sendSupplierInvitationEmail = async (to, companyName, invitationUrl) => {
     try {
         await transporter.sendMail(mailOptions);
         console.log(`[EmailService] Invitación enviada a proveedor ${to}`);
+        return { ok: true };
     } catch (error) {
-        console.error('[EmailService] Error al enviar invitación:', error);
+        console.error('[EmailService] Error al enviar invitación:', error.message);
+        return { ok: false, error: error.message };
     }
 };
 
@@ -103,4 +125,5 @@ module.exports = {
     sendActivationEmail,
     sendWelcomeEmail,
     sendSupplierInvitationEmail,
+    isEmailConfigured,
 };

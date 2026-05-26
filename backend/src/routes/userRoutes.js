@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const {
     createUser,
+    resendUserActivation,
     getAllUsers,
     getUserById,
     updateUser,
@@ -40,6 +41,11 @@ router
 
 /** Rutas literales antes de /:id — si no, PUT /change-password matchea como id y exige users.edit */
 router.put('/change-password', changePassword);
+router.post(
+    '/resend-activation',
+    authorizeAccess(['admin'], { adminPermissions: [P.USERS_CREATE] }),
+    resendUserActivation
+);
 
 router.get('/:id/stats', authorizeAccess(['admin', 'agent'], { adminPermissions: [P.USERS_VIEW] }), getAgentStats);
 router.put(
