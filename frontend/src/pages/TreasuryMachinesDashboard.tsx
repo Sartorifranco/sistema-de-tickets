@@ -37,6 +37,28 @@ function statusBadgeClass(status: TreasuryMachineStatus): string {
     }
 }
 
+function daysSinceDate(dateStr: string | null | undefined): number | null {
+    if (!dateStr) return null;
+    const d = new Date(dateStr.includes('T') ? dateStr : `${dateStr}T12:00:00`);
+    if (Number.isNaN(d.getTime())) return null;
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    d.setHours(0, 0, 0, 0);
+    return Math.floor((today.getTime() - d.getTime()) / (1000 * 60 * 60 * 24));
+}
+
+function lastMaintenanceLabel(dateStr: string | null | undefined): { text: string; className: string } {
+    if (!dateStr) {
+        return { text: 'Sin registro', className: 'text-red-600 font-semibold' };
+    }
+    const days = daysSinceDate(dateStr);
+    const formatted = formatLocalDate(dateStr);
+    if (days === null) return { text: formatted, className: 'text-gray-700' };
+    if (days <= 30) return { text: formatted, className: 'text-emerald-700 font-medium' };
+    if (days <= 90) return { text: formatted, className: 'text-amber-700 font-medium' };
+    return { text: formatted, className: 'text-red-700 font-semibold' };
+}
+
 interface MachineFormModalProps {
     isOpen: boolean;
     initial: TreasuryMachine | null;
@@ -256,6 +278,7 @@ const MaintenanceFormModal: React.FC<MaintenanceFormModalProps> = ({ isOpen, mac
     const [loading, setLoading] = useState(false);
     const [form, setForm] = useState({
         maintenance_type: 'preventivo' as 'preventivo' | 'correctivo',
+        maintenance_date: new Date().toISOString().slice(0, 10),
         observations: '',
         new_status: 'operativa' as TreasuryMachineStatus,
     });
@@ -264,6 +287,7 @@ const MaintenanceFormModal: React.FC<MaintenanceFormModalProps> = ({ isOpen, mac
         if (!isOpen || !machine) return;
         setForm({
             maintenance_type: 'preventivo',
+            maintenance_date: new Date().toISOString().slice(0, 10),
             observations: '',
             new_status: machine.status,
         });
@@ -305,6 +329,20 @@ const MaintenanceFormModal: React.FC<MaintenanceFormModalProps> = ({ isOpen, mac
                     {STATUS_LABELS[machine.status]})
                 </p>
                 <form onSubmit={handleSubmit} className="space-y-4">
+                    <div>
+                        <label className="block text-sm font-semibold text-gray-700 mb-1">Fecha del mantenimiento *</label>
+                        <input
+                            type="date"
+                            value={form.maintenance_date}
+                            onChange={(e) => setForm((f) => ({ ...f, maintenance_date: e.target.value }))}
+                            className={clInput}
+                            required
+                            max={new Date().toISOString().slice(0, 10)}
+                        />
+                        <p className="text-xs text-slate-500 mt-1">
+                            Día en que se realizó el trabajo (puede ser anterior a hoy si cargás tarde).
+                        </p>
+                    </div>
                     <div>
                         <label className="block text-sm font-semibold text-gray-700 mb-1">Tipo de mantenimiento *</label>
                         <select
@@ -435,8 +473,15 @@ const HistoryModal: React.FC<HistoryModalProps> = ({ isOpen, machine, onClose })
                                     <span className="text-sm font-semibold text-gray-900 capitalize" style={{ fontWeight: 600 }}>
                                         {r.maintenance_type}
                                     </span>
-                                    <span className="text-xs text-gray-500">{formatLocalDate(r.created_at)}</span>
+                                    <span className="text-sm font-medium text-gray-800">
+                                        {formatLocalDate(r.maintenance_date || r.created_at)}
+                                    </span>
                                 </div>
+                                {r.maintenance_date && r.created_at && r.maintenance_date.slice(0, 10) !== r.created_at.slice(0, 10) && (
+                                    <p className="text-xs text-gray-500 mb-1">
+                                        Registrado en sistema: {formatLocalDate(r.created_at)}
+                                    </p>
+                                )}
                                 <p className="text-sm text-gray-700 mb-2">{r.observations}</p>
                                 <div className="flex flex-wrap gap-2 text-xs">
                                     <span className={`px-2 py-0.5 rounded-full border ${statusBadgeClass(r.previous_status)}`}>
@@ -475,10 +520,26 @@ const TreasuryMachinesDashboard: React.FC = () => {
     const [maintenanceMachine, setMaintenanceMachine] = useState<TreasuryMachine | null>(null);
     const [historyMachine, setHistoryMachine] = useState<TreasuryMachine | null>(null);
 
+    const [filters, setFilters] = useState({
+        search: '',
+        type: '',
+        status: '',
+        location: '',
+        staleDays: '',
+    });
+
     const fetchData = useCallback(async () => {
         setLoading(true);
         try {
-            const res = await api.get('/api/treasury-machines');
+            const params = new URLSearchParams();
+            if (filters.search.trim()) params.append('search', filters.search.trim());
+            if (filters.type) params.append('type', filters.type);
+            if (filters.status) params.append('status', filters.status);
+            if (filters.location.trim()) params.append('location', filters.location.trim());
+            if (filters.staleDays) params.append('staleDays', filters.staleDays);
+
+            const qs = params.toString();
+            const res = await api.get(`/api/treasury-machines${qs ? `?${qs}` : ''}`);
             setMachines(res.data.data || []);
             setStats(
                 res.data.stats || { operativa: 0, reparacion: 0, baja: 0, byType: [] }
@@ -488,11 +549,12 @@ const TreasuryMachinesDashboard: React.FC = () => {
         } finally {
             setLoading(false);
         }
-    }, []);
+    }, [filters]);
 
     useEffect(() => {
-        fetchData();
-    }, [fetchData]);
+        const t = setTimeout(() => fetchData(), filters.search || filters.location ? 350 : 0);
+        return () => clearTimeout(t);
+    }, [fetchData, filters.search, filters.location]);
 
     const handleDelete = async (m: TreasuryMachine) => {
         if (!window.confirm(`¿Eliminar la máquina S/N ${m.serial_number}?`)) return;
@@ -558,6 +620,97 @@ const TreasuryMachinesDashboard: React.FC = () => {
                 </div>
             </div>
 
+            <div className={`${clCard} p-4 mb-6`}>
+                <h2 className="text-sm font-bold text-gray-800 mb-3" style={{ fontWeight: 600 }}>
+                    Buscar y filtrar
+                </h2>
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
+                    <div className="lg:col-span-2">
+                        <label className="block text-xs font-semibold text-gray-600 mb-1">
+                            Búsqueda (serie, modelo, marca, ubicación)
+                        </label>
+                        <input
+                            type="text"
+                            value={filters.search}
+                            onChange={(e) => setFilters((f) => ({ ...f, search: e.target.value }))}
+                            className={clInput}
+                            placeholder="Ej: Glory, Sucursal Centro..."
+                        />
+                    </div>
+                    <div>
+                        <label className="block text-xs font-semibold text-gray-600 mb-1">Tipo</label>
+                        <select
+                            value={filters.type}
+                            onChange={(e) => setFilters((f) => ({ ...f, type: e.target.value }))}
+                            className={clInput}
+                        >
+                            <option value="">Todos</option>
+                            {MACHINE_TYPES.map((t) => (
+                                <option key={t} value={t}>
+                                    {t}
+                                </option>
+                            ))}
+                        </select>
+                    </div>
+                    <div>
+                        <label className="block text-xs font-semibold text-gray-600 mb-1">Estado</label>
+                        <select
+                            value={filters.status}
+                            onChange={(e) => setFilters((f) => ({ ...f, status: e.target.value }))}
+                            className={clInput}
+                        >
+                            <option value="">Todos</option>
+                            {(Object.keys(STATUS_LABELS) as TreasuryMachineStatus[]).map((s) => (
+                                <option key={s} value={s}>
+                                    {STATUS_LABELS[s]}
+                                </option>
+                            ))}
+                        </select>
+                    </div>
+                    <div>
+                        <label className="block text-xs font-semibold text-gray-600 mb-1">Ubicación</label>
+                        <input
+                            type="text"
+                            value={filters.location}
+                            onChange={(e) => setFilters((f) => ({ ...f, location: e.target.value }))}
+                            className={clInput}
+                            placeholder="Filtrar sucursal..."
+                        />
+                    </div>
+                </div>
+                <div className="mt-3 flex flex-wrap items-center gap-3">
+                    <label className="flex items-center gap-2 text-sm text-gray-700 cursor-pointer">
+                        <input
+                            type="checkbox"
+                            checked={filters.staleDays === '90'}
+                            onChange={(e) =>
+                                setFilters((f) => ({
+                                    ...f,
+                                    staleDays: e.target.checked ? '90' : '',
+                                }))
+                            }
+                            className="rounded border-gray-300"
+                        />
+                        Solo sin mantenimiento hace más de 90 días
+                    </label>
+                    {(filters.search || filters.type || filters.status || filters.location || filters.staleDays) && (
+                        <button
+                            type="button"
+                            onClick={() =>
+                                setFilters({ search: '', type: '', status: '', location: '', staleDays: '' })
+                            }
+                            className="text-sm text-red-600 hover:text-red-800 font-semibold"
+                        >
+                            Limpiar filtros
+                        </button>
+                    )}
+                    <span className="text-sm text-gray-500 ml-auto">
+                        {machines.length}{' '}
+                        {machines.length === 1 ? 'máquina mostrada' : 'máquinas mostradas'}
+                    </span>
+                </div>
+            </div>
+
             <div className={`${clCard} p-5 mb-6`}>
                 <h2 className="text-lg font-bold text-gray-900 mb-3" style={{ fontWeight: 600 }}>
                     Cantidad por tipo de máquina
@@ -603,6 +756,7 @@ const TreasuryMachinesDashboard: React.FC = () => {
                                     <th className={clTh}>Modelo</th>
                                     <th className={clTh}>S/N</th>
                                     <th className={clTh}>Ubicación</th>
+                                    <th className={clTh}>Últ. mantenimiento</th>
                                     <th className={clTh}>Billetes</th>
                                     <th className={clTh}>Estado</th>
                                     <th className={clThRight}>Acciones</th>
@@ -618,6 +772,21 @@ const TreasuryMachinesDashboard: React.FC = () => {
                                         </td>
                                         <td className={clTd}>{m.serial_number}</td>
                                         <td className={clTd}>{m.location}</td>
+                                        <td className={clTd}>
+                                            {(() => {
+                                                const lm = lastMaintenanceLabel(m.last_maintenance_date);
+                                                const days = daysSinceDate(m.last_maintenance_date);
+                                                return (
+                                                    <span className={lm.className} title={
+                                                        days !== null
+                                                            ? `Hace ${days} día${days !== 1 ? 's' : ''}`
+                                                            : undefined
+                                                    }>
+                                                        {lm.text}
+                                                    </span>
+                                                );
+                                            })()}
+                                        </td>
                                         <td className={clTd}>
                                             {m.counted_bills != null ? m.counted_bills.toLocaleString() : '—'}
                                         </td>

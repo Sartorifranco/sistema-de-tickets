@@ -20,6 +20,7 @@ CREATE TABLE IF NOT EXISTS machine_maintenances (
   id INT AUTO_INCREMENT PRIMARY KEY,
   machine_id INT NOT NULL,
   maintenance_type ENUM('preventivo', 'correctivo') NOT NULL,
+  maintenance_date DATE NULL,
   user_id INT NULL,
   observations TEXT NOT NULL,
   previous_status ENUM('operativa', 'reparacion', 'baja') NOT NULL,

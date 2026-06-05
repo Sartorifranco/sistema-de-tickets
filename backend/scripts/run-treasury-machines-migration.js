@@ -17,9 +17,26 @@ async function run() {
         multipleStatements: true,
     });
 
-    const sqlPath = path.join(__dirname, '../migrations/create_treasury_machines.sql');
-    const sql = fs.readFileSync(sqlPath, 'utf8');
-    await conn.query(sql);
+    const baseSql = fs.readFileSync(
+        path.join(__dirname, '../migrations/create_treasury_machines.sql'),
+        'utf8'
+    );
+    await conn.query(baseSql);
+    console.log('Tablas treasury_machines OK.');
+
+    const dateSqlPath = path.join(__dirname, '../migrations/add_treasury_maintenance_date.sql');
+    if (fs.existsSync(dateSqlPath)) {
+        try {
+            await conn.query(fs.readFileSync(dateSqlPath, 'utf8'));
+            console.log('Columna maintenance_date OK.');
+        } catch (err) {
+            if (err.code === 'ER_DUP_FIELDNAME') {
+                console.log('Columna maintenance_date ya existía.');
+            } else {
+                throw err;
+            }
+        }
+    }
     console.log('Migración treasury_machines aplicada.');
     await conn.end();
 }

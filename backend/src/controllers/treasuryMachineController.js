@@ -32,12 +32,59 @@ async function fetchDashboardStats() {
     return stats;
 }
 
-// @route GET /api/treasury-machines
+const MACHINE_LIST_SELECT = `
+    SELECT tm.id, tm.type, tm.brand, tm.model, tm.serial_number, tm.location, tm.counted_bills,
+           tm.status, tm.created_at, tm.updated_at,
+           (
+               SELECT MAX(COALESCE(m.maintenance_date, DATE(m.created_at)))
+               FROM machine_maintenances m
+               WHERE m.machine_id = tm.id
+           ) AS last_maintenance_date
+    FROM treasury_machines tm
+`;
+
+// @route GET /api/treasury-machines?search=&type=&status=&location=&staleDays=
 const listTreasuryMachines = asyncHandler(async (req, res) => {
+    const { search, type, status, location, staleDays } = req.query;
+    const conditions = [];
+    const params = [];
+
+    if (search && String(search).trim()) {
+        const term = `%${String(search).trim()}%`;
+        conditions.push(
+            '(tm.serial_number LIKE ? OR tm.model LIKE ? OR tm.brand LIKE ? OR tm.location LIKE ?)'
+        );
+        params.push(term, term, term, term);
+    }
+    if (type && MACHINE_TYPES.includes(String(type))) {
+        conditions.push('tm.type = ?');
+        params.push(type);
+    }
+    if (status && MACHINE_STATUSES.includes(String(status))) {
+        conditions.push('tm.status = ?');
+        params.push(status);
+    }
+    if (location && String(location).trim()) {
+        conditions.push('tm.location LIKE ?');
+        params.push(`%${String(location).trim()}%`);
+    }
+    const stale = parseInt(String(staleDays || ''), 10);
+    if (!Number.isNaN(stale) && stale > 0) {
+        conditions.push(`(
+            NOT EXISTS (SELECT 1 FROM machine_maintenances m WHERE m.machine_id = tm.id)
+            OR (
+                SELECT MAX(COALESCE(m.maintenance_date, DATE(m.created_at)))
+                FROM machine_maintenances m
+                WHERE m.machine_id = tm.id
+            ) < DATE_SUB(CURDATE(), INTERVAL ? DAY)
+        )`);
+        params.push(stale);
+    }
+
+    const where = conditions.length ? `WHERE ${conditions.join(' AND ')}` : '';
     const [machines] = await pool.execute(
-        `SELECT id, type, brand, model, serial_number, location, counted_bills, status, created_at, updated_at
-         FROM treasury_machines
-         ORDER BY type ASC, serial_number ASC`
+        `${MACHINE_LIST_SELECT} ${where} ORDER BY tm.type ASC, tm.serial_number ASC`,
+        params
     );
     const stats = await fetchDashboardStats();
     res.status(200).json({ success: true, data: machines, stats });
@@ -217,13 +264,13 @@ const listMachineMaintenances = asyncHandler(async (req, res) => {
     }
 
     const [rows] = await pool.execute(
-        `SELECT m.id, m.machine_id, m.maintenance_type, m.user_id, m.observations,
+        `SELECT m.id, m.machine_id, m.maintenance_type, m.maintenance_date, m.user_id, m.observations,
                 m.previous_status, m.new_status, m.created_at,
                 COALESCE(CONCAT(u.first_name, ' ', u.last_name), u.username) AS user_name
          FROM machine_maintenances m
          LEFT JOIN users u ON m.user_id = u.id
          WHERE m.machine_id = ?
-         ORDER BY m.created_at DESC`,
+         ORDER BY COALESCE(m.maintenance_date, DATE(m.created_at)) DESC, m.created_at DESC`,
         [id]
     );
     res.status(200).json({ success: true, data: rows, machine });
@@ -232,12 +279,19 @@ const listMachineMaintenances = asyncHandler(async (req, res) => {
 // @route POST /api/treasury-machines/:id/maintenances
 const createMachineMaintenance = asyncHandler(async (req, res) => {
     const machineId = parseInt(req.params.id, 10);
-    const { maintenance_type, observations, new_status } = req.body;
+    const { maintenance_type, maintenance_date, observations, new_status } = req.body;
     const userId = req.user?.id ?? null;
 
     const mType = normalizeMaintenanceType(maintenance_type);
     const nStatus = normalizeStatus(new_status);
     const obs = observations != null ? String(observations).trim() : '';
+    let maintDate = maintenance_date ? String(maintenance_date).trim().slice(0, 10) : null;
+    if (!maintDate) {
+        maintDate = new Date().toISOString().slice(0, 10);
+    } else if (!/^\d{4}-\d{2}-\d{2}$/.test(maintDate)) {
+        res.status(400);
+        throw new Error('Fecha de mantenimiento inválida.');
+    }
 
     if (!mType) {
         res.status(400);
@@ -269,9 +323,9 @@ const createMachineMaintenance = asyncHandler(async (req, res) => {
 
         const [insertResult] = await conn.execute(
             `INSERT INTO machine_maintenances
-             (machine_id, maintenance_type, user_id, observations, previous_status, new_status)
-             VALUES (?, ?, ?, ?, ?, ?)`,
-            [machineId, mType, userId, obs, previousStatus, nStatus]
+             (machine_id, maintenance_type, maintenance_date, user_id, observations, previous_status, new_status)
+             VALUES (?, ?, ?, ?, ?, ?, ?)`,
+            [machineId, mType, maintDate, userId, obs, previousStatus, nStatus]
         );
 
         await conn.execute('UPDATE treasury_machines SET status = ? WHERE id = ?', [nStatus, machineId]);

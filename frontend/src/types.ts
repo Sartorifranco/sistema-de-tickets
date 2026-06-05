@@ -321,12 +321,14 @@ export interface TreasuryMachine {
     status: TreasuryMachineStatus;
     created_at?: string;
     updated_at?: string;
+    last_maintenance_date?: string | null;
 }
 
 export interface MachineMaintenance {
     id: number;
     machine_id: number;
     maintenance_type: MachineMaintenanceType;
+    maintenance_date?: string | null;
     user_id: number | null;
     user_name?: string | null;
     observations: string;
