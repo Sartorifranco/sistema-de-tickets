@@ -18,16 +18,37 @@ interface Problem {
     description: string;
     category_id: number;
     department_id: number;
+    category_name?: string | null;
 }
+
+type ViewMode = 'all' | 'category';
 
 function categoryScopeLabel(cat: Category): string {
     return cat.company_id ? `Empresa ID ${cat.company_id}` : 'Todas las empresas (genérico)';
+}
+
+function normalizeCategory(raw: Category): Category {
+    return {
+        ...raw,
+        id: Number(raw.id),
+        company_id: raw.company_id != null ? Number(raw.company_id) : null,
+    };
+}
+
+function normalizeProblem(raw: Problem): Problem {
+    return {
+        ...raw,
+        id: Number(raw.id),
+        category_id: Number(raw.category_id),
+        department_id: Number(raw.department_id),
+    };
 }
 
 const AdminProblemsPage: React.FC = () => {
     const [categories, setCategories] = useState<Category[]>([]);
     const [problems, setProblems] = useState<Problem[]>([]);
     const [departments, setDepartments] = useState<Department[]>([]);
+    const [viewMode, setViewMode] = useState<ViewMode>('all');
     const [selectedCategoryId, setSelectedCategoryId] = useState<number | null>(null);
     const [categorySearch, setCategorySearch] = useState('');
     const [problemSearch, setProblemSearch] = useState('');
@@ -40,8 +61,8 @@ const AdminProblemsPage: React.FC = () => {
                 api.get('/api/admin/problems-all'),
                 api.get('/api/departments'),
             ]);
-            setCategories(dataRes.data.data.categories || []);
-            setProblems(dataRes.data.data.problems || []);
+            setCategories((dataRes.data.data.categories || []).map(normalizeCategory));
+            setProblems((dataRes.data.data.problems || []).map(normalizeProblem));
             setDepartments(deptsRes.data.data || []);
         } catch {
             toast.error('No se pudieron cargar los datos.');
@@ -54,13 +75,24 @@ const AdminProblemsPage: React.FC = () => {
         fetchData();
     }, []);
 
+    const categoryById = useMemo(
+        () => new Map(categories.map((c) => [c.id, c])),
+        [categories]
+    );
+
     const problemCountByCategory = useMemo(() => {
         const map = new Map<number, number>();
         for (const p of problems) {
-            map.set(p.category_id, (map.get(p.category_id) || 0) + 1);
+            const cid = Number(p.category_id);
+            map.set(cid, (map.get(cid) || 0) + 1);
         }
         return map;
     }, [problems]);
+
+    const orphanedProblems = useMemo(
+        () => problems.filter((p) => !categoryById.has(Number(p.category_id))),
+        [problems, categoryById]
+    );
 
     const sortedCategories = useMemo(
         () => [...categories].sort((a, b) => a.name.localeCompare(b.name, 'es')),
@@ -77,21 +109,71 @@ const AdminProblemsPage: React.FC = () => {
         );
     }, [sortedCategories, categorySearch]);
 
-    const selectedCategory = categories.find((c) => c.id === selectedCategoryId);
+    const selectedCategory = selectedCategoryId != null ? categoryById.get(selectedCategoryId) : undefined;
+
+    const filterProblemsBySearch = (list: Problem[], query: string) => {
+        const q = query.trim().toLowerCase();
+        if (!q) return list;
+        return list.filter(
+            (p) =>
+                p.title.toLowerCase().includes(q) ||
+                (p.description || '').toLowerCase().includes(q) ||
+                (p.category_name || '').toLowerCase().includes(q)
+        );
+    };
 
     const problemsForSelectedCategory = useMemo(() => {
-        if (!selectedCategoryId) return [];
-        let list = problems.filter((p) => p.category_id === selectedCategoryId);
-        const q = problemSearch.trim().toLowerCase();
-        if (q) {
-            list = list.filter(
-                (p) =>
-                    p.title.toLowerCase().includes(q) ||
-                    (p.description || '').toLowerCase().includes(q)
-            );
-        }
-        return list.sort((a, b) => a.title.localeCompare(b.title, 'es'));
+        if (selectedCategoryId == null) return [];
+        const list = problems.filter((p) => Number(p.category_id) === selectedCategoryId);
+        return filterProblemsBySearch(list, problemSearch).sort((a, b) =>
+            a.title.localeCompare(b.title, 'es')
+        );
     }, [problems, selectedCategoryId, problemSearch]);
+
+    const allProblemsGrouped = useMemo(() => {
+        const q = problemSearch.trim().toLowerCase();
+        const filtered = filterProblemsBySearch(problems, problemSearch);
+
+        const groups: { key: string; label: string; hint: string; problems: Problem[] }[] = [];
+
+        for (const cat of sortedCategories) {
+            const catProblems = filtered
+                .filter((p) => Number(p.category_id) === cat.id)
+                .sort((a, b) => a.title.localeCompare(b.title, 'es'));
+            if (catProblems.length > 0 || !q) {
+                groups.push({
+                    key: `cat-${cat.id}`,
+                    label: cat.name,
+                    hint: categoryScopeLabel(cat),
+                    problems: catProblems,
+                });
+            }
+        }
+
+        const orphans = filtered.filter((p) => !categoryById.has(Number(p.category_id)));
+        if (orphans.length > 0) {
+            groups.push({
+                key: 'orphan',
+                label: 'Sin categoría válida',
+                hint: 'Estos problemas existen en la base pero su categoría fue eliminada o cambió de ID',
+                problems: orphans.sort((a, b) => a.title.localeCompare(b.title, 'es')),
+            });
+        }
+
+        return groups.filter((g) => g.problems.length > 0);
+    }, [problems, sortedCategories, categoryById, problemSearch]);
+
+    const selectAllView = () => {
+        setViewMode('all');
+        setSelectedCategoryId(null);
+        setProblemSearch('');
+    };
+
+    const selectCategory = (catId: number) => {
+        setViewMode('category');
+        setSelectedCategoryId(catId);
+        setProblemSearch('');
+    };
 
     if (loading) {
         return <div className="text-center p-8 text-gray-600">Cargando problemáticas...</div>;
@@ -108,26 +190,36 @@ const AdminProblemsPage: React.FC = () => {
                     <strong>categoría</strong> y luego un <strong>problema predefinido</strong>. Cada
                     problema se deriva al departamento que indiques.
                 </p>
+                <p className="text-xs text-gray-500 mt-2">
+                    Total cargado: <strong>{problems.length}</strong>{' '}
+                    {problems.length === 1 ? 'problema' : 'problemas'} en{' '}
+                    <strong>{categories.length}</strong>{' '}
+                    {categories.length === 1 ? 'categoría' : 'categorías'}.
+                    {orphanedProblems.length > 0 && (
+                        <span className="text-amber-700 ml-1">
+                            ({orphanedProblems.length} sin categoría válida)
+                        </span>
+                    )}
+                </p>
             </div>
 
             <div className={`${clCard} p-4 sm:p-5 mb-6 border-l-4 border-blue-500 bg-blue-50/40`}>
                 <p className="text-sm font-semibold text-blue-900 mb-2">¿Cómo usar este módulo?</p>
                 <ol className="text-sm text-blue-900/90 space-y-1 list-decimal list-inside">
-                    <li>Elegí una categoría en la columna izquierda (podés buscarla por nombre).</li>
-                    <li>Revisá o editá los problemas que ya existen en esa categoría.</li>
-                    <li>Agregá nuevos problemas con el formulario inferior; el departamento define quién atiende el ticket.</li>
+                    <li>
+                        Usá <strong>Ver todos</strong> para revisar de un vistazo todo lo que ya está
+                        cargado en el sistema.
+                    </li>
+                    <li>O elegí una categoría en la columna izquierda para editar solo esa sección.</li>
+                    <li>Agregá nuevos problemas con el formulario; el departamento define quién atiende el ticket.</li>
                 </ol>
-                <p className="text-xs text-blue-800/80 mt-3">
-                    Tip: las categorías <strong>genéricas</strong> aplican a todas las empresas; las
-                    vinculadas a una empresa solo aparecen para usuarios de esa empresa.
-                </p>
             </div>
 
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 lg:gap-8">
                 <div className={`${clCard} p-4 sm:p-5 lg:col-span-1 flex flex-col max-h-[calc(100vh-12rem)]`}>
                     <h2 className="text-lg font-bold text-gray-900 mb-1">Categorías</h2>
                     <p className="text-xs text-gray-500 mb-3">
-                        Paso 1 — seleccioná una categoría para ver y editar sus problemas.
+                        Elegí <strong>Ver todos</strong> o una categoría concreta.
                     </p>
                     <input
                         type="text"
@@ -138,22 +230,40 @@ const AdminProblemsPage: React.FC = () => {
                         aria-label="Buscar categoría"
                     />
                     <ul className="space-y-2 overflow-y-auto flex-1 pr-1">
+                        <li>
+                            <button
+                                type="button"
+                                onClick={selectAllView}
+                                className={`w-full text-left p-3 rounded-xl transition-colors border ${
+                                    viewMode === 'all'
+                                        ? 'bg-red-600 text-white border-red-600 shadow-sm'
+                                        : 'bg-gray-50 hover:bg-gray-100 border-gray-100 text-gray-900'
+                                }`}
+                            >
+                                <span className="font-semibold text-sm block">Ver todos los problemas</span>
+                                <span
+                                    className={`block text-xs mt-0.5 ${
+                                        viewMode === 'all' ? 'text-red-100' : 'text-gray-500'
+                                    }`}
+                                >
+                                    {problems.length} en total · todas las categorías
+                                </span>
+                            </button>
+                        </li>
                         {filteredCategories.length === 0 ? (
-                            <li className="text-sm text-gray-500 text-center py-6">
+                            <li className="text-sm text-gray-500 text-center py-4">
                                 No hay categorías que coincidan con la búsqueda.
                             </li>
                         ) : (
                             filteredCategories.map((cat) => {
                                 const count = problemCountByCategory.get(cat.id) || 0;
-                                const isSelected = selectedCategoryId === cat.id;
+                                const isSelected =
+                                    viewMode === 'category' && selectedCategoryId === cat.id;
                                 return (
                                     <li key={cat.id}>
                                         <button
                                             type="button"
-                                            onClick={() => {
-                                                setSelectedCategoryId(cat.id);
-                                                setProblemSearch('');
-                                            }}
+                                            onClick={() => selectCategory(cat.id)}
                                             className={`w-full text-left p-3 rounded-xl transition-colors border ${
                                                 isSelected
                                                     ? 'bg-red-600 text-white border-red-600 shadow-sm'
@@ -178,14 +288,102 @@ const AdminProblemsPage: React.FC = () => {
                 </div>
 
                 <div className="lg:col-span-2 space-y-4">
-                    {selectedCategory ? (
+                    {viewMode === 'all' ? (
+                        <div className={`${clCard} p-5 sm:p-6`}>
+                            <div className="mb-5 pb-4 border-b border-gray-100">
+                                <h2 className="text-xl font-bold text-gray-900">Todos los problemas</h2>
+                                <p className="text-sm text-gray-600 mt-1">
+                                    Listado completo de lo que ya está en el sistema, agrupado por
+                                    categoría. Hacé clic en una categoría del panel izquierdo para
+                                    editarla o agregar más problemas ahí.
+                                </p>
+                            </div>
+
+                            <div className="mb-4">
+                                <label className="block text-xs font-semibold text-gray-600 mb-1">
+                                    Buscar en todo el listado
+                                </label>
+                                <input
+                                    type="text"
+                                    value={problemSearch}
+                                    onChange={(e) => setProblemSearch(e.target.value)}
+                                    className={clInput}
+                                    placeholder="Filtrar por título, descripción o categoría..."
+                                />
+                            </div>
+
+                            {problems.length === 0 ? (
+                                <div className="rounded-xl border border-dashed border-gray-200 bg-gray-50 p-6 text-center">
+                                    <p className="text-sm text-gray-600">
+                                        Todavía no hay problemas predefinidos en el sistema.
+                                    </p>
+                                    <p className="text-xs text-gray-500 mt-2">
+                                        Elegí una categoría a la izquierda y usá el formulario para
+                                        cargar el primero.
+                                    </p>
+                                </div>
+                            ) : allProblemsGrouped.length === 0 ? (
+                                <div className="rounded-xl border border-dashed border-gray-200 bg-gray-50 p-6 text-center">
+                                    <p className="text-sm text-gray-600">
+                                        Ningún problema coincide con el filtro.
+                                    </p>
+                                </div>
+                            ) : (
+                                <div className="space-y-6">
+                                    {allProblemsGrouped.map((group) => (
+                                        <section key={group.key}>
+                                            <div className="flex flex-wrap items-baseline justify-between gap-2 mb-2">
+                                                <div>
+                                                    <h3 className="text-sm font-bold text-gray-800">
+                                                        {group.label}
+                                                        <span className="font-normal text-gray-500 ml-2">
+                                                            ({group.problems.length})
+                                                        </span>
+                                                    </h3>
+                                                    <p className="text-xs text-gray-500">{group.hint}</p>
+                                                </div>
+                                                {group.key.startsWith('cat-') && (
+                                                    <button
+                                                        type="button"
+                                                        onClick={() =>
+                                                            selectCategory(Number(group.key.replace('cat-', '')))
+                                                        }
+                                                        className="text-xs font-semibold text-blue-700 hover:underline"
+                                                    >
+                                                        Administrar esta categoría →
+                                                    </button>
+                                                )}
+                                            </div>
+                                            <ul className="space-y-2">
+                                                {group.problems.map((prob) => (
+                                                    <AllViewProblemRow
+                                                        key={prob.id}
+                                                        problem={prob}
+                                                        departments={departments}
+                                                        onGoToCategory={
+                                                            categoryById.has(Number(prob.category_id))
+                                                                ? () => selectCategory(Number(prob.category_id))
+                                                                : undefined
+                                                        }
+                                                    />
+                                                ))}
+                                            </ul>
+                                        </section>
+                                    ))}
+                                </div>
+                            )}
+                        </div>
+                    ) : selectedCategory ? (
                         <div className={`${clCard} p-5 sm:p-6`}>
                             <div className="mb-5 pb-4 border-b border-gray-100">
                                 <h2 className="text-xl font-bold text-gray-900">{selectedCategory.name}</h2>
                                 <p className="text-sm text-gray-600 mt-1">
-                                    {categoryScopeLabel(selectedCategory)}. Los problemas de esta lista
-                                    aparecen en el formulario de tickets cuando el usuario elige esta
-                                    categoría.
+                                    {categoryScopeLabel(selectedCategory)}.{' '}
+                                    {problemCountByCategory.get(selectedCategory.id) || 0}{' '}
+                                    {(problemCountByCategory.get(selectedCategory.id) || 0) === 1
+                                        ? 'problema cargado'
+                                        : 'problemas cargados'}{' '}
+                                    en esta categoría.
                                 </p>
                             </div>
 
@@ -215,8 +413,7 @@ const AdminProblemsPage: React.FC = () => {
                                         </p>
                                         {!problemSearch.trim() && (
                                             <p className="text-xs text-gray-500 mt-2">
-                                                Usá el formulario de abajo para cargar el primero (ej. &quot;No
-                                                enciende&quot;, &quot;Sin conexión a red&quot;).
+                                                Usá el formulario de abajo para cargar el primero.
                                             </p>
                                         )}
                                     </div>
@@ -240,21 +437,41 @@ const AdminProblemsPage: React.FC = () => {
                                 onCreate={fetchData}
                             />
                         </div>
-                    ) : (
-                        <div className={`${clCard} p-10 text-center`}>
-                            <p className="text-gray-700 font-medium mb-2">
-                                Seleccioná una categoría para comenzar
-                            </p>
-                            <p className="text-sm text-gray-500 max-w-md mx-auto">
-                                En el panel izquierdo verás todas las categorías disponibles. Al
-                                elegir una, podrás editar sus problemas predefinidos y agregar nuevos
-                                que luego verán clientes y agentes al abrir un ticket.
-                            </p>
-                        </div>
-                    )}
+                    ) : null}
                 </div>
             </div>
         </div>
+    );
+};
+
+const AllViewProblemRow: React.FC<{
+    problem: Problem;
+    departments: Department[];
+    onGoToCategory?: () => void;
+}> = ({ problem, departments, onGoToCategory }) => {
+    const deptName = departments.find((d) => d.id === problem.department_id)?.name || 'N/A';
+
+    return (
+        <li className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-2 p-3 bg-gray-50 rounded-lg border border-gray-100">
+            <div className="min-w-0">
+                <p className="font-medium text-gray-900 text-sm">{problem.title}</p>
+                {problem.description?.trim() && (
+                    <p className="text-xs text-gray-600 mt-0.5">{problem.description}</p>
+                )}
+                <p className="text-xs text-gray-500 mt-0.5">
+                    Se deriva a: <span className="font-medium">{deptName}</span>
+                </p>
+            </div>
+            {onGoToCategory && (
+                <button
+                    type="button"
+                    onClick={onGoToCategory}
+                    className="text-xs font-semibold text-blue-700 hover:underline shrink-0"
+                >
+                    Editar en categoría
+                </button>
+            )}
+        </li>
     );
 };
 
@@ -423,7 +640,7 @@ const CreateProblemForm: React.FC<{
         <form onSubmit={handleSubmit} className="border-t border-gray-100 pt-5 mt-2">
             <h4 className="font-bold text-gray-800 mb-1">Añadir nuevo problema</h4>
             <p className="text-xs text-gray-500 mb-4">
-                Paso 3 — el título es lo que verá el usuario en el desplegable del ticket. Elegí el
+                El título es lo que verá el usuario en el desplegable del ticket. Elegí el
                 departamento al que debe ir ese tipo de consulta.
             </p>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -439,7 +656,6 @@ const CreateProblemForm: React.FC<{
                         className={clInput}
                         required
                     />
-                    <p className="text-xs text-gray-400 mt-1">Texto corto y claro para el usuario.</p>
                 </div>
                 <div>
                     <label className="block text-xs font-semibold text-gray-600 mb-1">
@@ -452,7 +668,6 @@ const CreateProblemForm: React.FC<{
                         placeholder="Detalle interno o ayuda extra"
                         className={clInput}
                     />
-                    <p className="text-xs text-gray-400 mt-1">No siempre se muestra al crear el ticket.</p>
                 </div>
             </div>
             <div className="mt-4">
@@ -475,10 +690,6 @@ const CreateProblemForm: React.FC<{
                         ))
                     )}
                 </select>
-                <p className="text-xs text-gray-400 mt-1">
-                    Al elegir este problema en un ticket, el sistema asocia esa área (ej. Soporte IT,
-                    Administración).
-                </p>
             </div>
             <button
                 type="submit"

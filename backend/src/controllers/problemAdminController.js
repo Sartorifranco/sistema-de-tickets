@@ -12,15 +12,26 @@ const getAllProblemsAdmin = asyncHandler(async (req, res) => {
         const [categories] = await pool.execute('SELECT * FROM ticket_categories ORDER BY id DESC');
         
         const [problems] = await pool.execute(`
-            SELECT p.*, c.name as category_name 
-            FROM predefined_problems p 
-            LEFT JOIN ticket_categories c ON p.category_id = c.id 
-            ORDER BY p.id DESC
+            SELECT p.*, c.name AS category_name, c.company_id AS category_company_id
+            FROM predefined_problems p
+            LEFT JOIN ticket_categories c ON p.category_id = c.id
+            ORDER BY c.name ASC, p.title ASC
         `);
 
-        res.json({ 
-            success: true, 
-            data: { categories, problems } 
+        const categoryIds = new Set(categories.map((c) => c.id));
+        const orphanedProblems = problems.filter((p) => !categoryIds.has(p.category_id));
+
+        res.json({
+            success: true,
+            data: {
+                categories,
+                problems,
+                stats: {
+                    totalProblems: problems.length,
+                    totalCategories: categories.length,
+                    orphanedCount: orphanedProblems.length,
+                },
+            },
         });
     } catch (error) {
         console.error(error);
