@@ -109,9 +109,12 @@ const ClientDashboard: React.FC = () => {
     return (
         <>
             <div className="container mx-auto p-4 sm:p-6 lg:p-8">
-                <h1 className="text-2xl sm:text-3xl font-bold text-slate-900 mb-2">Tu Dashboard</h1>
-                <p className="text-md sm:text-lg text-gray-500 mb-8">
-                    Bienvenido, {user?.username}. Aquí tienes un resumen de tus tickets.
+                <h1 className="text-2xl sm:text-3xl font-bold text-slate-900 mb-2">Tu panel de tickets</h1>
+                <p className="text-md sm:text-lg text-gray-500 mb-2">
+                    Bienvenido, {user?.username}. Acá ves un resumen de tus solicitudes.
+                </p>
+                <p className="text-sm text-gray-500 mb-8">
+                    Hacé clic en una tarjeta para ver el detalle por estado, o usá el botón de abajo para ir a la lista completa y crear un ticket nuevo.
                 </p>
 
                 {metrics && (

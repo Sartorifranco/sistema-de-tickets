@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
+import { Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import api from '../config/axiosConfig';
 import { toast } from 'react-toastify';
@@ -6,6 +7,16 @@ import PushNotificationButton from '../components/PushNotificationButton/PushNot
 import DeveloperGithubSettings from '../components/Profile/DeveloperGithubSettings';
 import { isDesarrolloDepartmentName } from '../utils/ticketAccess';
 import { clCard, clInput } from '../utils/cleanLightUi';
+import { UserRole } from '../types';
+
+const ROLE_LABELS: Record<UserRole, string> = {
+    admin: 'Administrador',
+    agent: 'Agente',
+    client: 'Cliente',
+    boss: 'Jefe',
+    purchasing: 'Compras',
+    supplier: 'Proveedor',
+};
 
 const ProfilePage: React.FC = () => {
     const { user } = useAuth();
@@ -23,8 +34,10 @@ const ProfilePage: React.FC = () => {
     const [confirmPassword, setConfirmPassword] = useState('');
     const [isUpdatingPassword, setIsUpdatingPassword] = useState(false);
 
-    const canEditNotificationPrefs = ['admin', 'purchasing', 'supplier', 'boss'].includes(user?.role || '');
+    const canEditNotificationPrefs = ['admin', 'agent', 'client', 'purchasing', 'supplier', 'boss'].includes(user?.role || '');
+    const showStaffNotificationTools = ['admin', 'purchasing', 'supplier', 'boss'].includes(user?.role || '');
     const canViewConfigStatus = user?.role === 'admin' || user?.role === 'purchasing';
+    const isClient = user?.role === 'client';
     const [configStatus, setConfigStatus] = useState<Record<string, { configured?: boolean; message?: string; [k: string]: unknown }> | null>(null);
     const [whatsappHelp, setWhatsappHelp] = useState<{ sandboxNumber?: string; sandboxJoinCode?: string | null } | null>(null);
     const [testingWhatsApp, setTestingWhatsApp] = useState(false);
@@ -35,6 +48,9 @@ const ProfilePage: React.FC = () => {
         if (!user) return;
         setLoadingDetails(true);
         try {
+            if (user.company_name) {
+                setCompanyName(user.company_name);
+            }
             if (user.company_id) {
                 const companyRes = await api.get(`/api/companies/${user.company_id}`);
                 setCompanyName(companyRes.data.data.name || 'No asignada');
@@ -60,7 +76,7 @@ const ProfilePage: React.FC = () => {
                     }
                 } catch { /* ignorar */ }
             }
-            if (canEditNotificationPrefs) {
+            if (showStaffNotificationTools) {
                 try {
                     const helpRes = await api.get('/api/notifications/whatsapp-help');
                     if (helpRes.data.success && helpRes.data.data) {
@@ -73,7 +89,7 @@ const ProfilePage: React.FC = () => {
         } finally {
             setLoadingDetails(false);
         }
-    }, [user, canEditNotificationPrefs, canViewConfigStatus]);
+    }, [user, canEditNotificationPrefs, canViewConfigStatus, showStaffNotificationTools]);
 
     const handleTestWhatsApp = async () => {
         const num = whatsappNumber.trim();
@@ -194,18 +210,81 @@ const ProfilePage: React.FC = () => {
     const showDeveloperGithubSettings =
         user.role === 'admin' || isDesarrolloDepartmentName(departmentName);
 
+    const displayName =
+        user.first_name || user.last_name
+            ? `${user.first_name || ''} ${user.last_name || ''}`.trim()
+            : user.username;
+    const resolvedCompanyName =
+        user.company_name || (loadingDetails ? 'Cargando...' : companyName);
+    const roleLabel = ROLE_LABELS[user.role] || user.role;
+
     return (
-        <div className="container mx-auto p-4 sm:p-6 lg:p-8 space-y-8">
-            <h1 className="text-3xl font-bold text-gray-900 tracking-tight">Mi Perfil</h1>
-            
+        <div className="container mx-auto p-4 sm:p-6 lg:p-8 space-y-6">
+            <div>
+                <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 tracking-tight">
+                    {isClient ? 'Mi cuenta' : 'Mi Perfil'}
+                </h1>
+                <p className="text-sm text-gray-600 mt-2">
+                    {isClient
+                        ? `Hola, ${displayName}. Desde acá podés revisar tus datos, activar avisos de tickets y cambiar tu contraseña.`
+                        : 'Administrá tu cuenta, notificaciones y seguridad.'}
+                </p>
+            </div>
+
+            {isClient && (
+                <div className={`${clCard} p-4 sm:p-5 border-l-4 border-blue-500 bg-blue-50/40`}>
+                    <p className="text-sm font-semibold text-blue-900 mb-2">¿Para qué sirve esta pantalla?</p>
+                    <ul className="text-sm text-blue-900/90 space-y-1 list-disc list-inside">
+                        <li>Ver los datos de tu usuario y empresa.</li>
+                        <li>Activar alertas cuando respondan o actualicen tus tickets.</li>
+                        <li>Cambiar tu contraseña de acceso al sistema.</li>
+                    </ul>
+                    <p className="text-xs text-blue-800/80 mt-3">
+                        Para crear o seguir tickets, andá a{' '}
+                        <Link to="/client/tickets" className="font-semibold underline">
+                            Mis Tickets
+                        </Link>{' '}
+                        desde el menú lateral.
+                    </p>
+                </div>
+            )}
+
             <div className={`${clCard} p-6`}>
-                <h2 className="text-xl font-bold mb-4 text-slate-900 border-b border-gray-100 pb-2">Detalles de la Cuenta</h2>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-gray-600">
-                    <div><strong>Nombre de Usuario:</strong> {user.username}</div>
-                    <div><strong>Email:</strong> {user.email}</div>
-                    <div><strong>Rol:</strong> {user.role}</div>
-                    <div><strong>Empresa:</strong> {loadingDetails ? 'Cargando...' : companyName}</div>
-                    <div><strong>Departamento:</strong> {loadingDetails ? 'Cargando...' : departmentName}</div>
+                <h2 className="text-xl font-bold mb-1 text-slate-900">Datos de la cuenta</h2>
+                <p className="text-xs text-gray-500 mb-4">
+                    {isClient
+                        ? 'Información asociada a tu usuario en el sistema de tickets.'
+                        : 'Información general de tu usuario.'}
+                </p>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-4 text-gray-700">
+                    <div>
+                        <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">Usuario</p>
+                        <p className="font-medium">{user.username}</p>
+                    </div>
+                    <div>
+                        <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">Nombre</p>
+                        <p className="font-medium">{displayName}</p>
+                    </div>
+                    <div>
+                        <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">Email</p>
+                        <p className="font-medium">{user.email}</p>
+                    </div>
+                    <div>
+                        <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">Rol</p>
+                        <p className="font-medium">{roleLabel}</p>
+                    </div>
+                    <div>
+                        <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">Empresa</p>
+                        <p className="font-medium">{resolvedCompanyName}</p>
+                    </div>
+                    {!isClient && (
+                        <div>
+                            <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">Departamento</p>
+                            <p className="font-medium">
+                                {loadingDetails ? 'Cargando...' : departmentName}
+                            </p>
+                        </div>
+                    )}
                 </div>
             </div>
 
@@ -233,76 +312,95 @@ const ProfilePage: React.FC = () => {
             )}
 
             <div className={`${clCard} p-6`}>
-                <h2 className="text-xl font-bold mb-4 text-slate-900 border-b border-gray-100 pb-2">Notificaciones Push</h2>
-                <p className="text-sm text-gray-600 mb-4">Activa las notificaciones para recibir alertas incluso con el navegador cerrado.</p>
+                <h2 className="text-xl font-bold mb-1 text-slate-900">Alertas en el navegador</h2>
+                <p className="text-sm text-gray-600 mb-4">
+                    {isClient
+                        ? 'Activá las notificaciones para enterarte cuando un agente responda o cambie el estado de tus tickets, incluso si no tenés esta pestaña abierta.'
+                        : 'Activá las notificaciones para recibir alertas incluso con el navegador cerrado.'}
+                </p>
                 <div className="flex flex-wrap items-center gap-3">
                     <PushNotificationButton />
-                    <button
-                        type="button"
-                        onClick={handleTestPush}
-                        disabled={testingPush}
-                        className="px-5 py-2.5 bg-red-600 hover:bg-red-700 text-white text-sm font-semibold rounded-xl shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
-                    >
-                        {testingPush ? 'Enviando...' : '🔔 Probar Alerta'}
-                    </button>
+                    {showStaffNotificationTools && (
+                        <button
+                            type="button"
+                            onClick={handleTestPush}
+                            disabled={testingPush}
+                            className="px-5 py-2.5 bg-red-600 hover:bg-red-700 text-white text-sm font-semibold rounded-xl shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                            {testingPush ? 'Enviando...' : 'Probar alerta'}
+                        </button>
+                    )}
                 </div>
             </div>
 
             {canEditNotificationPrefs && (
                 <div className={`${clCard} p-6`}>
-                    <h2 className="text-xl font-bold mb-4 text-slate-900 border-b border-gray-100 pb-2">Preferencias de Notificación</h2>
-                    <form onSubmit={handleSaveNotificationPrefs} className="space-y-4 max-w-md">
+                    <h2 className="text-xl font-bold mb-1 text-slate-900">Preferencias de notificación</h2>
+                    <p className="text-sm text-gray-600 mb-4">
+                        {isClient
+                            ? 'Elegí dónde querés recibir avisos sobre tus tickets. Si no completás el email alternativo, usamos el de tu cuenta.'
+                            : 'Configurá los canales donde querés recibir alertas del sistema.'}
+                    </p>
+                    <form onSubmit={handleSaveNotificationPrefs} className="space-y-4 max-w-lg">
                         <div>
-                            <label className="block text-sm font-medium text-gray-700">Email alternativo de alertas</label>
-                            <div className="flex gap-2 mt-1">
+                            <label className="block text-sm font-medium text-gray-700">
+                                Email para alertas
+                            </label>
+                            <p className="text-xs text-gray-500 mb-1">
+                                Dejalo vacío para usar <strong>{user.email}</strong>
+                            </p>
+                            <div className="flex flex-col sm:flex-row gap-2">
                                 <input
                                     type="email"
                                     value={notificationEmail}
                                     onChange={(e) => setNotificationEmail(e.target.value)}
-                                    placeholder="Dejar vacío para usar el email de la cuenta"
+                                    placeholder={user.email}
                                     className={`flex-1 ${clInput}`}
                                 />
-                                <button
-                                    type="button"
-                                    onClick={handleTestEmail}
-                                    disabled={testingEmail || (!notificationEmail.trim() && !user?.email)}
-                                    className="px-5 py-2.5 bg-red-600 hover:bg-red-700 text-white text-sm font-semibold rounded-xl shadow-sm disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap"
-                                >
-                                    {testingEmail ? 'Enviando...' : 'Probar email'}
-                                </button>
-                            </div>
-                        </div>
-                        <div>
-                            <label className="block text-sm font-medium text-gray-700">Número de WhatsApp (con código de país)</label>
-                            <input
-                                type="text"
-                                value={whatsappNumber}
-                                onChange={(e) => setWhatsappNumber(e.target.value)}
-                                placeholder="Ej: +54 9 11 1234-5678"
-                                className={`mt-1 block w-full ${clInput}`}
-                            />
-                            {whatsappHelp && (whatsappHelp.sandboxJoinCode || whatsappHelp.sandboxNumber) && (
-                                <div className="mt-2 p-4 bg-green-50 border border-green-200 rounded-xl text-sm text-green-800">
-                                    <p className="font-medium mb-2">📱 Para recibir notificaciones por WhatsApp (modo prueba):</p>
-                                    <p className="text-xs text-amber-800 mb-2">El número que recibe debe ser el mismo que envía el mensaje. La membresía dura 72 horas.</p>
-                                    <ol className="list-decimal list-inside space-y-1 mb-2">
-                                        <li>Guarde su número arriba y haga clic en &quot;Guardar preferencias&quot;.</li>
-                                        <li>En WhatsApp (con ese mismo número), agregue <strong>{whatsappHelp.sandboxNumber || '+1 415 523 8886'}</strong></li>
-                                        <li>Envíe: <strong>join {whatsappHelp.sandboxJoinCode || '???'}</strong></li>
-                                        <li>Si Twilio responde con error, el código puede ser incorrecto. Vea la consola de Twilio → Messaging → Try WhatsApp → Sandbox y use el <em>sandbox name</em> exacto (ej: join happy-fish).</li>
-                                        <li>Cuando Twilio confirme, use &quot;Probar WhatsApp&quot;.</li>
-                                    </ol>
+                                {showStaffNotificationTools && (
                                     <button
                                         type="button"
-                                        onClick={handleTestWhatsApp}
-                                        disabled={testingWhatsApp || !whatsappNumber.trim()}
-                                        className="mt-2 px-5 py-2.5 bg-green-600 hover:bg-green-700 text-white text-sm font-semibold rounded-xl shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
+                                        onClick={handleTestEmail}
+                                        disabled={testingEmail || (!notificationEmail.trim() && !user?.email)}
+                                        className="px-5 py-2.5 bg-red-600 hover:bg-red-700 text-white text-sm font-semibold rounded-xl shadow-sm disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap"
                                     >
-                                        {testingWhatsApp ? 'Enviando...' : '📱 Probar WhatsApp'}
+                                        {testingEmail ? 'Enviando...' : 'Probar email'}
                                     </button>
-                                </div>
-                            )}
+                                )}
+                            </div>
                         </div>
+                        {showStaffNotificationTools && (
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700">
+                                    Número de WhatsApp (con código de país)
+                                </label>
+                                <input
+                                    type="text"
+                                    value={whatsappNumber}
+                                    onChange={(e) => setWhatsappNumber(e.target.value)}
+                                    placeholder="Ej: +54 9 11 1234-5678"
+                                    className={`mt-1 block w-full ${clInput}`}
+                                />
+                                {whatsappHelp && (whatsappHelp.sandboxJoinCode || whatsappHelp.sandboxNumber) && (
+                                    <div className="mt-2 p-4 bg-green-50 border border-green-200 rounded-xl text-sm text-green-800">
+                                        <p className="font-medium mb-2">Para recibir notificaciones por WhatsApp (modo prueba):</p>
+                                        <ol className="list-decimal list-inside space-y-1 mb-2 text-xs">
+                                            <li>Guarde su número arriba y haga clic en &quot;Guardar preferencias&quot;.</li>
+                                            <li>En WhatsApp, agregue <strong>{whatsappHelp.sandboxNumber || '+1 415 523 8886'}</strong></li>
+                                            <li>Envíe: <strong>join {whatsappHelp.sandboxJoinCode || '???'}</strong></li>
+                                        </ol>
+                                        <button
+                                            type="button"
+                                            onClick={handleTestWhatsApp}
+                                            disabled={testingWhatsApp || !whatsappNumber.trim()}
+                                            className="mt-2 px-5 py-2.5 bg-green-600 hover:bg-green-700 text-white text-sm font-semibold rounded-xl shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
+                                        >
+                                            {testingWhatsApp ? 'Enviando...' : 'Probar WhatsApp'}
+                                        </button>
+                                    </div>
+                                )}
+                            </div>
+                        )}
                         <div className="flex items-center gap-2">
                             <button
                                 type="button"
@@ -313,7 +411,9 @@ const ProfilePage: React.FC = () => {
                             >
                                 <span className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${pushEnabled ? 'translate-x-5' : 'translate-x-1'}`} />
                             </button>
-                            <label className="text-sm font-medium text-gray-700">Habilitar notificaciones push</label>
+                            <label className="text-sm font-medium text-gray-700">
+                                Recibir notificaciones push
+                            </label>
                         </div>
                         <div className="pt-2">
                             <button type="submit" className="bg-red-600 hover:bg-red-700 text-white font-semibold py-2.5 px-5 rounded-xl shadow-sm" disabled={savingPrefs}>
@@ -325,23 +425,28 @@ const ProfilePage: React.FC = () => {
             )}
 
             <div className={`${clCard} p-6`}>
-                <h2 className="text-xl font-bold mb-4 text-slate-900 border-b border-gray-100 pb-2">Cambiar Contraseña</h2>
+                <h2 className="text-xl font-bold mb-1 text-slate-900">Cambiar contraseña</h2>
+                <p className="text-sm text-gray-600 mb-4">
+                    {isClient
+                        ? 'Usá una contraseña segura que solo vos conozcas. La necesitás cada vez que ingresás al sistema.'
+                        : 'Actualizá tu contraseña de acceso cuando lo consideres necesario.'}
+                </p>
                 <form onSubmit={handleChangePassword} className="space-y-4 max-w-md">
                     <div>
-                        <label className="block text-sm font-medium text-gray-700">Contraseña Actual</label>
+                        <label className="block text-sm font-medium text-gray-700">Contraseña actual</label>
                         <input type="password" value={currentPassword} onChange={(e) => setCurrentPassword(e.target.value)} className={`mt-1 block w-full ${clInput}`} required />
                     </div>
                     <div>
-                        <label className="block text-sm font-medium text-gray-700">Nueva Contraseña</label>
+                        <label className="block text-sm font-medium text-gray-700">Nueva contraseña</label>
                         <input type="password" value={newPassword} onChange={(e) => setNewPassword(e.target.value)} className={`mt-1 block w-full ${clInput}`} required />
                     </div>
                     <div>
-                        <label className="block text-sm font-medium text-gray-700">Confirmar Nueva Contraseña</label>
+                        <label className="block text-sm font-medium text-gray-700">Confirmar nueva contraseña</label>
                         <input type="password" value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} className={`mt-1 block w-full ${clInput}`} required />
                     </div>
-                    <div className="text-right pt-2">
+                    <div className="pt-2">
                         <button type="submit" className="bg-red-600 hover:bg-red-700 text-white font-semibold py-2.5 px-5 rounded-xl shadow-sm" disabled={isUpdatingPassword}>
-                            {isUpdatingPassword ? 'Actualizando...' : 'Actualizar Contraseña'}
+                            {isUpdatingPassword ? 'Actualizando...' : 'Actualizar contraseña'}
                         </button>
                     </div>
                 </form>
