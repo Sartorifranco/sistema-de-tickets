@@ -10,6 +10,17 @@ import ResetPasswordModal from '../components/Users/ResetPasswordModal';
 import UserPermissionsModal from '../components/Users/UserPermissionsModal';
 import { PERMISSION_KEYS as P } from '../constants/permissions';
 import { canManagePermissions, hasPermission, isSuperAdmin } from '../utils/permissions';
+import { clInput } from '../utils/cleanLightUi';
+import { UserRole } from '../types';
+
+const ROLE_LABELS: Record<UserRole, string> = {
+    admin: 'Administrador',
+    agent: 'Agente',
+    client: 'Cliente',
+    boss: 'Jefe',
+    purchasing: 'Compras',
+    supplier: 'Proveedor',
+};
 
 const AdminUsersPage: React.FC = () => {
     const { user } = useAuth();
@@ -29,45 +40,78 @@ const AdminUsersPage: React.FC = () => {
     const [allDepartments, setAllDepartments] = useState<Department[]>([]);
     const [allCompanies, setAllCompanies] = useState<Company[]>([]);
 
-    const [selectedCompanyId, setSelectedCompanyId] = useState<string>('');
+    const [filters, setFilters] = useState({
+        search: '',
+        role: '',
+        companyId: '',
+        departmentId: '',
+    });
 
-    const fetchData = useCallback(async () => {
+    const fetchMeta = useCallback(async () => {
+        try {
+            const [deptsRes, companiesRes] = await Promise.all([
+                api.get('/api/departments'),
+                api.get('/api/companies'),
+            ]);
+            setAllDepartments(deptsRes.data.data || []);
+            setAllCompanies(companiesRes.data.data || []);
+        } catch (err: unknown) {
+            const message = isAxiosErrorTypeGuard(err)
+                ? (err.response?.data as ApiResponseError)?.message || 'Error al cargar empresas/departamentos.'
+                : 'Ocurrió un error inesperado.';
+            addNotification(message, 'error');
+        }
+    }, [addNotification]);
+
+    const fetchUsers = useCallback(async () => {
         setLoading(true);
         setError(null);
         try {
-            const [usersRes, deptsRes, companiesRes] = await Promise.all([
-                api.get('/api/users'),
-                api.get('/api/departments'),
-                api.get('/api/companies')
-            ]);
-            
-            setUsers(usersRes.data.data || []);
-            setAllDepartments(deptsRes.data.data || []);
-            setAllCompanies(companiesRes.data.data || []);
+            const params = new URLSearchParams();
+            if (filters.search.trim()) params.append('search', filters.search.trim());
+            if (filters.role) params.append('role', filters.role);
+            if (filters.companyId) params.append('companyId', filters.companyId);
+            if (filters.departmentId) params.append('departmentId', filters.departmentId);
 
+            const qs = params.toString();
+            const usersRes = await api.get(`/api/users${qs ? `?${qs}` : ''}`);
+            setUsers(usersRes.data.data || []);
         } catch (err: unknown) {
-            const message = isAxiosErrorTypeGuard(err) 
-                ? (err.response?.data as ApiResponseError)?.message || 'Error al cargar los datos.' 
+            const message = isAxiosErrorTypeGuard(err)
+                ? (err.response?.data as ApiResponseError)?.message || 'Error al cargar los usuarios.'
                 : 'Ocurrió un error inesperado.';
             setError(message);
             addNotification(message, 'error');
         } finally {
             setLoading(false);
         }
-    }, [addNotification]);
+    }, [filters, addNotification]);
 
     useEffect(() => {
         if (user?.role === 'admin' && hasPermission(user, P.USERS_VIEW)) {
-            fetchData();
+            fetchMeta();
         }
-    }, [user, fetchData]);
+    }, [user, fetchMeta]);
 
-    const filteredUsers = useMemo(() => {
-        if (!selectedCompanyId) {
-            return users;
+    useEffect(() => {
+        if (user?.role === 'admin' && hasPermission(user, P.USERS_VIEW)) {
+            const t = setTimeout(() => fetchUsers(), filters.search ? 350 : 0);
+            return () => clearTimeout(t);
         }
-        return users.filter(user => user.company_id === parseInt(selectedCompanyId, 10));
-    }, [users, selectedCompanyId]);
+    }, [user, fetchUsers, filters.search]);
+
+    const departmentsForFilter = useMemo(() => {
+        if (!filters.companyId) return allDepartments;
+        const cid = parseInt(filters.companyId, 10);
+        return allDepartments.filter((d) => d.company_id === cid);
+    }, [allDepartments, filters.companyId]);
+
+    const hasActiveFilters =
+        !!filters.search || !!filters.role || !!filters.companyId || !!filters.departmentId;
+
+    const refreshAll = useCallback(async () => {
+        await fetchUsers();
+    }, [fetchUsers]);
 
     const handleCreateUser = () => {
         setCurrentUser(null);
@@ -88,7 +132,7 @@ const AdminUsersPage: React.FC = () => {
             await api[method](url, userData);
             addNotification(`Usuario ${action} exitosamente.`, 'success');
             setIsUserModalOpen(false);
-            fetchData();
+            refreshAll();
         } catch (err: unknown) {
             const message = isAxiosErrorTypeGuard(err) ? (err.response?.data as ApiResponseError)?.message || `Error al guardar usuario.` : 'Error inesperado.';
             addNotification(message, 'error');
@@ -100,7 +144,7 @@ const AdminUsersPage: React.FC = () => {
         try {
             await api.delete(`/api/users/${userId}`);
             addNotification('Usuario eliminado exitosamente.', 'success');
-            fetchData();
+            refreshAll();
         } catch (err: unknown) {
             const message = isAxiosErrorTypeGuard(err) ? (err.response?.data as ApiResponseError)?.message || 'Error al eliminar usuario.' : 'Error inesperado.';
             addNotification(message, 'error');
@@ -138,19 +182,91 @@ const AdminUsersPage: React.FC = () => {
                     )}
                 </div>
 
-                <div className="mb-6">
-                    <label htmlFor="company-filter" className="block text-sm font-medium text-gray-700 mb-2">Filtrar por Empresa:</label>
-                    <select
-                        id="company-filter"
-                        value={selectedCompanyId}
-                        onChange={(e) => setSelectedCompanyId(e.target.value)}
-                        className="w-full max-w-xs p-2 border border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500"
-                    >
-                        <option value="">Todas las Empresas</option>
-                        {allCompanies.map(company => (
-                            <option key={company.id} value={company.id}>{company.name}</option>
-                        ))}
-                    </select>
+                <div className="bg-white p-4 rounded-lg shadow-md mb-6 border border-gray-100">
+                    <h2 className="text-sm font-bold text-gray-800 mb-3">Buscar y filtrar</h2>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
+                        <div className="lg:col-span-2">
+                            <label className="block text-xs font-semibold text-gray-600 mb-1">
+                                Búsqueda (usuario, email, nombre)
+                            </label>
+                            <input
+                                type="text"
+                                value={filters.search}
+                                onChange={(e) => setFilters((f) => ({ ...f, search: e.target.value }))}
+                                className={clInput}
+                                placeholder="Ej: jperez, bacarsa.com..."
+                            />
+                        </div>
+                        <div>
+                            <label className="block text-xs font-semibold text-gray-600 mb-1">Rol</label>
+                            <select
+                                value={filters.role}
+                                onChange={(e) => setFilters((f) => ({ ...f, role: e.target.value }))}
+                                className={clInput}
+                            >
+                                <option value="">Todos</option>
+                                {(Object.keys(ROLE_LABELS) as UserRole[]).map((r) => (
+                                    <option key={r} value={r}>
+                                        {ROLE_LABELS[r]}
+                                    </option>
+                                ))}
+                            </select>
+                        </div>
+                        <div>
+                            <label className="block text-xs font-semibold text-gray-600 mb-1">Empresa</label>
+                            <select
+                                value={filters.companyId}
+                                onChange={(e) =>
+                                    setFilters((f) => ({
+                                        ...f,
+                                        companyId: e.target.value,
+                                        departmentId: '',
+                                    }))
+                                }
+                                className={clInput}
+                            >
+                                <option value="">Todas</option>
+                                {allCompanies.map((company) => (
+                                    <option key={company.id} value={company.id}>
+                                        {company.name}
+                                    </option>
+                                ))}
+                            </select>
+                        </div>
+                        <div>
+                            <label className="block text-xs font-semibold text-gray-600 mb-1">Departamento</label>
+                            <select
+                                value={filters.departmentId}
+                                onChange={(e) =>
+                                    setFilters((f) => ({ ...f, departmentId: e.target.value }))
+                                }
+                                className={clInput}
+                            >
+                                <option value="">Todos</option>
+                                {departmentsForFilter.map((dept) => (
+                                    <option key={dept.id} value={dept.id}>
+                                        {dept.name}
+                                    </option>
+                                ))}
+                            </select>
+                        </div>
+                    </div>
+                    <div className="mt-3 flex flex-wrap items-center gap-3">
+                        {hasActiveFilters && (
+                            <button
+                                type="button"
+                                onClick={() =>
+                                    setFilters({ search: '', role: '', companyId: '', departmentId: '' })
+                                }
+                                className="text-sm text-red-600 hover:text-red-800 font-semibold"
+                            >
+                                Limpiar filtros
+                            </button>
+                        )}
+                        <span className="text-sm text-gray-500 ml-auto">
+                            {users.length} {users.length === 1 ? 'usuario mostrado' : 'usuarios mostrados'}
+                        </span>
+                    </div>
                 </div>
 
                 {user?.role === 'admin' && !canManagePermissions(user) && (
@@ -169,7 +285,7 @@ const AdminUsersPage: React.FC = () => {
                 )}
 
                 <div className="bg-white p-4 sm:p-6 rounded-lg shadow-lg">
-                    {filteredUsers.length === 0 ? (
+                    {users.length === 0 ? (
                         <p className="text-gray-600 text-center py-8">No hay usuarios que coincidan con el filtro.</p>
                     ) : (
                         <>
@@ -185,7 +301,7 @@ const AdminUsersPage: React.FC = () => {
                                     </tr>
                                 </thead>
                                 <tbody className="bg-white divide-y divide-gray-200">
-                                    {filteredUsers.map((userItem) => (
+                                    {users.map((userItem) => (
                                         <tr key={userItem.id}>
                                             <td className="px-6 py-4 whitespace-nowrap">{userItem.username}</td>
                                             <td className="px-6 py-4 whitespace-nowrap">{userItem.email}</td>
@@ -221,7 +337,7 @@ const AdminUsersPage: React.FC = () => {
 
                             {/* ✅ VISTA DE TARJETAS PARA MÓVILES (hasta md) */}
                             <div className="md:hidden space-y-4">
-                                {filteredUsers.map((userItem) => (
+                                {users.map((userItem) => (
                                     <div key={userItem.id} className="bg-gray-50 p-4 rounded-lg border">
                                         <div className="flex justify-between items-start">
                                             <div>
@@ -269,7 +385,7 @@ const AdminUsersPage: React.FC = () => {
                     isOpen={isUserModalOpen}
                     onClose={() => setIsUserModalOpen(false)}
                     onSave={handleSaveUser}
-                    onCreated={fetchData}
+                    onCreated={refreshAll}
                     initialData={currentUser}
                     departments={allDepartments}
                     companies={allCompanies}
@@ -290,7 +406,7 @@ const AdminUsersPage: React.FC = () => {
                     setPermissionsTarget(null);
                 }}
                 targetUser={permissionsTarget}
-                onSaved={fetchData}
+                onSaved={refreshAll}
                 canGrantSuperAdmin={!!user?.is_super_admin}
             />
         </>

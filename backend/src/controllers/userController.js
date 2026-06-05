@@ -152,8 +152,39 @@ const resendUserActivation = asyncHandler(async (req, res) => {
     });
 });
 
+const VALID_USER_ROLES = ['admin', 'agent', 'client', 'boss', 'purchasing', 'supplier'];
+
 // @desc    Obtener todos los usuarios
+// @query   search, role, companyId, departmentId
 const getAllUsers = asyncHandler(async (req, res) => {
+    const { search, role, companyId, departmentId } = req.query;
+    const conditions = [];
+    const params = [];
+
+    if (search && String(search).trim()) {
+        const term = `%${String(search).trim()}%`;
+        conditions.push(
+            `(u.username LIKE ? OR u.email LIKE ? OR u.first_name LIKE ? OR u.last_name LIKE ?
+              OR CONCAT(u.first_name, ' ', u.last_name) LIKE ?)`
+        );
+        params.push(term, term, term, term, term);
+    }
+    if (role && VALID_USER_ROLES.includes(String(role))) {
+        conditions.push('u.role = ?');
+        params.push(role);
+    }
+    const company = parseInt(String(companyId || ''), 10);
+    if (!Number.isNaN(company) && company > 0) {
+        conditions.push('u.company_id = ?');
+        params.push(company);
+    }
+    const department = parseInt(String(departmentId || ''), 10);
+    if (!Number.isNaN(department) && department > 0) {
+        conditions.push('u.department_id = ?');
+        params.push(department);
+    }
+
+    const where = conditions.length ? `WHERE ${conditions.join(' AND ')}` : '';
     const [users] = await pool.execute(
         `SELECT 
             u.id, u.username, u.email, u.role, u.department_id, u.company_id, u.created_at, 
@@ -163,7 +194,9 @@ const getAllUsers = asyncHandler(async (req, res) => {
          FROM users u 
          LEFT JOIN companies c ON u.company_id = c.id 
          LEFT JOIN departments d ON u.department_id = d.id 
-         ORDER BY u.first_name, u.last_name ASC`
+         ${where}
+         ORDER BY u.first_name, u.last_name ASC`,
+        params
     );
     res.status(200).json({
         success: true,
