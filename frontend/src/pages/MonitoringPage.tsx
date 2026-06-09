@@ -1,11 +1,11 @@
 /**
  * Módulo de Monitoreo de Equipos en Tiempo Real
- * Dashboard de Control Center - Consume webhook n8n.
+ * Consume datos vía proxy del backend (evita CORS y timeouts del navegador a n8n).
  */
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { Activity, Wifi, WifiOff, Server } from 'lucide-react';
+import api from '../config/axiosConfig';
 
-const MONITORING_URL = 'https://autbacar.dnsalias.com/webhook/b176be3d-9eec-4c45-a89f-94460dee1461';
 const POLL_INTERVAL_MS = 30_000;
 
 interface EquipmentItem {
@@ -42,6 +42,16 @@ const getLatencyColor = (ms: number): string => {
     return 'text-green-600';
 };
 
+function extractErrorMessage(err: unknown): string {
+    if (err && typeof err === 'object' && 'response' in err) {
+        const response = (err as { response?: { data?: { message?: string }; status?: number } }).response;
+        if (response?.data?.message) return response.data.message;
+        if (response?.status) return `Error del servidor (HTTP ${response.status}).`;
+    }
+    if (err instanceof Error) return err.message;
+    return 'Error desconocido al obtener datos.';
+}
+
 const MonitoringPage: React.FC = () => {
     const [data, setData] = useState<unknown>(null);
     const [isLoading, setIsLoading] = useState(true);
@@ -58,25 +68,10 @@ const MonitoringPage: React.FC = () => {
     const fetchData = useCallback(async () => {
         try {
             setError(null);
-            const response = await fetch(MONITORING_URL, {
-                method: 'GET',
-                headers: { Accept: 'application/json' },
-            });
-
-            if (!response.ok) {
-                throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-            }
-
-            const json = await response.json();
-            setData(json);
+            const response = await api.get('/api/monitoring/realtime');
+            setData(response.data?.data ?? response.data);
         } catch (err) {
-            const message = err instanceof Error ? err.message : String(err);
-            const isCors = message.toLowerCase().includes('cors') || message.toLowerCase().includes('failed to fetch');
-            setError(
-                isCors
-                    ? `Error CORS/Red: ${message}. Verifica que el servidor n8n permita peticiones desde este origen.`
-                    : `Error al obtener datos: ${message}`
-            );
+            setError(extractErrorMessage(err));
             setData(null);
         } finally {
             setIsLoading(false);
@@ -122,7 +117,9 @@ const MonitoringPage: React.FC = () => {
                 <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg text-red-800">
                     <p className="font-semibold">⚠️ {error}</p>
                     <p className="text-sm mt-2 text-red-700">
-                        Si el error es por CORS, configura el servidor n8n para permitir el origen de esta aplicación.
+                        El backend consulta n8n desde el servidor. Si el error persiste, verificá que n8n esté activo
+                        y que la variable <code className="text-xs bg-red-100 px-1 rounded">N8N_MONITORING_WEBHOOK_URL</code> en el
+                        <code className="text-xs bg-red-100 px-1 rounded">.env</code> del backend apunte al webhook correcto.
                     </p>
                 </div>
             )}
@@ -136,7 +133,6 @@ const MonitoringPage: React.FC = () => {
                 </div>
             ) : (
                 <>
-                    {/* Panel de métricas */}
                     <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-8">
                         <div className="bg-white rounded-xl shadow-md border border-gray-200 p-5 flex items-center gap-4">
                             <div className="p-3 bg-gray-100 rounded-lg">
@@ -167,7 +163,6 @@ const MonitoringPage: React.FC = () => {
                         </div>
                     </div>
 
-                    {/* Grilla de equipos */}
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
                         {equipos.length === 0 ? (
                             <div className="col-span-full text-center py-16 bg-white rounded-xl shadow-md border border-gray-200">
