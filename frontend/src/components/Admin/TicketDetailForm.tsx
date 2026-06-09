@@ -7,6 +7,10 @@ import { isAxiosErrorTypeGuard, ApiResponseError } from '../../utils/typeGuards'
 import { formatLocalDate } from '../../utils/dateFormatter';
 import { ticketPriorityTranslations, ticketStatusTranslations } from '../../utils/traslations';
 import { staffAssignableUsers } from '../../utils/ticketAccess';
+import CommentForm from '../Common/CommentForm';
+import CommentBody from '../Common/CommentBody';
+import { isInternalComment } from '../../utils/commentHtml';
+import { postTicketComment } from '../../utils/ticketComments';
 
 interface TicketDetailFormProps {
     ticket: TicketData;
@@ -23,7 +27,6 @@ const TicketDetailForm: React.FC<TicketDetailFormProps> = ({ ticket, onSave, onC
 
     const [formData, setFormData] = useState<Partial<TicketData>>(ticket);
     const [comments, setComments] = useState<TicketComment[]>([]);
-    const [newCommentText, setNewCommentText] = useState('');
     const [loading, setLoading] = useState(false);
 
     const assignableForTicket = useMemo(
@@ -80,17 +83,13 @@ const TicketDetailForm: React.FC<TicketDetailFormProps> = ({ ticket, onSave, onC
         setLoading(false);
     };
     
-    const handleAddComment = async () => {
-        if(!newCommentText.trim()) return;
+    const handleAddComment = async (commentText: string, isInternal: boolean, images: File[] = []) => {
         try {
-            await api.post(`/api/tickets/${ticket.id}/comments`, { comment_text: newCommentText }, {
-                headers: { Authorization: `Bearer ${token}` }
-            });
-            addNotification('Comment added.', 'success');
-            setNewCommentText('');
+            await postTicketComment(ticket.id, commentText, isInternal, images);
+            addNotification('Comentario añadido.', 'success');
             fetchComments();
-        } catch (error) {
-            addNotification('Failed to add comment.', 'error');
+        } catch {
+            addNotification('Error al añadir comentario.', 'error');
         }
     };
 
@@ -147,19 +146,25 @@ const TicketDetailForm: React.FC<TicketDetailFormProps> = ({ ticket, onSave, onC
                     <h3 className="text-lg font-semibold">Comentarios</h3>
                     <div className="max-h-48 overflow-y-auto my-2 space-y-2 bg-gray-50 p-2 rounded">
                         {comments.length > 0 ? comments.map(comment => (
-                            <div key={comment.id} className="text-sm bg-white p-2 rounded border">
-                                <p className="font-bold">{comment.user_username}</p>
-                                <p>{comment.comment_text}</p>
+                            <div key={comment.id} className={`text-sm bg-white p-2 rounded border ${isInternalComment(comment) ? 'border-l-4 border-amber-400' : ''}`}>
+                                <p className="font-bold">
+                                    {comment.user_username || comment.username}
+                                    {isInternalComment(comment) && (
+                                        <span className="ml-2 text-xs font-bold bg-amber-100 text-amber-800 px-2 py-0.5 rounded-full">NOTA INTERNA</span>
+                                    )}
+                                </p>
+                                <CommentBody text={comment.comment_text} />
                                 <p className="text-xs text-gray-400 text-right">{formatLocalDate(comment.created_at)}</p>
                             </div>
                         )) : (
                             <p className="text-sm text-gray-500 text-center py-4">No hay comentarios aún.</p>
                         )}
                     </div>
-                    <div className="flex gap-2">
-                        <textarea value={newCommentText} onChange={e => setNewCommentText(e.target.value)} className="flex-grow p-2 border rounded" placeholder="Añadir comentario..."></textarea>
-                        <button type="button" onClick={handleAddComment} className="bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-4 rounded">Añadir</button>
-                    </div>
+                    {currentUser && (
+                        <div className="mt-2">
+                            <CommentForm onAddComment={handleAddComment} userRole={currentUser.role} />
+                        </div>
+                    )}
                 </div>
             </div>
 

@@ -66,6 +66,10 @@ router
         authorizeAccess(['admin', 'agent', 'client', 'boss', 'purchasing'], { adminPermissions: [P.TICKETS_VIEW] }),
         getTicketComments
     )
-    .post(authorize(['admin', 'agent', 'client', 'boss', 'purchasing']), addCommentToTicket);
+    .post(
+        upload.array('images', 5),
+        authorize(['admin', 'agent', 'client', 'boss', 'purchasing']),
+        addCommentToTicket
+    );
 
 module.exports = router;

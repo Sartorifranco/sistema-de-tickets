@@ -8,6 +8,10 @@ import { isAxiosErrorTypeGuard, ApiResponseError } from '../../utils/typeGuards'
 import { ticketStatusTranslations, ticketPriorityTranslations } from '../../utils/traslations';
 import { formatLocalDate } from '../../utils/dateFormatter'; // Asegúrate de tener este helper
 import ContactPhoneRow from '../Common/ContactPhoneRow';
+import CommentForm from '../Common/CommentForm';
+import CommentBody from '../Common/CommentBody';
+import { isInternalComment } from '../../utils/commentHtml';
+import { postTicketComment } from '../../utils/ticketComments';
 import { InternalTaskBadge, isTicketInternalTask } from './InternalTaskBadge';
 import { staffAssignableUsers } from '../../utils/ticketAccess';
 
@@ -31,7 +35,6 @@ const TicketDetailModal: React.FC<TicketDetailModalProps> = ({ isOpen, onClose, 
     const [editedDepartmentId, setEditedDepartmentId] = useState<number | null>(ticket.department_id);
     const [editedAgentId, setEditedAgentId] = useState<number | null>(ticket.assigned_to_user_id);
     const [comments, setComments] = useState<TicketComment[]>([]);
-    const [newCommentText, setNewCommentText] = useState('');
     const [loadingComments, setLoadingComments] = useState(false);
 
     const isAdmin = currentUser?.role === 'admin';
@@ -85,17 +88,12 @@ const TicketDetailModal: React.FC<TicketDetailModalProps> = ({ isOpen, onClose, 
         onClose();
     };
 
-    const handleAddComment = async (e: React.FormEvent) => {
-        e.preventDefault();
-        if (!newCommentText.trim()) return;
+    const handleAddComment = async (commentText: string, isInternal: boolean, images: File[] = []) => {
         try {
-            await api.post(`/api/tickets/${ticket.id}/comments`, { comment_text: newCommentText }, {
-                headers: { Authorization: `Bearer ${token}` },
-            });
+            await postTicketComment(ticket.id, commentText, isInternal, images);
             addNotification('Comentario añadido.', 'success');
-            setNewCommentText('');
             fetchComments();
-        } catch (err: unknown) {
+        } catch {
             addNotification('Error al añadir comentario.', 'error');
         }
     };
@@ -175,21 +173,26 @@ const TicketDetailModal: React.FC<TicketDetailModalProps> = ({ isOpen, onClose, 
                     <h3 className="text-lg font-bold text-gray-800 mb-2 mt-6 border-t pt-4">Comentarios</h3>
                     <div className="max-h-48 overflow-y-auto border rounded-md p-2 bg-gray-50 space-y-2">
                         {loadingComments ? <p>Cargando...</p> : comments.length > 0 ? comments.map((comment: TicketComment) => (
-                            <div key={comment.id} className="p-2 bg-white rounded shadow-sm">
-                                <p className="text-sm font-semibold">{comment.user_username} <span className="text-gray-500 text-xs">- {formatLocalDate(comment.created_at)}</span></p>
-                                <p className="text-gray-800 mt-1">{comment.comment_text}</p>
+                            <div key={comment.id} className={`p-2 bg-white rounded shadow-sm ${isInternalComment(comment) ? 'border-l-4 border-amber-400' : ''}`}>
+                                <p className="text-sm font-semibold">
+                                    {comment.user_username || comment.username}
+                                    {isInternalComment(comment) && (
+                                        <span className="ml-2 text-xs font-bold bg-amber-100 text-amber-800 px-2 py-0.5 rounded-full">NOTA INTERNA</span>
+                                    )}
+                                    <span className="text-gray-500 text-xs font-normal"> - {formatLocalDate(comment.created_at)}</span>
+                                </p>
+                                <CommentBody text={comment.comment_text} className="text-gray-800" />
                             </div>
                         )) : (
                             <p className="text-sm text-gray-500 text-center py-4">No hay comentarios aún.</p>
                         )}
                     </div>
 
-                    <form onSubmit={handleAddComment} className="mt-4">
-                        <textarea className="w-full p-2 border rounded" placeholder="Añadir un comentario..." value={newCommentText} onChange={(e) => setNewCommentText(e.target.value)} required />
-                        <div className="flex justify-end mt-2">
-                            <button type="submit" className="bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-4 rounded-lg">Añadir Comentario</button>
+                    {currentUser && (
+                        <div className="mt-4">
+                            <CommentForm onAddComment={handleAddComment} userRole={currentUser.role} />
                         </div>
-                    </form>
+                    )}
                 </div>
                 
                 <div className="flex flex-col sm:flex-row justify-end gap-3 mt-6 pt-4 border-t">

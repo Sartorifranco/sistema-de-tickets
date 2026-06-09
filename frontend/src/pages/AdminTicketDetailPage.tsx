@@ -7,6 +7,9 @@ import { TicketData, TicketStatus, User, Attachment, TicketPriority } from '../t
 import { ticketStatusTranslations, ticketPriorityTranslations } from '../utils/traslations';
 import { formatLocalDate } from '../utils/dateFormatter';
 import CommentForm from '../components/Common/CommentForm';
+import CommentBody from '../components/Common/CommentBody';
+import { isInternalComment } from '../utils/commentHtml';
+import { postTicketComment } from '../utils/ticketComments';
 import ContactPhoneRow from '../components/Common/ContactPhoneRow';
 import { InternalTaskBadge, isTicketInternalTask } from '../components/Tickets/InternalTaskBadge';
 import TicketWorklogSidebar from '../components/Tickets/TicketWorklogSidebar';
@@ -70,17 +73,14 @@ const AdminTicketDetailPage: React.FC = () => {
         fetchTicketDetails();
     }, [fetchTicketDetails]);
 
-    const handleAddComment = async (commentText: string, isInternal: boolean) => {
-        if (!commentText.trim() || !ticket) return;
+    const handleAddComment = async (commentText: string, isInternal: boolean, images: File[] = []) => {
+        if (!ticket) return;
         try {
-            await api.post(`/api/tickets/${ticket.id}/comments`, {
-                comment_text: commentText,
-                is_internal: isInternal
-            });
-            toast.success("Comentario añadido exitosamente.");
+            await postTicketComment(ticket.id, commentText, isInternal, images);
+            toast.success('Comentario añadido exitosamente.');
             fetchTicketDetails();
-        } catch (err) {
-            toast.error("Error al añadir el comentario.");
+        } catch {
+            toast.error('Error al añadir el comentario.');
         }
     };
     
@@ -262,7 +262,7 @@ const AdminTicketDetailPage: React.FC = () => {
                                     <div
                                         key={comment.id}
                                         className={`p-4 rounded-xl ${
-                                            comment.is_internal
+                                            isInternalComment(comment)
                                                 ? 'bg-slate-50 border border-slate-200/90'
                                                 : 'bg-white border border-gray-100 shadow-sm'
                                         }`}
@@ -271,8 +271,10 @@ const AdminTicketDetailPage: React.FC = () => {
                                             <span className="font-bold text-gray-700">{comment.username || 'Sistema'}</span>
                                             <span className="shrink-0">{formatLocalDate(comment.created_at)}</span>
                                         </div>
-                                        <p className="text-gray-800 mt-2 whitespace-pre-wrap">{comment.comment_text}</p>
-                                        {comment.is_internal && <span className="text-xs font-bold text-amber-700 mt-2 block">NOTA INTERNA</span>}
+                                        <CommentBody text={comment.comment_text} />
+                                        {isInternalComment(comment) && (
+                                            <span className="text-xs font-bold text-amber-700 mt-2 block">NOTA INTERNA</span>
+                                        )}
                                     </div>
                                 )) : (
                                     <p className="text-center text-gray-500 py-8">No hay comentarios aún.</p>

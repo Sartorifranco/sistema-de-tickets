@@ -631,16 +631,30 @@ const reassignTicket = asyncHandler(async (req, res) => {
     res.status(200).json({ success: true, message: `Ticket #${ticketId} reasignado exitosamente.` });
 });
 
+const { sanitizeCommentHtml } = require('../utils/sanitizeCommentHtml');
+
 const addCommentToTicket = asyncHandler(async (req, res) => {
     const { id: ticketId } = req.params;
     const { comment_text, is_internal } = req.body;
     const { id: commenterId, role: commenterRole } = req.user;
 
-    if (!comment_text || comment_text.trim() === '') { res.status(400); throw new Error('El comentario no puede estar vacío.'); }
+    let safeHtml = sanitizeCommentHtml(comment_text || '');
+    const uploadedImages = Array.isArray(req.files) ? req.files : [];
+    for (const file of uploadedImages) {
+        const url = `/uploads/${file.filename}`;
+        const alt = (file.originalname || 'Imagen').replace(/"/g, '');
+        safeHtml += `${safeHtml ? '<br>' : ''}<p><img src="${url}" alt="${alt}" /></p>`;
+    }
+
+    const plainFallback = (comment_text || '').replace(/<[^>]+>/g, '').trim();
+    if (!safeHtml && !plainFallback && uploadedImages.length === 0) {
+        res.status(400);
+        throw new Error('El comentario no puede estar vacío.');
+    }
 
     const finalIsInternal = !['client', 'boss', 'purchasing'].includes(commenterRole) && (is_internal === true || is_internal === 'true' || is_internal === 1);
 
-    await pool.execute('INSERT INTO comments (ticket_id, user_id, comment_text, is_internal) VALUES (?, ?, ?, ?)', [ticketId, commenterId, comment_text, finalIsInternal]);
+    await pool.execute('INSERT INTO comments (ticket_id, user_id, comment_text, is_internal) VALUES (?, ?, ?, ?)', [ticketId, commenterId, safeHtml, finalIsInternal]);
 
     if (!finalIsInternal) {
         const [ticketRows] = await pool.execute('SELECT user_id, assigned_to_user_id, title FROM tickets WHERE id = ?', [ticketId]);

@@ -8,6 +8,9 @@ import { TicketData, Comment as TicketComment, TicketStatus, User, Attachment, T
 import { ticketStatusTranslations, ticketPriorityTranslations } from '../utils/traslations';
 import { formatLocalDate } from '../utils/dateFormatter';
 import CommentForm from '../components/Common/CommentForm';
+import CommentBody from '../components/Common/CommentBody';
+import { isInternalComment } from '../utils/commentHtml';
+import { postTicketComment } from '../utils/ticketComments';
 import ContactPhoneRow from '../components/Common/ContactPhoneRow';
 import TicketWorklogSidebar from '../components/Tickets/TicketWorklogSidebar';
 import { staffAssignableUsers, ticketRequiresRealHoursForClosure } from '../utils/ticketAccess';
@@ -85,17 +88,14 @@ const AgentTicketDetailPage: React.FC = () => {
     };
 
     // Maneja el envío de un nuevo comentario.
-    const handleAddComment = async (commentText: string, isInternal: boolean) => {
-        if (!commentText.trim() || !ticket) return;
+    const handleAddComment = async (commentText: string, isInternal: boolean, images: File[] = []) => {
+        if (!ticket) return;
         try {
-            await api.post(`/api/tickets/${ticket.id}/comments`, {
-                comment_text: commentText,
-                is_internal: isInternal
-            });
-            toast.success(isInternal ? "Nota interna añadida." : "Comentario añadido.");
+            await postTicketComment(ticket.id, commentText, isInternal, images);
+            toast.success(isInternal ? 'Nota interna añadida.' : 'Comentario añadido.');
             await fetchAllData();
-        } catch (err) {
-            toast.error("Error al añadir comentario.");
+        } catch {
+            toast.error('Error al añadir comentario.');
         }
     };
 
@@ -215,18 +215,18 @@ const AgentTicketDetailPage: React.FC = () => {
                                     <div
                                         key={comment.id}
                                         className={`p-4 rounded-xl ${
-                                            comment.is_internal
+                                            isInternalComment(comment)
                                                 ? 'bg-slate-50 border border-slate-200/90'
                                                 : 'bg-white border border-gray-100 shadow-sm'
                                         }`}
                                     >
                                         <div className="flex justify-between items-start gap-2 mb-1">
                                             <p className="text-sm font-semibold text-gray-800">{comment.username || 'Sistema'}</p>
-                                            {comment.is_internal && (
+                                            {isInternalComment(comment) && (
                                                 <span className="text-xs font-bold bg-amber-100 text-amber-800 px-2 py-0.5 rounded-full shrink-0">NOTA INTERNA</span>
                                             )}
                                         </div>
-                                        <p className="text-gray-700 text-sm whitespace-pre-wrap">{comment.comment_text}</p>
+                                        <CommentBody text={comment.comment_text} className="text-gray-700" />
                                         <p className="text-xs text-gray-500 text-right mt-2">{formatLocalDate(comment.created_at)}</p>
                                     </div>
                                 ))

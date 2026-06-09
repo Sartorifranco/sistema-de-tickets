@@ -7,6 +7,9 @@ import { ticketStatusTranslations } from '../utils/traslations';
 import { toast } from 'react-toastify';
 import { formatLocalDate } from '../utils/dateFormatter';
 import CommentForm from '../components/Common/CommentForm';
+import CommentBody from '../components/Common/CommentBody';
+import { isInternalComment } from '../utils/commentHtml';
+import { postTicketComment } from '../utils/ticketComments';
 import { clCard } from '../utils/cleanLightUi';
 
 const Badge: React.FC<{ color: string; children: React.ReactNode }> = ({ color, children }) => (
@@ -40,28 +43,25 @@ const ClientTicketDetailPage: React.FC = () => {
         fetchTicketDetails();
     }, [fetchTicketDetails]);
 
-    const handleAddComment = async (commentText: string) => {
-        if (!commentText.trim() || !ticket) return;
-        
+    const handleAddComment = async (commentText: string, _isInternal: boolean, images: File[] = []) => {
+        if (!ticket) return;
+
         const newStatus = ticket.status === 'resolved' ? 'open' : ticket.status;
         try {
             if (newStatus === 'open' && ticket.status === 'resolved') {
                 await api.put(`/api/tickets/${ticket.id}/status`, { status: 'open' });
             }
-            
-            await api.post(`/api/tickets/${ticket.id}/comments`, {
-                comment_text: commentText,
-                is_internal: false
-            });
-            
-            toast.success("Comentario añadido.");
+
+            await postTicketComment(ticket.id, commentText, false, images);
+
+            toast.success('Comentario añadido.');
             if (newStatus === 'open' && ticket.status === 'resolved') {
-                toast.info("El ticket ha sido reabierto.");
+                toast.info('El ticket ha sido reabierto.');
             }
-            
+
             fetchTicketDetails();
-        } catch (err) {
-            toast.error("Error al añadir comentario.");
+        } catch {
+            toast.error('Error al añadir comentario.');
         }
     };
 
@@ -142,9 +142,9 @@ const ClientTicketDetailPage: React.FC = () => {
                 <div className={`lg:col-span-3 ${clCard} p-6`}>
                     <h2 className="text-xl font-bold text-gray-800 mb-4 border-b border-gray-100 pb-2">Conversación</h2>
                     <div className="space-y-5 mb-6 max-h-[50vh] overflow-y-auto pr-2">
-                        {ticket.comments && ticket.comments.filter(c => !c.is_internal).length > 0 ? (
+                        {ticket.comments && ticket.comments.filter(c => !isInternalComment(c)).length > 0 ? (
                             ticket.comments
-                                .filter(comment => !comment.is_internal)
+                                .filter(comment => !isInternalComment(comment))
                                 .map(comment => (
                                     <div key={comment.id} className={`flex flex-col ${comment.user_id === user?.id ? 'items-end' : 'items-start'}`}>
                                         <div
@@ -155,7 +155,7 @@ const ClientTicketDetailPage: React.FC = () => {
                                             }`}
                                         >
                                             <p className="text-sm font-bold text-gray-800">{comment.username}</p>
-                                            <p className="text-gray-800 whitespace-pre-wrap">{comment.comment_text}</p>
+                                            <CommentBody text={comment.comment_text} className="text-gray-800" />
                                             <p className="text-xs text-gray-500 mt-2 text-right">{formatLocalDate(comment.created_at)}</p>
                                         </div>
                                     </div>
