@@ -56,6 +56,7 @@ const MonitoringPage: React.FC = () => {
     const [data, setData] = useState<unknown>(null);
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
+    const [warning, setWarning] = useState<string | null>(null);
 
     const equipos = useMemo(() => normalizeData(data), [data]);
 
@@ -68,10 +69,17 @@ const MonitoringPage: React.FC = () => {
     const fetchData = useCallback(async () => {
         try {
             setError(null);
+            setWarning(null);
             const response = await api.get('/api/monitoring/realtime');
             setData(response.data?.data ?? response.data);
+            if (response.data?.source === 'ping' && response.data?.fallbackFrom) {
+                setWarning(
+                    'n8n no respondió. Se muestran datos de respaldo por ping desde el servidor. Configurá MONITORING_PING_TARGETS o levantá n8n.'
+                );
+            }
         } catch (err) {
             setError(extractErrorMessage(err));
+            setWarning(null);
             setData(null);
         } finally {
             setIsLoading(false);
@@ -113,14 +121,23 @@ const MonitoringPage: React.FC = () => {
                 </button>
             </header>
 
+            {warning && (
+                <div className="mb-6 p-4 bg-amber-50 border border-amber-200 rounded-lg text-amber-900">
+                    <p className="font-semibold">⚠️ {warning}</p>
+                </div>
+            )}
+
             {error && (
                 <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg text-red-800">
                     <p className="font-semibold">⚠️ {error}</p>
                     <p className="text-sm mt-2 text-red-700">
-                        El backend consulta n8n desde el servidor. Si el error persiste, verificá que n8n esté activo
-                        y que la variable <code className="text-xs bg-red-100 px-1 rounded">N8N_MONITORING_WEBHOOK_URL</code> en el
-                        <code className="text-xs bg-red-100 px-1 rounded">.env</code> del backend apunte al webhook correcto.
+                        n8n en <strong>autbacar.dnsalias.com</strong> no responde desde el servidor. Opciones:
                     </p>
+                    <ul className="text-sm mt-2 text-red-700 list-disc list-inside space-y-1">
+                        <li>Levantar n8n y verificar el webhook en n8n.</li>
+                        <li>Si n8n está en la red local, agregar en <code className="text-xs bg-red-100 px-1 rounded">backend/.env</code>: <code className="text-xs bg-red-100 px-1 rounded">N8N_MONITORING_WEBHOOK_FALLBACKS=http://IP:5678/webhook/...</code></li>
+                        <li>Respaldo por ping: <code className="text-xs bg-red-100 px-1 rounded">MONITORING_PING_TARGETS=Servidor|192.168.0.9,Router|192.168.0.1</code></li>
+                    </ul>
                 </div>
             )}
 
