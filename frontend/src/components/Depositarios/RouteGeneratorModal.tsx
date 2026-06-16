@@ -66,7 +66,10 @@ const RouteGeneratorModal: React.FC<Props> = ({ depositarios, onClose, onMainten
     const [isCalculating, setIsCalculating] = useState(false); 
     const [isSending, setIsSending] = useState(false); // Nuevo estado para envío
 
-    const sortedDepositarios = useMemo(() => [...depositarios].sort((a, b) => a.alias.localeCompare(b.alias)), [depositarios]);
+    const sortedDepositarios = useMemo(
+        () => [...depositarios].sort((a, b) => (a.alias || '').localeCompare(b.alias || '')),
+        [depositarios]
+    );
 
     // --- MANEJADORES DE PRIORIDAD ---
     const handleAddPriority = (e: React.ChangeEvent<HTMLSelectElement>) => {
@@ -77,7 +80,7 @@ const RouteGeneratorModal: React.FC<Props> = ({ depositarios, onClose, onMainten
     const handleRemovePriority = (id: number) => setForcedDepositaryIds(prev => prev.filter(pid => pid !== id));
 
     const isLongTrip = (dep: Depositario) => {
-        const text = (dep.alias + ' ' + dep.address).toUpperCase();
+        const text = `${dep.alias || ''} ${dep.address || ''}`.toUpperCase();
         return text.includes('RN36') || text.includes('RUTA 36') || text.includes('RIO CUARTO');
     };
 

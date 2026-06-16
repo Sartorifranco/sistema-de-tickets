@@ -23,8 +23,8 @@ const getMaintenanceCardClass = (lastMaintenance: string | null | undefined): st
     return 'border-t-4 border-red-500 bg-red-50';
 };
 
-const getCompanyBadgeClass = (companyName: string = '') => {
-    const name = companyName.toUpperCase();
+const getCompanyBadgeClass = (companyName?: string | null) => {
+    const name = String(companyName ?? '').toUpperCase();
     if (name.includes('COCA')) return 'bg-red-100 text-red-800 border-red-200';
     if (name.includes('CASISA')) return 'bg-orange-100 text-orange-800 border-orange-200';
     if (name.includes('ANJOR')) return 'bg-green-100 text-green-800 border-green-200';
@@ -554,7 +554,7 @@ const DepositariosPage: React.FC = () => {
                                             <h3 className="font-bold text-xl text-gray-800 truncate" title={dep.alias}>{dep.alias}</h3>
                                         </div>
                                         <div className="mb-4">
-                                            <span className={`text-xs px-2 py-1 rounded-full font-bold border ${getCompanyBadgeClass(dep.company_name)}`}>{dep.company_name}</span>
+                                            <span className={`text-xs px-2 py-1 rounded-full font-bold border ${getCompanyBadgeClass(dep.company_name)}`}>{dep.company_name || 'Sin empresa'}</span>
                                         </div>
                                         <div className="space-y-2 text-sm text-gray-600">
                                             <p><span className="font-semibold text-gray-900">Serie:</span> {dep.serial_number || 'N/A'}</p>

@@ -263,7 +263,7 @@ export interface Depositario {
     id: number;
     alias: string;
     company_id: number;
-    company_name?: string;
+    company_name?: string | null;
     serial_number: string;
     location_description: string;
     address: string;
