@@ -223,6 +223,7 @@ const MaintenanceModal: React.FC<{
         { name: 'Clear RAM', done: false, comment: '' },
         { name: 'Reposición de pieza/cabezal/sensor', done: false, comment: '' },
         { name: 'Desatasco de billete/sobre', done: false, comment: '' },
+        { name: 'Atención remota', done: false, comment: '' },
         { name: 'Otro', done: false, comment: '' },
     ]);
 
