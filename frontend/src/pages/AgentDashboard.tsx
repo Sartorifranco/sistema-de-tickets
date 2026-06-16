@@ -130,24 +130,43 @@ const AgentDashboard: React.FC = () => {
         }
         setLoading(true);
         try {
-            const [metricsRes, ticketsRes, logsRes, notesRes] = await Promise.all([
-                api.get(`/api/dashboard/agent`),
-                api.get(`/api/tickets?view=assigned&limit=5`),
+            const [metricsRes, ticketsRes, logsRes, notesRes] = await Promise.allSettled([
+                api.get('/api/dashboard/agent'),
+                api.get('/api/tickets?view=assigned&limit=5'),
                 api.get(`/api/activity-logs?user_id=${user.id}&limit=5`),
-                api.get('/api/notes')
+                api.get('/api/notes'),
             ]);
 
-            setAgentMetrics(metricsRes.data.data);
-            setRecentTickets(ticketsRes.data.data);
-            setRecentActivityLogs(logsRes.data.data);
-            setNotes(notesRes.data.data || []);
-        } catch (err: unknown) {
-            if (isAxiosErrorTypeGuard(err)) {
-                const apiError = err.response?.data as ApiResponseError;
-                toast.error(`Error al cargar datos: ${apiError?.message || 'Error desconocido'}`);
+            if (metricsRes.status === 'fulfilled') {
+                setAgentMetrics(metricsRes.value.data.data);
             } else {
-                toast.error('Ocurrió un error inesperado al cargar los datos.');
+                toast.error('No se pudieron cargar las métricas del dashboard.');
             }
+
+            if (ticketsRes.status === 'fulfilled') {
+                setRecentTickets(ticketsRes.value.data.data || []);
+            }
+
+            if (logsRes.status === 'fulfilled') {
+                setRecentActivityLogs(logsRes.value.data.data || []);
+            }
+
+            if (notesRes.status === 'fulfilled') {
+                setNotes(notesRes.value.data.data || []);
+            }
+
+            const failed = [metricsRes, ticketsRes, logsRes, notesRes].filter(
+                (r): r is PromiseRejectedResult => r.status === 'rejected'
+            );
+            if (failed.length > 0 && metricsRes.status === 'rejected') {
+                const err = failed[0].reason;
+                if (isAxiosErrorTypeGuard(err)) {
+                    const apiError = err.response?.data as ApiResponseError;
+                    toast.error(`Error al cargar datos: ${apiError?.message || 'Error desconocido'}`);
+                }
+            }
+        } catch {
+            toast.error('Ocurrió un error inesperado al cargar los datos.');
         } finally {
             setLoading(false);
         }

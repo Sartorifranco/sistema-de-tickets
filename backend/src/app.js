@@ -93,6 +93,8 @@ app.use('/api/users', userRoutes);
 app.use('/api/tickets', ticketRoutes);
 app.use('/api/departments', departmentRoutes);
 app.use('/api/dashboard', dashboardRoutes);
+app.use('/api/activity-logs', require('./routes/activityLogRoutes'));
+app.use('/api/notes', require('./routes/noteRoutes'));
 app.use('/api/reports', reportRoutes);
 app.use('/api/companies', companyRoutes);
 app.use('/api/depositarios', depositarioRoutes);
