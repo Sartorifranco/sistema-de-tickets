@@ -1,6 +1,7 @@
 import React, { useRef, useState } from 'react';
 import { UserRole } from '../../types';
 import { clInput } from '../../utils/cleanLightUi';
+import { getCommentEditorContent } from '../../utils/commentHtml';
 import { Bold, Italic, Underline, ImagePlus } from 'lucide-react';
 
 interface CommentFormProps {
@@ -49,8 +50,10 @@ const CommentForm: React.FC<CommentFormProps> = ({ onAddComment, userRole }) => 
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
-        const html = editorRef.current?.innerHTML || '';
-        if (isEditorEmpty(html) && pendingImages.length === 0) return;
+        const editor = editorRef.current;
+        if (!editor) return;
+        const html = getCommentEditorContent(editor);
+        if (isEditorEmpty(editor.innerHTML) && pendingImages.length === 0) return;
 
         setIsSubmitting(true);
         try {

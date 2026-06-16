@@ -643,7 +643,7 @@ const addCommentToTicket = asyncHandler(async (req, res) => {
     for (const file of uploadedImages) {
         const url = `/uploads/${file.filename}`;
         const alt = (file.originalname || 'Imagen').replace(/"/g, '');
-        safeHtml += `${safeHtml ? '<br>' : ''}<p><img src="${url}" alt="${alt}" /></p>`;
+        safeHtml += `${safeHtml ? '<br>' : ''}<p><img src="${url}" alt="${alt}" class="comment-inline-img" loading="lazy" /></p>`;
     }
 
     const plainFallback = (comment_text || '').replace(/<[^>]+>/g, '').trim();

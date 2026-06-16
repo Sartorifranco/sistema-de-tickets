@@ -12,6 +12,26 @@ function escapeHtml(text) {
         .replace(/"/g, '&quot;');
 }
 
+function decodeHtmlEntities(text) {
+    return String(text)
+        .replace(/&nbsp;/gi, ' ')
+        .replace(/&amp;/g, '&')
+        .replace(/&lt;/g, '<')
+        .replace(/&gt;/g, '>')
+        .replace(/&quot;/g, '"')
+        .replace(/&#39;/g, "'");
+}
+
+function repairOverEncodedEntities(input) {
+    let result = input;
+    for (let i = 0; i < 3; i += 1) {
+        const next = decodeHtmlEntities(result);
+        if (next === result) break;
+        result = next;
+    }
+    return result;
+}
+
 function sanitizeImgSrc(src) {
     if (!src || typeof src !== 'string') return null;
     const trimmed = src.trim();
@@ -20,7 +40,8 @@ function sanitizeImgSrc(src) {
 }
 
 function plainTextToHtml(text) {
-    return escapeHtml(text.trim()).replace(/\n/g, '<br>');
+    const decoded = repairOverEncodedEntities(String(text).trim());
+    return escapeHtml(decoded).replace(/\n/g, '<br>');
 }
 
 /**
@@ -30,7 +51,7 @@ function plainTextToHtml(text) {
 function sanitizeCommentHtml(input) {
     if (!input || typeof input !== 'string') return '';
 
-    const trimmed = input.trim();
+    const trimmed = repairOverEncodedEntities(input.trim());
     if (!trimmed) return '';
 
     const looksLikeHtml = /<\s*\w+/i.test(trimmed);
@@ -57,7 +78,7 @@ function sanitizeCommentHtml(input) {
             if (!safeSrc) return '';
             const altMatch = attrs.match(/\salt\s*=\s*("([^"]*)"|'([^']*)')/i);
             const alt = altMatch ? escapeHtml(altMatch[2] || altMatch[3] || 'Imagen') : 'Imagen';
-            return `<img src="${safeSrc}" alt="${alt}" />`;
+            return `<img src="${safeSrc}" alt="${alt}" class="comment-inline-img" loading="lazy" />`;
         }
 
         const isClosing = match.startsWith('</');
@@ -67,4 +88,4 @@ function sanitizeCommentHtml(input) {
     return html.trim();
 }
 
-module.exports = { sanitizeCommentHtml, plainTextToHtml };
+module.exports = { sanitizeCommentHtml, plainTextToHtml, decodeHtmlEntities };
