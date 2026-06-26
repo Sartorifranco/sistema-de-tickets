@@ -5,6 +5,8 @@ import { useNotification } from '../context/NotificationContext';
 import { toast } from 'react-toastify';
 import { clInput } from '../utils/cleanLightUi';
 import { getDefaultPathForUser } from '../utils/permissions';
+import { WorldCupLoginOverlay } from '../components/Common/WorldCupArgentinaTheme';
+import { isWorldCupThemeActive } from '../config/worldCupTheme';
 
 /** Video local en `public/assets/video/`. */
 const LOGIN_VIDEO = '/assets/video/login-video.mp4';
@@ -74,10 +76,17 @@ const LoginPage: React.FC = () => {
                     }}
                     aria-hidden
                 />
+                <WorldCupLoginOverlay />
             </div>
 
             {/* 30% — sombra hacia la izquierda (difuminado fijo ~4px de invasión blanca sobre el video) */}
             <div className="relative z-10 flex min-h-0 w-full flex-1 flex-col items-center justify-center overflow-y-auto bg-white px-5 py-8 shadow-[-4px_0_4px_0_rgba(255,255,255,1)] sm:px-8 md:h-full md:w-[30%] md:flex-none md:shrink-0 md:px-8 md:py-10 lg:px-10">
+                {isWorldCupThemeActive() && (
+                    <div
+                        className="pointer-events-none absolute left-0 right-0 top-0 h-1 bg-gradient-to-r from-[#74ACDF] via-white to-[#74ACDF]"
+                        aria-hidden
+                    />
+                )}
                 <div className="flex w-full max-w-full flex-col font-medium">
                     <div className="flex w-full flex-col items-center text-center">
                         <img

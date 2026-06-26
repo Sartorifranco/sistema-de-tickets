@@ -10,6 +10,7 @@ import { formatLocalDate } from '../utils/dateFormatter';
 // ✅ IMPORTAR WIDGET
 import DepositariosWidget from '../components/Dashboard/DepositariosWidget';
 import { clCard, clInput, clModalPanel } from '../utils/cleanLightUi';
+import { WorldCupDashboardBanner } from '../components/Common/WorldCupArgentinaTheme';
 
 // --- Componente genérico para el Modal de Detalles (DISEÑO MEJORADO) ---
 const DetailsModal: React.FC<{ title: string; items: Partial<TicketData>[]; onClose: () => void; loading: boolean; role: 'agent' | 'admin' | 'client' }> = ({ title, items, onClose, loading, role }) => {
@@ -253,6 +254,7 @@ const AgentDashboard: React.FC = () => {
     return (
         <>
             <div className="container mx-auto p-4 sm:p-6 lg:p-8">
+                <WorldCupDashboardBanner pageTitle="Dashboard de Agente" userName={user?.username} />
                 <h1 className="text-2xl sm:text-3xl font-bold text-slate-900 mb-6 border-b border-gray-100 pb-4">Dashboard de Agente</h1>
 
                 {/* ✅ GRILA DE MÉTRICAS + WIDGET */}

@@ -5,6 +5,7 @@ import { Link } from 'react-router-dom';
 import { toast } from 'react-toastify';
 import { TicketData } from '../types';
 import { clModalPanel } from '../utils/cleanLightUi';
+import { WorldCupDashboardBanner } from '../components/Common/WorldCupArgentinaTheme';
 
 // Interfaz para la estructura de las métricas que esperamos del backend
 interface ClientMetrics {
@@ -109,6 +110,7 @@ const ClientDashboard: React.FC = () => {
     return (
         <>
             <div className="container mx-auto p-4 sm:p-6 lg:p-8">
+                <WorldCupDashboardBanner pageTitle="Tu panel de tickets" userName={user?.username} />
                 <h1 className="text-2xl sm:text-3xl font-bold text-slate-900 mb-2">Tu panel de tickets</h1>
                 <p className="text-md sm:text-lg text-gray-500 mb-2">
                     Bienvenido, {user?.username}. Acá ves un resumen de tus solicitudes.

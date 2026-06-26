@@ -9,7 +9,8 @@ import { formatLocalDate } from '../utils/dateFormatter';
 import { toast } from 'react-toastify';
 // ✅ AJUSTAR RUTA DE IMPORTACIÓN SI ES NECESARIO (Widgets vs Dashboard)
 import { useDepositariosMetrics, DepositariosCriticalListModal } from '../components/Dashboard/DepositariosWidget';
-import { clCard, clModalPanel } from '../utils/cleanLightUi'; 
+import { clCard, clModalPanel } from '../utils/cleanLightUi';
+import { WorldCupDashboardBanner } from '../components/Common/WorldCupArgentinaTheme';
 
 const activityTypeTranslations: { [key: string]: string } = {
     user_registered: 'Usuario Registrado',
@@ -216,6 +217,7 @@ const AdminDashboard: React.FC = () => {
     return (
         <>
             <div className="container mx-auto p-4 sm:p-6 lg:p-8 space-y-8">
+                <WorldCupDashboardBanner pageTitle="Dashboard de Administrador" userName={user?.username} />
                 <h1 className="text-2xl sm:text-3xl font-bold text-slate-900">Dashboard de Administrador</h1>
 
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
