@@ -48,7 +48,11 @@ export const WorldCupLoginHero: React.FC = () => {
 
     return (
         <div className="wc-argentina-root wc-login-hero">
-            <div className="wc-login-hero-sun" />
+            <div className="wc-login-hero-flag" aria-hidden>
+                <div className="wc-arg-flag-animated">
+                    <span className="wc-arg-flag-sol" />
+                </div>
+            </div>
             <p className="wc-login-hero-chant wc-login-hero-chant--1">¡VAMOS ARGENTINA!</p>
             <p className="wc-login-hero-chant wc-login-hero-chant--2">🇦🇷 {WORLD_CUP_LABEL} · DALE QUE VAMOS 🇦🇷</p>
             <p className="wc-login-hero-sub">Con la misma pasión, entrá a Bacar OS</p>

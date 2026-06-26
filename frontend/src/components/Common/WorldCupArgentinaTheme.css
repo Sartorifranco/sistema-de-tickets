@@ -198,14 +198,70 @@
     animation: wc-hero-shine 3s ease-in-out infinite;
 }
 
-.wc-login-hero-sun {
-    width: 2.75rem;
-    height: 2.75rem;
-    margin: 0 auto 0.5rem;
+.wc-login-hero-flag {
+    display: flex;
+    justify-content: center;
+    margin: 0 auto 0.65rem;
+    perspective: 360px;
+}
+
+.wc-arg-flag-animated {
+    position: relative;
+    width: 4.75rem;
+    height: 3.1rem;
+    border-radius: 4px;
+    overflow: hidden;
+    background: linear-gradient(
+        180deg,
+        var(--wc-celeste) 0% 28%,
+        var(--wc-white) 28% 72%,
+        var(--wc-celeste) 72% 100%
+    );
+    border: 1px solid rgba(43, 108, 176, 0.35);
+    box-shadow:
+        0 4px 18px rgba(43, 108, 176, 0.45),
+        0 0 20px rgba(116, 172, 223, 0.35);
+    transform-origin: left center;
+    animation: wc-arg-flag-wave 2.4s ease-in-out infinite;
+}
+
+.wc-arg-flag-animated::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(
+        105deg,
+        transparent 35%,
+        rgba(255, 255, 255, 0.45) 48%,
+        transparent 62%
+    );
+    animation: wc-flag-shimmer-pass 2.4s ease-in-out infinite;
+}
+
+.wc-arg-flag-sol {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 1.15rem;
+    height: 1.15rem;
+    transform: translate(-50%, -50%);
     border-radius: 50%;
-    background: radial-gradient(circle at 35% 35%, #ffe082, var(--wc-gold) 55%, #e09500);
-    box-shadow: 0 0 24px rgba(246, 180, 14, 0.7);
-    animation: wc-sun-pulse 1.8s ease-in-out infinite;
+    background: radial-gradient(circle at 38% 38%, var(--wc-gold-light), var(--wc-gold) 55%, #d49200);
+    box-shadow: 0 0 8px rgba(246, 180, 14, 0.85);
+    animation: wc-sol-glow 1.8s ease-in-out infinite;
+}
+
+.wc-arg-flag-sol::before {
+    content: '';
+    position: absolute;
+    inset: -5px;
+    border-radius: 50%;
+    background: repeating-conic-gradient(
+        from 0deg,
+        rgba(246, 180, 14, 0.55) 0deg 10deg,
+        transparent 10deg 20deg
+    );
+    animation: wc-sun-spin 16s linear infinite;
 }
 
 .wc-login-hero-chant {
@@ -693,6 +749,36 @@
     50%, 100% { left: 150%; }
 }
 
+@keyframes wc-arg-flag-wave {
+    0%, 100% {
+        transform: perspective(360px) rotateY(-18deg) rotateZ(-2deg) scale(1);
+    }
+    25% {
+        transform: perspective(360px) rotateY(-6deg) rotateZ(1deg) scale(1.05);
+    }
+    50% {
+        transform: perspective(360px) rotateY(18deg) rotateZ(2deg) scale(1);
+    }
+    75% {
+        transform: perspective(360px) rotateY(6deg) rotateZ(-1deg) scale(1.05);
+    }
+}
+
+@keyframes wc-flag-shimmer-pass {
+    0%, 100% { opacity: 0.35; transform: translateX(-15%); }
+    50% { opacity: 0.85; transform: translateX(15%); }
+}
+
+@keyframes wc-sol-glow {
+    0%, 100% { transform: translate(-50%, -50%) scale(1); box-shadow: 0 0 8px rgba(246, 180, 14, 0.85); }
+    50% { transform: translate(-50%, -50%) scale(1.1); box-shadow: 0 0 14px rgba(246, 180, 14, 1); }
+}
+
+@keyframes wc-sun-spin {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
+}
+
 @keyframes wc-chant-pulse {
     0%, 100% { transform: scale(1); }
     50% { transform: scale(1.04); }
@@ -717,7 +803,10 @@
     .wc-panel-ball,
     .wc-panel-star,
     .wc-login-hero::before,
-    .wc-login-hero-sun,
+    .wc-arg-flag-animated,
+    .wc-arg-flag-animated::after,
+    .wc-arg-flag-sol,
+    .wc-arg-flag-sol::before,
     .wc-login-hero-chant,
     .wc-btn-argentina,
     .wc-dashboard-banner--festive::before,
