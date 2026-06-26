@@ -9,12 +9,20 @@ import PushNotificationButton from '../PushNotificationButton/PushNotificationBu
 import { canAccessPurchasingModule } from '../../config/purchasingFeatureFlag';
 import { PERMISSION_KEYS as P } from '../../constants/permissions';
 import { hasPermission } from '../../utils/permissions';
+import { isWorldCupThemeActive } from '../../config/worldCupTheme';
+import {
+    WorldCupAppConfetti,
+    WorldCupAppCornerFlags,
+    WorldCupHeaderRibbon,
+    WorldCupSidebarFestive,
+} from '../Common/WorldCupArgentinaTheme';
 
 const iconClass = 'w-5 h-5 flex-shrink-0';
 
 const Layout: React.FC = () => {
     const { user, logout } = useAuth();
     const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+    const worldCup = isWorldCupThemeActive();
 
     const handleLogout = () => {
         logout();
@@ -169,12 +177,13 @@ const Layout: React.FC = () => {
     return (
         <>
             <FcmTokenHandler />
-        <div className="flex h-screen overflow-hidden bg-slate-50 font-sans antialiased">
+        <div className={`flex h-screen overflow-hidden bg-slate-50 font-sans antialiased ${worldCup ? 'wc-layout-festive wc-argentina-root' : ''}`}>
             <aside className={`fixed inset-y-0 left-0 z-40 w-64 h-full bg-white border-r border-gray-100 text-gray-800 flex flex-col shadow-sm 
                                 transform transition-transform duration-300 ease-in-out 
                                 ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'} 
                                 md:relative md:translate-x-0`}>
-                <div className="flex-shrink-0 p-4 flex justify-center items-center border-b border-gray-100 h-20 bg-white">
+                <div className="flex-shrink-0 p-4 flex flex-col justify-center items-center border-b border-gray-100 min-h-[5rem] bg-white">
+                    {worldCup && <WorldCupSidebarFestive />}
                     <img src="/images/logo-b-sola.png" alt="BACAR Logo" className="h-12 w-auto" />
                 </div>
                 <nav className="flex-1 min-h-0 overflow-y-auto p-3 [scrollbar-width:none] [&::-webkit-scrollbar]:[display:none]">
@@ -190,14 +199,16 @@ const Layout: React.FC = () => {
             </aside>
 
             <div className="flex-1 min-h-0 flex flex-col overflow-hidden min-w-0">
-                <header className="flex-shrink-0 flex items-center justify-between px-5 md:px-6 py-4 bg-white border-b border-gray-100 shadow-sm">
-                    <button onClick={() => setIsSidebarOpen(true)} className="md:hidden text-gray-500 focus:outline-none">
+                <header className="flex-shrink-0 flex items-center justify-between px-5 md:px-6 py-4 bg-white border-b border-gray-100 shadow-sm gap-2">
+                    <button onClick={() => setIsSidebarOpen(true)} className="md:hidden text-gray-500 focus:outline-none flex-shrink-0">
                         <svg className="h-6 w-6" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
                             <path d="M4 6H20M4 12H20M4 18H20" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
                         </svg>
                     </button>
 
-                    <div className="flex items-center gap-3 ml-auto">
+                    {worldCup && <WorldCupHeaderRibbon userName={user?.username} />}
+
+                    <div className="flex items-center gap-3 ml-auto flex-shrink-0">
                         <PushNotificationButton />
                         <span className="text-md font-semibold text-gray-700 hidden sm:block">
                             Bienvenido, {user?.username || 'Invitado'}!
@@ -206,8 +217,16 @@ const Layout: React.FC = () => {
                     </div>
                 </header>
                 
-                <main className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden bg-slate-50 p-4 md:p-6">
-                    <Outlet />
+                <main className="relative flex-1 min-h-0 overflow-y-auto overflow-x-hidden bg-slate-50 p-4 md:p-6">
+                    {worldCup && (
+                        <>
+                            <WorldCupAppConfetti />
+                            <WorldCupAppCornerFlags />
+                        </>
+                    )}
+                    <div className="relative z-10">
+                        <Outlet />
+                    </div>
                 </main>
             </div>
             {isSidebarOpen && <div onClick={() => setIsSidebarOpen(false)} className="fixed inset-0 bg-black opacity-50 z-20 md:hidden"></div>}

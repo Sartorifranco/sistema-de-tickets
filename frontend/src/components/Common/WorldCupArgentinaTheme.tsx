@@ -61,25 +61,111 @@ interface WorldCupDashboardBannerProps {
     userName?: string | null;
 }
 
-/** Banner estático en dashboards (sin animaciones pesadas). */
+/** Tres estrellas de campeón del mundo (78 · 86 · 22). */
+export const WorldCupChampionStars: React.FC<{ size?: 'sm' | 'md' | 'lg'; showYears?: boolean }> = ({
+    size = 'md',
+    showYears = true,
+}) => (
+    <div className={`wc-champion-stars wc-champion-stars--${size}`} aria-label="Tres Copas del Mundo: 1978, 1986, 2022">
+        {(['78', '86', '22'] as const).map((year, i) => (
+            <span key={year} className={`wc-champion-star wc-champion-star--${i + 1}`}>
+                ★
+                {showYears && <small>{year}</small>}
+            </span>
+        ))}
+    </div>
+);
+
+/** Confetti sutil para páginas internas (no bloquea clics). */
+export const WorldCupAppConfetti: React.FC = () => {
+    if (!isWorldCupThemeActive()) return null;
+
+    return (
+        <div className="wc-argentina-root wc-app-confetti" aria-hidden>
+            {Array.from({ length: 20 }, (_, i) => (
+                <span key={i} className={`wc-app-confetti-piece wc-app-confetti-piece--${(i % 5) + 1}`} />
+            ))}
+        </div>
+    );
+};
+
+/** Banderas flotantes en esquinas del área principal. */
+export const WorldCupAppCornerFlags: React.FC = () => {
+    if (!isWorldCupThemeActive()) return null;
+
+    return (
+        <div className="wc-argentina-root wc-app-corners" aria-hidden>
+            <span className="wc-app-corner-flag wc-app-corner-flag--tl">🇦🇷</span>
+            <span className="wc-app-corner-flag wc-app-corner-flag--tr">🇦🇷</span>
+            <span className="wc-app-corner-ball">⚽</span>
+            <span className="wc-app-corner-trophy">🏆</span>
+        </div>
+    );
+};
+
+/** Badge festivo en sidebar (bandera + estrellas). */
+export const WorldCupSidebarFestive: React.FC = () => {
+    if (!isWorldCupThemeActive()) return null;
+
+    return (
+        <div className="wc-argentina-root wc-sidebar-festive">
+            <div className="wc-sidebar-festive-strip" />
+            <div className="wc-sidebar-festive-badge">
+                <span className="wc-sidebar-flag">🇦🇷</span>
+                <WorldCupChampionStars size="sm" />
+            </div>
+            <p className="wc-sidebar-festive-text">¡Vamos Argentina!</p>
+        </div>
+    );
+};
+
+/** Cinta festiva en el header superior. */
+export const WorldCupHeaderRibbon: React.FC<{ userName?: string | null }> = ({ userName }) => {
+    if (!isWorldCupThemeActive()) return null;
+
+    return (
+        <div className="wc-argentina-root wc-header-ribbon">
+            <span className="wc-header-ribbon-flag">🇦🇷</span>
+            <span className="wc-header-ribbon-text">
+                {userName ? `${userName}, ` : ''}
+                <strong>dale que vamos</strong> · {WORLD_CUP_LABEL}
+            </span>
+            <WorldCupChampionStars size="sm" showYears={false} />
+            <span className="wc-header-ribbon-flag">🇦🇷</span>
+        </div>
+    );
+};
+
+/** Banner festivo en dashboards y home de cada rol. */
 export const WorldCupDashboardBanner: React.FC<WorldCupDashboardBannerProps> = ({ pageTitle, userName }) => {
     if (!isWorldCupThemeActive()) return null;
 
     const greeting = userName ? `¡Hola, ${userName}!` : '¡Bienvenido!';
 
     return (
-        <div className="wc-argentina-root wc-dashboard-banner" role="status">
+        <div className="wc-argentina-root wc-dashboard-banner wc-dashboard-banner--festive" role="status" aria-live="polite">
+            <div className="wc-dashboard-banner-confetti" aria-hidden>
+                {Array.from({ length: 12 }, (_, i) => (
+                    <span key={i} className={`wc-dashboard-confetti wc-dashboard-confetti--${(i % 4) + 1}`} />
+                ))}
+            </div>
             <div className="wc-dashboard-inner">
-                <span className="wc-dashboard-flag" aria-hidden>
-                    🇦🇷
-                </span>
+                <div className="wc-dashboard-flags-col" aria-hidden>
+                    <span className="wc-dashboard-flag wc-dashboard-flag--big">🇦🇷</span>
+                    <span className="wc-dashboard-flag wc-dashboard-flag--small">🇦🇷</span>
+                </div>
                 <div className="wc-dashboard-copy">
-                    <p className="wc-dashboard-title">
-                        {greeting} · <em>Vamos Argentina</em>
+                    <p className="wc-dashboard-title wc-dashboard-title--chant">
+                        {greeting} · <em>¡Vamos Argentina!</em>
                     </p>
+                    <WorldCupChampionStars size="md" />
                     <p className="wc-dashboard-subtitle">
-                        {pageTitle} — {WORLD_CUP_LABEL}
+                        {pageTitle} — {WORLD_CUP_LABEL} · 3 ⭐ campeones del mundo
                     </p>
+                </div>
+                <div className="wc-dashboard-emblems" aria-hidden>
+                    <span className="wc-dashboard-emblem">⚽</span>
+                    <span className="wc-dashboard-emblem wc-dashboard-emblem--trophy">🏆</span>
                 </div>
             </div>
         </div>

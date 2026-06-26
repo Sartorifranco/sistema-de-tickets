@@ -278,38 +278,89 @@
     box-shadow: 0 0 0 3px rgba(116, 172, 223, 0.35) !important;
 }
 
-/* --- Dashboard banner (estático, liviano) --- */
+/* --- Dashboard banner festivo --- */
 .wc-dashboard-banner {
     position: relative;
     overflow: hidden;
     margin-bottom: 1.5rem;
-    padding: 1rem 1.25rem;
+    padding: 1.25rem 1.5rem;
     border-radius: 1rem;
-    border: 1px solid rgba(116, 172, 223, 0.35);
-    background: linear-gradient(105deg, #e8f4fc 0%, #ffffff 42%, #edf6fd 100%);
-    box-shadow: 0 4px 20px rgba(74, 139, 194, 0.12);
+    border: 2px solid rgba(116, 172, 223, 0.5);
+    background: linear-gradient(105deg, #dbeafe 0%, #ffffff 40%, #e0f2fe 100%);
+    box-shadow: 0 8px 32px rgba(74, 139, 194, 0.2);
 }
 
-.wc-dashboard-banner::before {
+.wc-dashboard-banner--festive::before {
     content: '';
     position: absolute;
     top: 0;
     left: 0;
     right: 0;
-    height: 4px;
-    background: linear-gradient(90deg, var(--wc-celeste), var(--wc-white), var(--wc-celeste), var(--wc-gold));
+    height: 5px;
+    background: linear-gradient(90deg, var(--wc-celeste), var(--wc-white), var(--wc-celeste), var(--wc-gold), var(--wc-celeste));
+    background-size: 200% 100%;
+    animation: wc-shimmer-bar 4s ease-in-out infinite;
 }
 
+.wc-dashboard-banner-confetti {
+    pointer-events: none;
+    position: absolute;
+    inset: 0;
+    overflow: hidden;
+}
+
+.wc-dashboard-confetti {
+    position: absolute;
+    top: -5px;
+    opacity: 0;
+    animation: wc-dashboard-confetti-fall linear infinite;
+}
+
+.wc-dashboard-confetti--1 { width: 7px; height: 9px; left: 5%; background: var(--wc-celeste); animation-duration: 5s; animation-delay: 0s; }
+.wc-dashboard-confetti--2 { width: 6px; height: 6px; left: 18%; background: var(--wc-gold); border-radius: 50%; animation-duration: 6s; animation-delay: 1s; }
+.wc-dashboard-confetti--3 { width: 8px; height: 5px; left: 32%; background: var(--wc-white); box-shadow: 0 0 0 1px var(--wc-celeste); animation-duration: 4.5s; animation-delay: 0.5s; }
+.wc-dashboard-confetti--4 { width: 6px; height: 8px; left: 48%; background: var(--wc-gold-light); animation-duration: 5.5s; animation-delay: 2s; }
+
+.wc-dashboard-confetti:nth-child(5) { left: 62%; background: var(--wc-celeste); animation-duration: 4.8s; animation-delay: 0.8s; width: 7px; height: 7px; }
+.wc-dashboard-confetti:nth-child(6) { left: 75%; background: var(--wc-gold); animation-duration: 5.2s; animation-delay: 1.5s; width: 6px; height: 9px; }
+.wc-dashboard-confetti:nth-child(7) { left: 88%; background: var(--wc-white); animation-duration: 6.2s; animation-delay: 2.5s; width: 8px; height: 6px; }
+.wc-dashboard-confetti:nth-child(8) { left: 12%; background: var(--wc-gold); animation-duration: 4.2s; animation-delay: 3s; width: 5px; height: 5px; border-radius: 50%; }
+.wc-dashboard-confetti:nth-child(9) { left: 55%; background: var(--wc-celeste-dark); animation-duration: 5.8s; animation-delay: 1.2s; width: 7px; height: 7px; }
+.wc-dashboard-confetti:nth-child(10) { left: 70%; background: var(--wc-celeste); animation-duration: 4.6s; animation-delay: 2.2s; width: 6px; height: 8px; }
+.wc-dashboard-confetti:nth-child(11) { left: 40%; background: var(--wc-gold-light); animation-duration: 5.4s; animation-delay: 0.3s; width: 7px; height: 5px; }
+.wc-dashboard-confetti:nth-child(12) { left: 92%; background: var(--wc-celeste); animation-duration: 4.9s; animation-delay: 1.8s; width: 6px; height: 6px; border-radius: 50%; }
+
 .wc-dashboard-inner {
+    position: relative;
+    z-index: 1;
     display: flex;
     align-items: center;
     gap: 1rem;
 }
 
+.wc-dashboard-flags-col {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.25rem;
+    flex-shrink: 0;
+}
+
 .wc-dashboard-flag {
     flex-shrink: 0;
-    font-size: 2rem;
     line-height: 1;
+    filter: drop-shadow(0 2px 6px rgba(43, 108, 176, 0.3));
+}
+
+.wc-dashboard-flag--big {
+    font-size: 2.5rem;
+    animation: wc-flag-wave 2.5s ease-in-out infinite;
+}
+
+.wc-dashboard-flag--small {
+    font-size: 1.35rem;
+    animation: wc-flag-wave 2.5s ease-in-out infinite 0.4s;
+    opacity: 0.85;
 }
 
 .wc-dashboard-copy {
@@ -318,24 +369,285 @@
 }
 
 .wc-dashboard-title {
-    font-size: 1rem;
-    font-weight: 700;
+    font-size: 1.05rem;
+    font-weight: 800;
     color: #0f172a;
 }
 
-.wc-dashboard-subtitle {
-    margin-top: 0.15rem;
-    font-size: 0.875rem;
-    color: #475569;
+.wc-dashboard-title--chant em {
+    font-style: normal;
+    color: var(--wc-celeste-deep);
+    animation: wc-chant-pulse 1.5s ease-in-out infinite;
 }
 
-.wc-dashboard-subtitle em {
-    font-style: normal;
-    color: var(--wc-celeste-dark);
+.wc-dashboard-subtitle {
+    margin-top: 0.35rem;
+    font-size: 0.875rem;
+    color: #475569;
+    font-weight: 500;
+}
+
+.wc-dashboard-emblems {
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+    flex-shrink: 0;
+}
+
+.wc-dashboard-emblem {
+    font-size: 1.75rem;
+    line-height: 1;
+    animation: wc-panel-ball-bounce 3s ease-in-out infinite;
+}
+
+.wc-dashboard-emblem--trophy {
+    font-size: 1.5rem;
+    animation-delay: 0.7s;
+}
+
+/* --- 3 estrellas campeón --- */
+.wc-champion-stars {
+    display: inline-flex;
+    align-items: flex-end;
+    gap: 0.35rem;
+    margin: 0.35rem 0;
+}
+
+.wc-champion-star {
+    display: inline-flex;
+    flex-direction: column;
+    align-items: center;
+    color: var(--wc-gold);
+    font-weight: 900;
+    line-height: 1;
+    text-shadow: 0 1px 3px rgba(224, 149, 0, 0.45);
+    animation: wc-champion-star-pulse 2s ease-in-out infinite;
+}
+
+.wc-champion-star small {
+    font-size: 0.55em;
+    font-weight: 800;
+    color: var(--wc-celeste-deep);
+    margin-top: 1px;
+    letter-spacing: 0.02em;
+}
+
+.wc-champion-stars--sm .wc-champion-star { font-size: 0.95rem; }
+.wc-champion-stars--md .wc-champion-star { font-size: 1.35rem; }
+.wc-champion-stars--lg .wc-champion-star { font-size: 1.75rem; }
+
+.wc-champion-star--1 { animation-delay: 0s; }
+.wc-champion-star--2 { animation-delay: 0.25s; }
+.wc-champion-star--3 { animation-delay: 0.5s; }
+
+/* --- Ambiente global en app (Layout) --- */
+.wc-app-confetti {
+    pointer-events: none;
+    position: absolute;
+    inset: 0;
+    z-index: 0;
+    overflow: hidden;
+}
+
+.wc-app-confetti-piece {
+    position: absolute;
+    top: -3%;
+    opacity: 0;
+    animation: wc-app-confetti-fall linear infinite;
+}
+
+.wc-app-confetti-piece--1 { width: 7px; height: 9px; left: 4%; background: var(--wc-celeste); animation-duration: 7s; animation-delay: 0s; }
+.wc-app-confetti-piece--2 { width: 6px; height: 6px; left: 11%; background: var(--wc-gold); border-radius: 50%; animation-duration: 8s; animation-delay: 1.5s; }
+.wc-app-confetti-piece--3 { width: 8px; height: 5px; left: 19%; background: var(--wc-white); box-shadow: 0 0 0 1px var(--wc-celeste); animation-duration: 6.5s; animation-delay: 0.8s; }
+.wc-app-confetti-piece--4 { width: 5px; height: 7px; left: 27%; background: var(--wc-celeste-dark); animation-duration: 7.5s; animation-delay: 2.2s; }
+.wc-app-confetti-piece--5 { width: 6px; height: 6px; left: 35%; background: var(--wc-gold-light); border-radius: 2px; animation-duration: 6s; animation-delay: 3s; }
+
+.wc-app-confetti-piece:nth-child(6) { left: 43%; background: var(--wc-celeste); width: 7px; height: 7px; animation-duration: 8.5s; animation-delay: 0.4s; }
+.wc-app-confetti-piece:nth-child(7) { left: 51%; background: var(--wc-gold); width: 6px; height: 8px; animation-duration: 7.2s; animation-delay: 1.8s; }
+.wc-app-confetti-piece:nth-child(8) { left: 59%; background: var(--wc-white); width: 8px; height: 6px; animation-duration: 6.8s; animation-delay: 2.6s; }
+.wc-app-confetti-piece:nth-child(9) { left: 67%; background: var(--wc-celeste); width: 5px; height: 5px; border-radius: 50%; animation-duration: 7.8s; animation-delay: 0.6s; }
+.wc-app-confetti-piece:nth-child(10) { left: 74%; background: var(--wc-gold); width: 7px; height: 9px; animation-duration: 6.4s; animation-delay: 3.2s; }
+.wc-app-confetti-piece:nth-child(11) { left: 81%; background: var(--wc-celeste-mid); width: 6px; height: 6px; animation-duration: 8.2s; animation-delay: 1.1s; }
+.wc-app-confetti-piece:nth-child(12) { left: 88%; background: var(--wc-white); width: 7px; height: 5px; animation-duration: 7.1s; animation-delay: 2.4s; }
+.wc-app-confetti-piece:nth-child(13) { left: 8%; background: var(--wc-gold); width: 6px; height: 6px; animation-duration: 9s; animation-delay: 4s; }
+.wc-app-confetti-piece:nth-child(14) { left: 22%; background: var(--wc-celeste); width: 8px; height: 8px; animation-duration: 6.6s; animation-delay: 3.5s; }
+.wc-app-confetti-piece:nth-child(15) { left: 46%; background: var(--wc-gold-light); width: 5px; height: 7px; animation-duration: 7.4s; animation-delay: 1.3s; }
+.wc-app-confetti-piece:nth-child(16) { left: 63%; background: var(--wc-celeste-dark); width: 7px; height: 6px; animation-duration: 8.8s; animation-delay: 0.2s; }
+.wc-app-confetti-piece:nth-child(17) { left: 78%; background: var(--wc-gold); width: 6px; height: 6px; border-radius: 50%; animation-duration: 6.2s; animation-delay: 2.9s; }
+.wc-app-confetti-piece:nth-child(18) { left: 92%; background: var(--wc-celeste); width: 7px; height: 8px; animation-duration: 7.6s; animation-delay: 1.6s; }
+.wc-app-confetti-piece:nth-child(19) { left: 56%; background: var(--wc-white); width: 6px; height: 6px; animation-duration: 8.4s; animation-delay: 4.2s; }
+.wc-app-confetti-piece:nth-child(20) { left: 33%; background: var(--wc-gold); width: 8px; height: 5px; animation-duration: 6.9s; animation-delay: 3.8s; }
+
+.wc-app-corners {
+    pointer-events: none;
+    position: absolute;
+    inset: 0;
+    z-index: 0;
+    overflow: hidden;
+}
+
+.wc-app-corner-flag {
+    position: absolute;
+    font-size: 1.75rem;
+    line-height: 1;
+    opacity: 0.55;
+    animation: wc-flag-float 4s ease-in-out infinite;
+}
+
+.wc-app-corner-flag--tl { top: 0.5rem; left: 0.5rem; }
+.wc-app-corner-flag--tr { top: 0.5rem; right: 0.5rem; animation-delay: 1s; font-size: 1.5rem; }
+
+.wc-app-corner-ball {
+    position: absolute;
+    bottom: 1rem;
+    left: 1rem;
+    font-size: 1.5rem;
+    opacity: 0.45;
+    animation: wc-panel-ball-bounce 3.5s ease-in-out infinite;
+}
+
+.wc-app-corner-trophy {
+    position: absolute;
+    bottom: 1rem;
+    right: 1rem;
+    font-size: 1.35rem;
+    opacity: 0.45;
+    animation: wc-panel-ball-bounce 3s ease-in-out infinite 0.8s;
+}
+
+/* --- Sidebar festivo --- */
+.wc-sidebar-festive {
+    position: relative;
+    padding-bottom: 0.5rem;
+    margin-bottom: 0.25rem;
+    border-bottom: 1px dashed rgba(116, 172, 223, 0.35);
+}
+
+.wc-sidebar-festive-strip {
+    position: absolute;
+    top: 0;
+    left: -1rem;
+    right: -1rem;
+    height: 4px;
+    background: linear-gradient(90deg, var(--wc-celeste), var(--wc-white), var(--wc-celeste), var(--wc-gold));
+    background-size: 200% 100%;
+    animation: wc-shimmer-bar 5s ease-in-out infinite;
+}
+
+.wc-sidebar-festive-badge {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    margin-top: 0.75rem;
+    margin-bottom: 0.25rem;
+}
+
+.wc-sidebar-flag {
+    font-size: 1.75rem;
+    line-height: 1;
+    animation: wc-flag-wave 2.5s ease-in-out infinite;
+}
+
+.wc-sidebar-festive-text {
+    text-align: center;
+    font-size: 0.7rem;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    color: var(--wc-celeste-deep);
+    margin: 0;
+    animation: wc-chant-pulse 2s ease-in-out infinite;
+}
+
+/* --- Header ribbon --- */
+.wc-header-ribbon {
+    display: none;
+    align-items: center;
+    gap: 0.5rem;
+    flex: 1;
+    min-width: 0;
+    margin-right: 0.75rem;
+    padding: 0.4rem 0.85rem;
+    border-radius: 9999px;
+    background: linear-gradient(90deg, rgba(116, 172, 223, 0.2), rgba(255, 255, 255, 0.9), rgba(246, 180, 14, 0.15));
+    border: 1px solid rgba(116, 172, 223, 0.45);
+    box-shadow: 0 2px 12px rgba(74, 139, 194, 0.15);
+}
+
+@media (min-width: 640px) {
+    .wc-header-ribbon {
+        display: flex;
+    }
+}
+
+.wc-header-ribbon-flag {
+    font-size: 1.15rem;
+    line-height: 1;
+    animation: wc-flag-wave 2.5s ease-in-out infinite;
+    flex-shrink: 0;
+}
+
+.wc-header-ribbon-flag:last-child {
+    animation-delay: 0.5s;
+}
+
+.wc-header-ribbon-text {
+    flex: 1;
+    min-width: 0;
+    font-size: 0.8rem;
     font-weight: 600;
+    color: #334155;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.wc-header-ribbon-text strong {
+    color: var(--wc-celeste-deep);
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+}
+
+.wc-layout-festive header {
+    border-bottom-color: rgba(116, 172, 223, 0.35) !important;
+    background: linear-gradient(180deg, #f0f9ff 0%, #ffffff 100%) !important;
+}
+
+.wc-layout-festive main {
+    background: linear-gradient(180deg, #f0f9ff 0%, #f8fafc 40%, #f1f5f9 100%) !important;
 }
 
 /* ========== KEYFRAMES ========== */
+@keyframes wc-shimmer-bar {
+    0%, 100% { background-position: 0% 50%; }
+    50% { background-position: 100% 50%; }
+}
+
+@keyframes wc-dashboard-confetti-fall {
+    0% { transform: translateY(-10px) rotate(0deg); opacity: 0; }
+    15% { opacity: 0.85; }
+    85% { opacity: 0.7; }
+    100% { transform: translateY(120px) rotate(360deg); opacity: 0; }
+}
+
+@keyframes wc-app-confetti-fall {
+    0% { transform: translateY(-5%) rotate(0deg); opacity: 0; }
+    10% { opacity: 0.6; }
+    90% { opacity: 0.5; }
+    100% { transform: translateY(105vh) rotate(540deg); opacity: 0; }
+}
+
+@keyframes wc-champion-star-pulse {
+    0%, 100% { transform: scale(1); filter: brightness(1); }
+    50% { transform: scale(1.15); filter: brightness(1.2); }
+}
+
+@keyframes wc-flag-wave {
+    0%, 100% { transform: rotate(-6deg) scale(1); }
+    50% { transform: rotate(6deg) scale(1.08); }
+}
 @keyframes wc-panel-rotate {
     from { transform: rotate(0deg); }
     to { transform: rotate(360deg); }
@@ -407,7 +719,21 @@
     .wc-login-hero::before,
     .wc-login-hero-sun,
     .wc-login-hero-chant,
-    .wc-btn-argentina {
+    .wc-btn-argentina,
+    .wc-dashboard-banner--festive::before,
+    .wc-dashboard-confetti,
+    .wc-dashboard-flag,
+    .wc-dashboard-emblem,
+    .wc-dashboard-title--chant em,
+    .wc-champion-star,
+    .wc-app-confetti-piece,
+    .wc-app-corner-flag,
+    .wc-app-corner-ball,
+    .wc-app-corner-trophy,
+    .wc-sidebar-festive-strip,
+    .wc-sidebar-flag,
+    .wc-sidebar-festive-text,
+    .wc-header-ribbon-flag {
         animation: none !important;
     }
 
