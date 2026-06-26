@@ -1,129 +1,284 @@
 .wc-argentina-root {
     --wc-celeste: #74acdf;
-    --wc-celeste-dark: #4a8bc2;
+    --wc-celeste-mid: #5a9fd4;
+    --wc-celeste-dark: #2b6cb0;
+    --wc-celeste-deep: #1a4f8a;
     --wc-gold: #f6b40e;
+    --wc-gold-light: #ffd54f;
     --wc-white: #ffffff;
 }
 
-/* --- Login (sobre el video) --- */
-.wc-login-overlay {
+/* ========== PANEL DEL LOGIN (lado formulario) ========== */
+.wc-login-panel {
+    background: linear-gradient(165deg, #e3f2fd 0%, #ffffff 35%, #dbeafe 70%, #eff6ff 100%) !important;
+    border-left: 5px solid var(--wc-celeste) !important;
+    box-shadow: -8px 0 40px rgba(74, 139, 194, 0.25), inset 0 0 80px rgba(116, 172, 223, 0.08) !important;
+}
+
+.wc-login-panel-festive {
     pointer-events: none;
     position: absolute;
     inset: 0;
-    z-index: 5;
+    z-index: 0;
     overflow: hidden;
 }
 
-.wc-login-gradient {
+.wc-panel-bg-shimmer {
+    position: absolute;
+    inset: -50%;
+    background: conic-gradient(
+        from 0deg at 50% 50%,
+        rgba(116, 172, 223, 0.15) 0deg,
+        rgba(255, 255, 255, 0.4) 60deg,
+        rgba(246, 180, 14, 0.12) 120deg,
+        rgba(116, 172, 223, 0.2) 180deg,
+        rgba(255, 255, 255, 0.35) 240deg,
+        rgba(246, 180, 14, 0.1) 300deg,
+        rgba(116, 172, 223, 0.15) 360deg
+    );
+    animation: wc-panel-rotate 14s linear infinite;
+}
+
+.wc-panel-bg-stripes {
     position: absolute;
     inset: 0;
-    background: linear-gradient(
-        135deg,
-        rgba(116, 172, 223, 0.35) 0%,
-        rgba(255, 255, 255, 0.08) 45%,
-        rgba(116, 172, 223, 0.28) 100%
-    );
-    background-size: 200% 200%;
-    animation: wc-shimmer 8s ease-in-out infinite;
-}
-
-.wc-login-stripes {
-    position: absolute;
-    left: 0;
-    top: 0;
-    bottom: 0;
-    width: 6px;
+    opacity: 0.07;
     background: repeating-linear-gradient(
-        180deg,
-        var(--wc-celeste) 0 33.33%,
-        var(--wc-white) 33.33% 66.66%,
-        var(--wc-celeste) 66.66% 100%
+        -45deg,
+        var(--wc-celeste) 0 12px,
+        var(--wc-white) 12px 24px,
+        var(--wc-celeste) 24px 36px
     );
-    opacity: 0.85;
-    animation: wc-stripe-pulse 3s ease-in-out infinite;
+    animation: wc-panel-stripes-move 8s linear infinite;
 }
 
-.wc-login-banner {
+.wc-panel-glow {
     position: absolute;
-    left: 1rem;
-    right: 1rem;
-    bottom: 1.25rem;
-    display: flex;
-    align-items: center;
-    gap: 0.75rem;
-    padding: 0.85rem 1rem;
-    border-radius: 1rem;
-    background: linear-gradient(90deg, rgba(15, 23, 42, 0.82), rgba(30, 58, 95, 0.72));
-    border: 1px solid rgba(116, 172, 223, 0.45);
-    backdrop-filter: blur(8px);
-    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.25);
-}
-
-.wc-login-banner-text {
-    color: #f8fafc;
-    font-size: 0.95rem;
-    font-weight: 600;
-    letter-spacing: 0.02em;
-    line-height: 1.35;
-}
-
-.wc-login-banner-text strong {
-    color: var(--wc-gold);
-    font-weight: 700;
-}
-
-.wc-sun {
-    flex-shrink: 0;
-    width: 2.5rem;
-    height: 2.5rem;
     border-radius: 50%;
-    background: radial-gradient(circle at 35% 35%, #ffe082, var(--wc-gold) 55%, #e09500);
-    box-shadow: 0 0 18px rgba(246, 180, 14, 0.55);
-    animation: wc-sun-pulse 2.4s ease-in-out infinite;
-    position: relative;
+    filter: blur(40px);
+    opacity: 0.45;
 }
 
-.wc-sun::before {
+.wc-panel-glow--1 {
+    width: 180px;
+    height: 180px;
+    top: -40px;
+    right: -30px;
+    background: var(--wc-celeste);
+    animation: wc-glow-drift 6s ease-in-out infinite;
+}
+
+.wc-panel-glow--2 {
+    width: 140px;
+    height: 140px;
+    bottom: 20%;
+    left: -50px;
+    background: var(--wc-gold);
+    animation: wc-glow-drift 7s ease-in-out infinite reverse;
+}
+
+.wc-panel-glow--3 {
+    width: 100px;
+    height: 100px;
+    bottom: -20px;
+    right: 20%;
+    background: var(--wc-celeste-mid);
+    animation: wc-glow-drift 5s ease-in-out infinite 1s;
+}
+
+/* Confetti — más grande y más denso */
+.wc-panel-confetti {
+    position: absolute;
+    top: -5%;
+    opacity: 0;
+    animation: wc-panel-confetti-fall linear infinite;
+}
+
+.wc-panel-confetti--1 { width: 10px; height: 14px; left: 3%; background: var(--wc-celeste); border-radius: 2px; animation-duration: 4.2s; animation-delay: 0s; }
+.wc-panel-confetti--2 { width: 8px; height: 8px; left: 8%; background: var(--wc-gold); border-radius: 50%; animation-duration: 5.1s; animation-delay: 0.4s; }
+.wc-panel-confetti--3 { width: 12px; height: 6px; left: 14%; background: var(--wc-white); box-shadow: 0 0 0 1px var(--wc-celeste); animation-duration: 4.8s; animation-delay: 1.1s; }
+.wc-panel-confetti--4 { width: 9px; height: 9px; left: 20%; background: var(--wc-celeste-dark); transform: rotate(45deg); animation-duration: 3.9s; animation-delay: 0.2s; }
+.wc-panel-confetti--5 { width: 11px; height: 11px; left: 26%; background: var(--wc-gold-light); border-radius: 2px; animation-duration: 5.5s; animation-delay: 1.8s; }
+.wc-panel-confetti--6 { width: 7px; height: 10px; left: 32%; background: var(--wc-celeste); animation-duration: 4.5s; animation-delay: 0.7s; }
+.wc-panel-confetti--7 { width: 10px; height: 10px; left: 38%; background: var(--wc-white); border-radius: 50%; animation-duration: 6s; animation-delay: 2.2s; }
+
+.wc-panel-confetti:nth-child(n+9) { animation-duration: 4.6s; }
+.wc-panel-confetti:nth-child(9) { left: 44%; background: var(--wc-gold); width: 9px; height: 12px; animation-delay: 0.3s; }
+.wc-panel-confetti:nth-child(10) { left: 50%; background: var(--wc-celeste); width: 8px; height: 8px; border-radius: 50%; animation-delay: 1.4s; }
+.wc-panel-confetti:nth-child(11) { left: 56%; background: var(--wc-white); width: 11px; height: 7px; animation-delay: 2.6s; }
+.wc-panel-confetti:nth-child(12) { left: 62%; background: var(--wc-gold); width: 10px; height: 10px; animation-delay: 0.9s; }
+.wc-panel-confetti:nth-child(13) { left: 68%; background: var(--wc-celeste-dark); width: 8px; height: 11px; animation-delay: 1.7s; }
+.wc-panel-confetti:nth-child(14) { left: 74%; background: var(--wc-celeste); width: 12px; height: 8px; animation-delay: 3s; }
+.wc-panel-confetti:nth-child(15) { left: 80%; background: var(--wc-gold-light); width: 7px; height: 7px; border-radius: 50%; animation-delay: 0.5s; }
+.wc-panel-confetti:nth-child(16) { left: 86%; background: var(--wc-white); width: 9px; height: 13px; animation-delay: 2s; }
+.wc-panel-confetti:nth-child(17) { left: 92%; background: var(--wc-celeste); width: 10px; height: 10px; animation-delay: 1.2s; }
+.wc-panel-confetti:nth-child(18) { left: 96%; background: var(--wc-gold); width: 8px; height: 12px; animation-delay: 2.8s; }
+.wc-panel-confetti:nth-child(19) { left: 5%; background: var(--wc-celeste-mid); width: 11px; height: 9px; animation-delay: 3.2s; animation-duration: 5.8s; }
+.wc-panel-confetti:nth-child(20) { left: 18%; background: var(--wc-gold); width: 9px; height: 9px; border-radius: 50%; animation-delay: 3.5s; animation-duration: 4.1s; }
+.wc-panel-confetti:nth-child(21) { left: 42%; background: var(--wc-white); width: 10px; height: 10px; animation-delay: 4s; animation-duration: 5.2s; }
+.wc-panel-confetti:nth-child(22) { left: 58%; background: var(--wc-celeste); width: 12px; height: 6px; animation-delay: 1.9s; animation-duration: 4.4s; }
+.wc-panel-confetti:nth-child(23) { left: 72%; background: var(--wc-gold-light); width: 8px; height: 11px; animation-delay: 2.4s; animation-duration: 5.6s; }
+.wc-panel-confetti:nth-child(24) { left: 88%; background: var(--wc-celeste-dark); width: 10px; height: 10px; animation-delay: 0.6s; animation-duration: 4.9s; }
+.wc-panel-confetti:nth-child(25) { left: 12%; background: var(--wc-gold); width: 7px; height: 7px; animation-delay: 3.8s; animation-duration: 3.7s; }
+.wc-panel-confetti:nth-child(26) { left: 35%; background: var(--wc-celeste); width: 11px; height: 11px; border-radius: 50%; animation-delay: 4.2s; animation-duration: 5.4s; }
+.wc-panel-confetti:nth-child(27) { left: 65%; background: var(--wc-white); width: 9px; height: 14px; animation-delay: 1.6s; animation-duration: 4.3s; }
+.wc-panel-confetti:nth-child(28) { left: 78%; background: var(--wc-gold); width: 10px; height: 8px; animation-delay: 2.1s; animation-duration: 5.9s; }
+
+/* Banderas flotantes */
+.wc-panel-flag {
+    position: absolute;
+    font-size: 1.75rem;
+    line-height: 1;
+    filter: drop-shadow(0 2px 8px rgba(43, 108, 176, 0.35));
+    animation: wc-flag-float ease-in-out infinite;
+}
+
+.wc-panel-flag--1 { top: 8%; left: 4%; animation-duration: 3.2s; }
+.wc-panel-flag--2 { top: 22%; right: 6%; animation-duration: 4s; animation-delay: 0.5s; font-size: 2rem; }
+.wc-panel-flag--3 { top: 45%; left: 2%; animation-duration: 3.8s; animation-delay: 1s; font-size: 1.5rem; }
+.wc-panel-flag--4 { top: 58%; right: 4%; animation-duration: 3.5s; animation-delay: 1.5s; }
+.wc-panel-flag--5 { bottom: 28%; left: 8%; animation-duration: 4.2s; animation-delay: 0.8s; font-size: 2.1rem; }
+.wc-panel-flag--6 { bottom: 12%; right: 10%; animation-duration: 3.6s; animation-delay: 2s; }
+
+/* Pelotas y trofeo */
+.wc-panel-ball {
+    position: absolute;
+    filter: drop-shadow(0 4px 12px rgba(26, 79, 138, 0.3));
+    animation: wc-panel-ball-bounce ease-in-out infinite;
+}
+
+.wc-panel-ball--1 { top: 15%; right: 12%; font-size: 2.5rem; animation-duration: 2.8s; }
+.wc-panel-ball--2 { bottom: 35%; left: 6%; font-size: 2rem; animation-duration: 3.2s; animation-delay: 0.6s; }
+.wc-panel-ball--3 { bottom: 8%; right: 18%; font-size: 2.25rem; animation-duration: 2.5s; animation-delay: 1.2s; }
+
+/* Estrellas doradas */
+.wc-panel-stars {
+    position: absolute;
+    inset: 0;
+}
+
+.wc-panel-star {
+    position: absolute;
+    color: var(--wc-gold);
+    font-size: 0.85rem;
+    opacity: 0.7;
+    animation: wc-star-twinkle ease-in-out infinite;
+}
+
+.wc-panel-star--1 { top: 12%; left: 28%; animation-delay: 0s; }
+.wc-panel-star--2 { top: 30%; right: 22%; animation-delay: 0.5s; font-size: 1.1rem; }
+.wc-panel-star--3 { top: 52%; left: 18%; animation-delay: 1s; }
+.wc-panel-star--4 { top: 68%; right: 28%; animation-delay: 1.5s; }
+.wc-panel-star--5 { bottom: 42%; left: 42%; animation-delay: 0.3s; font-size: 1rem; }
+.wc-panel-star--6 { bottom: 22%; right: 35%; animation-delay: 0.8s; }
+.wc-panel-star--7 { top: 40%; left: 48%; animation-delay: 1.2s; font-size: 0.75rem; }
+.wc-panel-star--8 { bottom: 50%; right: 8%; animation-delay: 1.8s; font-size: 1.15rem; }
+
+/* Hero / cánticos */
+.wc-login-hero {
+    position: relative;
+    margin-bottom: 1rem;
+    padding: 1rem 0.75rem 1.25rem;
+    text-align: center;
+    border-radius: 1rem;
+    background: linear-gradient(135deg, rgba(116, 172, 223, 0.35), rgba(255, 255, 255, 0.85), rgba(246, 180, 14, 0.2));
+    border: 2px solid rgba(116, 172, 223, 0.55);
+    box-shadow: 0 8px 28px rgba(74, 139, 194, 0.25);
+    overflow: hidden;
+}
+
+.wc-login-hero::before {
     content: '';
     position: absolute;
-    inset: -6px;
+    top: 0;
+    left: -100%;
+    width: 60%;
+    height: 100%;
+    background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.55), transparent);
+    animation: wc-hero-shine 3s ease-in-out infinite;
+}
+
+.wc-login-hero-sun {
+    width: 2.75rem;
+    height: 2.75rem;
+    margin: 0 auto 0.5rem;
     border-radius: 50%;
-    border: 2px dashed rgba(246, 180, 14, 0.45);
-    animation: wc-sun-spin 12s linear infinite;
+    background: radial-gradient(circle at 35% 35%, #ffe082, var(--wc-gold) 55%, #e09500);
+    box-shadow: 0 0 24px rgba(246, 180, 14, 0.7);
+    animation: wc-sun-pulse 1.8s ease-in-out infinite;
 }
 
-.wc-confetti {
-    position: absolute;
-    width: 8px;
-    height: 8px;
-    border-radius: 2px;
-    opacity: 0;
-    animation: wc-confetti-fall 6s linear infinite;
+.wc-login-hero-chant {
+    margin: 0;
+    font-weight: 900;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
 }
 
-.wc-confetti:nth-child(1) { left: 8%; animation-delay: 0s; background: var(--wc-celeste); }
-.wc-confetti:nth-child(2) { left: 15%; animation-delay: 1.2s; background: var(--wc-white); }
-.wc-confetti:nth-child(3) { left: 22%; animation-delay: 2.4s; background: var(--wc-gold); }
-.wc-confetti:nth-child(4) { left: 31%; animation-delay: 0.6s; background: var(--wc-celeste); }
-.wc-confetti:nth-child(5) { left: 40%; animation-delay: 3.1s; background: var(--wc-white); }
-.wc-confetti:nth-child(6) { left: 48%; animation-delay: 1.8s; background: var(--wc-gold); }
-.wc-confetti:nth-child(7) { left: 56%; animation-delay: 4s; background: var(--wc-celeste); }
-.wc-confetti:nth-child(8) { left: 64%; animation-delay: 2.2s; background: var(--wc-white); }
-.wc-confetti:nth-child(9) { left: 72%; animation-delay: 0.9s; background: var(--wc-gold); }
-.wc-confetti:nth-child(10) { left: 80%; animation-delay: 3.6s; background: var(--wc-celeste); }
-.wc-confetti:nth-child(11) { left: 88%; animation-delay: 1.5s; background: var(--wc-white); }
-.wc-confetti:nth-child(12) { left: 94%; animation-delay: 2.8s; background: var(--wc-gold); }
-
-.wc-ball {
-    position: absolute;
-    top: 12%;
-    right: 8%;
-    font-size: 2.25rem;
-    filter: drop-shadow(0 4px 12px rgba(0, 0, 0, 0.35));
-    animation: wc-ball-bounce 3.5s ease-in-out infinite;
+.wc-login-hero-chant--1 {
+    font-size: clamp(1.15rem, 4vw, 1.45rem);
+    color: var(--wc-celeste-deep);
+    animation: wc-chant-pulse 1.2s ease-in-out infinite;
+    text-shadow: 0 2px 0 rgba(255, 255, 255, 0.8);
 }
 
-/* --- Dashboard banner --- */
+.wc-login-hero-chant--2 {
+    margin-top: 0.35rem;
+    font-size: clamp(0.7rem, 2.5vw, 0.85rem);
+    color: var(--wc-celeste-dark);
+    animation: wc-chant-pulse 1.2s ease-in-out infinite 0.15s;
+}
+
+.wc-login-hero-sub {
+    margin: 0.5rem 0 0;
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: #475569;
+}
+
+/* Botón celeste con brillo */
+.wc-btn-argentina {
+    background: linear-gradient(135deg, var(--wc-celeste) 0%, var(--wc-celeste-dark) 50%, var(--wc-celeste-deep) 100%) !important;
+    background-size: 200% 200%;
+    border: 2px solid var(--wc-gold);
+    box-shadow:
+        0 6px 24px rgba(43, 108, 176, 0.45),
+        0 0 20px rgba(246, 180, 14, 0.25),
+        inset 0 1px 0 rgba(255, 255, 255, 0.35);
+    animation: wc-btn-shimmer 2.5s ease-in-out infinite;
+}
+
+.wc-btn-argentina:hover:not(:disabled) {
+    background: linear-gradient(135deg, var(--wc-celeste-mid) 0%, var(--wc-celeste) 50%, var(--wc-celeste-dark) 100%) !important;
+    transform: scale(1.02);
+    box-shadow:
+        0 8px 32px rgba(43, 108, 176, 0.55),
+        0 0 28px rgba(246, 180, 14, 0.4);
+}
+
+.wc-btn-argentina:focus {
+    outline: none;
+    box-shadow:
+        0 6px 24px rgba(43, 108, 176, 0.45),
+        0 0 0 3px rgba(116, 172, 223, 0.5);
+}
+
+.wc-link-celeste {
+    text-shadow: 0 0 12px rgba(116, 172, 223, 0.4);
+}
+
+/* Inputs con borde celeste en tema mundial */
+.wc-login-panel .wc-input-argentina {
+    border-color: rgba(116, 172, 223, 0.65) !important;
+    background: rgba(255, 255, 255, 0.92) !important;
+}
+
+.wc-login-panel .wc-input-argentina:focus {
+    border-color: var(--wc-celeste-dark) !important;
+    box-shadow: 0 0 0 3px rgba(116, 172, 223, 0.35) !important;
+}
+
+/* --- Dashboard banner (estático, liviano) --- */
 .wc-dashboard-banner {
     position: relative;
     overflow: hidden;
@@ -142,15 +297,7 @@
     left: 0;
     right: 0;
     height: 4px;
-    background: linear-gradient(
-        90deg,
-        var(--wc-celeste) 0%,
-        var(--wc-white) 33%,
-        var(--wc-celeste) 66%,
-        var(--wc-gold) 100%
-    );
-    background-size: 200% 100%;
-    animation: wc-shimmer 5s ease-in-out infinite;
+    background: linear-gradient(90deg, var(--wc-celeste), var(--wc-white), var(--wc-celeste), var(--wc-gold));
 }
 
 .wc-dashboard-inner {
@@ -163,8 +310,6 @@
     flex-shrink: 0;
     font-size: 2rem;
     line-height: 1;
-    animation: wc-flag-wave 2.5s ease-in-out infinite;
-    transform-origin: center bottom;
 }
 
 .wc-dashboard-copy {
@@ -190,75 +335,83 @@
     font-weight: 600;
 }
 
-.wc-dashboard-sparkles {
-    flex-shrink: 0;
-    display: flex;
-    gap: 0.35rem;
-}
-
-.wc-sparkle {
-    width: 0.45rem;
-    height: 0.45rem;
-    border-radius: 50%;
-    background: var(--wc-gold);
-    animation: wc-sparkle 1.6s ease-in-out infinite;
-}
-
-.wc-sparkle:nth-child(2) { animation-delay: 0.4s; background: var(--wc-celeste); }
-.wc-sparkle:nth-child(3) { animation-delay: 0.8s; background: var(--wc-white); box-shadow: 0 0 0 1px var(--wc-celeste); }
-
-@keyframes wc-shimmer {
-    0%, 100% { background-position: 0% 50%; }
-    50% { background-position: 100% 50%; }
-}
-
-@keyframes wc-stripe-pulse {
-    0%, 100% { opacity: 0.75; }
-    50% { opacity: 1; }
-}
-
-@keyframes wc-sun-pulse {
-    0%, 100% { transform: scale(1); box-shadow: 0 0 18px rgba(246, 180, 14, 0.55); }
-    50% { transform: scale(1.06); box-shadow: 0 0 26px rgba(246, 180, 14, 0.75); }
-}
-
-@keyframes wc-sun-spin {
+/* ========== KEYFRAMES ========== */
+@keyframes wc-panel-rotate {
     from { transform: rotate(0deg); }
     to { transform: rotate(360deg); }
 }
 
-@keyframes wc-confetti-fall {
-    0% { transform: translateY(-10vh) rotate(0deg); opacity: 0; }
-    10% { opacity: 0.85; }
-    90% { opacity: 0.85; }
-    100% { transform: translateY(110vh) rotate(540deg); opacity: 0; }
+@keyframes wc-panel-stripes-move {
+    from { background-position: 0 0; }
+    to { background-position: 72px 72px; }
 }
 
-@keyframes wc-ball-bounce {
+@keyframes wc-glow-drift {
+    0%, 100% { transform: translate(0, 0) scale(1); opacity: 0.4; }
+    50% { transform: translate(15px, -20px) scale(1.15); opacity: 0.65; }
+}
+
+@keyframes wc-panel-confetti-fall {
+    0% { transform: translateY(-5%) rotate(0deg) scale(1); opacity: 0; }
+    8% { opacity: 1; }
+    92% { opacity: 0.95; }
+    100% { transform: translateY(105vh) rotate(720deg) scale(0.8); opacity: 0; }
+}
+
+@keyframes wc-flag-float {
+    0%, 100% { transform: translateY(0) rotate(-8deg) scale(1); }
+    25% { transform: translateY(-14px) rotate(6deg) scale(1.08); }
+    50% { transform: translateY(-6px) rotate(-4deg) scale(1.04); }
+    75% { transform: translateY(-18px) rotate(10deg) scale(1.1); }
+}
+
+@keyframes wc-panel-ball-bounce {
     0%, 100% { transform: translateY(0) rotate(0deg); }
-    50% { transform: translateY(-12px) rotate(18deg); }
+    30% { transform: translateY(-20px) rotate(-25deg); }
+    60% { transform: translateY(-8px) rotate(15deg); }
 }
 
-@keyframes wc-flag-wave {
-    0%, 100% { transform: rotate(-4deg) scale(1); }
-    50% { transform: rotate(4deg) scale(1.05); }
+@keyframes wc-star-twinkle {
+    0%, 100% { opacity: 0.35; transform: scale(0.85) rotate(0deg); }
+    50% { opacity: 1; transform: scale(1.25) rotate(180deg); }
 }
 
-@keyframes wc-sparkle {
-    0%, 100% { transform: scale(1); opacity: 0.6; }
-    50% { transform: scale(1.35); opacity: 1; }
+@keyframes wc-hero-shine {
+    0% { left: -100%; }
+    50%, 100% { left: 150%; }
+}
+
+@keyframes wc-chant-pulse {
+    0%, 100% { transform: scale(1); }
+    50% { transform: scale(1.04); }
+}
+
+@keyframes wc-sun-pulse {
+    0%, 100% { transform: scale(1); box-shadow: 0 0 24px rgba(246, 180, 14, 0.7); }
+    50% { transform: scale(1.12); box-shadow: 0 0 36px rgba(246, 180, 14, 0.95); }
+}
+
+@keyframes wc-btn-shimmer {
+    0%, 100% { background-position: 0% 50%; }
+    50% { background-position: 100% 50%; }
 }
 
 @media (prefers-reduced-motion: reduce) {
-    .wc-login-gradient,
-    .wc-login-stripes,
-    .wc-sun,
-    .wc-sun::before,
-    .wc-confetti,
-    .wc-ball,
-    .wc-dashboard-banner::before,
-    .wc-dashboard-flag,
-    .wc-sparkle {
+    .wc-panel-bg-shimmer,
+    .wc-panel-bg-stripes,
+    .wc-panel-glow,
+    .wc-panel-confetti,
+    .wc-panel-flag,
+    .wc-panel-ball,
+    .wc-panel-star,
+    .wc-login-hero::before,
+    .wc-login-hero-sun,
+    .wc-login-hero-chant,
+    .wc-btn-argentina {
         animation: none !important;
+    }
+
+    .wc-btn-argentina:hover:not(:disabled) {
+        transform: none;
     }
 }

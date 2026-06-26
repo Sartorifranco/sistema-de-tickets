@@ -5,7 +5,13 @@ import { useNotification } from '../context/NotificationContext';
 import { toast } from 'react-toastify';
 import { clInput } from '../utils/cleanLightUi';
 import { getDefaultPathForUser } from '../utils/permissions';
-import { WorldCupLoginOverlay } from '../components/Common/WorldCupArgentinaTheme';
+import {
+    WorldCupLoginPanelFestive,
+    WorldCupLoginHero,
+    getWorldCupLoginPanelClass,
+    getWorldCupSubmitButtonClass,
+    getWorldCupRegisterLinkClass,
+} from '../components/Common/WorldCupArgentinaTheme';
 import { isWorldCupThemeActive } from '../config/worldCupTheme';
 
 /** Video local en `public/assets/video/`. */
@@ -18,7 +24,6 @@ const GRAIN_TEXTURE =
 const videoSharpStyle: React.CSSProperties = {
     objectFit: 'cover',
     imageRendering: 'auto',
-    // Refuerzo de nitidez perceptiva en escalado (compatible con la mayoría de navegadores)
     filter: 'brightness(1.02) contrast(1.06) saturate(1.04)',
 };
 
@@ -29,6 +34,7 @@ const LoginPage: React.FC = () => {
     const { login, user } = useAuth();
     const { addNotification } = useNotification();
     const navigate = useNavigate();
+    const worldCup = isWorldCupThemeActive();
 
     useEffect(() => {
         if (user) {
@@ -52,10 +58,13 @@ const LoginPage: React.FC = () => {
     };
 
     const urbanist = { fontFamily: "'Urbanist', ui-sans-serif, system-ui, sans-serif", fontWeight: 500 as const };
+    const inputClass = `${clInput} !font-medium w-full rounded-xl text-slate-900 placeholder:text-slate-400 ${
+        worldCup ? 'wc-input-argentina' : 'border-gray-200'
+    }`;
 
     return (
         <div className="flex h-screen min-h-0 w-full flex-col overflow-hidden md:flex-row" style={urbanist}>
-            {/* 70% — video escalado (recorta marca de agua) + overlays suaves */}
+            {/* 70% — video sin decoración mundialista */}
             <div className="relative z-0 h-[38vh] w-full min-h-0 shrink-0 overflow-hidden bg-slate-900 md:h-full md:w-[70%] md:min-w-0 md:shrink-0">
                 <video
                     autoPlay
@@ -76,32 +85,47 @@ const LoginPage: React.FC = () => {
                     }}
                     aria-hidden
                 />
-                <WorldCupLoginOverlay />
             </div>
 
-            {/* 30% — sombra hacia la izquierda (difuminado fijo ~4px de invasión blanca sobre el video) */}
-            <div className="relative z-10 flex min-h-0 w-full flex-1 flex-col items-center justify-center overflow-y-auto bg-white px-5 py-8 shadow-[-4px_0_4px_0_rgba(255,255,255,1)] sm:px-8 md:h-full md:w-[30%] md:flex-none md:shrink-0 md:px-8 md:py-10 lg:px-10">
-                {isWorldCupThemeActive() && (
-                    <div
-                        className="pointer-events-none absolute left-0 right-0 top-0 h-1 bg-gradient-to-r from-[#74ACDF] via-white to-[#74ACDF]"
-                        aria-hidden
-                    />
-                )}
-                <div className="flex w-full max-w-full flex-col font-medium">
+            {/* 30% — panel festivo Argentina */}
+            <div
+                className={`relative z-10 flex min-h-0 w-full flex-1 flex-col items-center justify-center overflow-y-auto overflow-x-hidden bg-white px-5 py-8 shadow-[-4px_0_4px_0_rgba(255,255,255,1)] sm:px-8 md:h-full md:w-[30%] md:flex-none md:shrink-0 md:px-8 md:py-10 lg:px-10 ${getWorldCupLoginPanelClass()}`}
+            >
+                <WorldCupLoginPanelFestive />
+
+                <div className="relative z-10 flex w-full max-w-full flex-col font-medium">
+                    <WorldCupLoginHero />
+
                     <div className="flex w-full flex-col items-center text-center">
                         <img
                             className="mx-auto h-24 w-auto max-w-[min(100%,260px)] object-contain drop-shadow-sm sm:h-28"
                             src="/images/logo-grupo-bacar-horizontal.png"
                             alt="Grupo BACAR"
                         />
-                        <p className="mt-2 text-xs font-medium uppercase tracking-[0.2em] text-slate-500">Bacar OS</p>
-                        <h1 className="mt-6 text-2xl font-medium leading-tight text-slate-900 sm:text-3xl">Bienvenido</h1>
+                        <p
+                            className={`mt-2 text-xs font-medium uppercase tracking-[0.2em] ${
+                                worldCup ? 'text-[#2B6CB0] font-bold' : 'text-slate-500'
+                            }`}
+                        >
+                            Bacar OS
+                        </p>
+                        <h1
+                            className={`mt-6 leading-tight sm:text-3xl ${
+                                worldCup
+                                    ? 'text-2xl font-black text-[#1A4F8A] tracking-tight'
+                                    : 'text-2xl font-medium text-slate-900'
+                            }`}
+                        >
+                            {worldCup ? '¡Entrá con garra!' : 'Bienvenido'}
+                        </h1>
                         <p className="mt-2 max-w-full text-sm font-medium leading-snug text-slate-600">
-                            Ingresá con tu cuenta corporativa
+                            {worldCup
+                                ? 'La Scaloneta te espera — ingresá con tu cuenta corporativa'
+                                : 'Ingresá con tu cuenta corporativa'}
                         </p>
                     </div>
 
-                    <form className="mt-10 w-full space-y-6" onSubmit={handleSubmit} noValidate style={{ fontWeight: 500 }}>
+                    <form className="mt-8 w-full space-y-6" onSubmit={handleSubmit} noValidate style={{ fontWeight: 500 }}>
                         <div className="space-y-5">
                             <div>
                                 <label htmlFor="email-address" className="mb-1.5 block text-sm font-medium text-slate-900">
@@ -113,7 +137,7 @@ const LoginPage: React.FC = () => {
                                     type="email"
                                     autoComplete="email"
                                     required
-                                    className={`${clInput} !font-medium w-full rounded-xl border-gray-200 text-slate-900 placeholder:text-slate-400`}
+                                    className={inputClass}
                                     placeholder="nombre@empresa.com"
                                     value={email}
                                     onChange={(e) => setEmail(e.target.value)}
@@ -130,7 +154,7 @@ const LoginPage: React.FC = () => {
                                     type="password"
                                     autoComplete="current-password"
                                     required
-                                    className={`${clInput} !font-medium w-full rounded-xl border-gray-200 text-slate-900 placeholder:text-slate-400`}
+                                    className={inputClass}
                                     placeholder="••••••••"
                                     value={password}
                                     onChange={(e) => setPassword(e.target.value)}
@@ -141,20 +165,17 @@ const LoginPage: React.FC = () => {
 
                         <button
                             type="submit"
-                            className="flex w-full justify-center rounded-xl bg-[#DC2626] px-4 py-3 text-sm !font-medium text-white shadow-sm transition-colors hover:bg-[#B91C1C] focus:outline-none focus:ring-2 focus:ring-[#DC2626] focus:ring-offset-2 disabled:bg-gray-400 disabled:hover:bg-gray-400"
+                            className={getWorldCupSubmitButtonClass(loading)}
                             disabled={loading}
-                            style={{ fontWeight: 500 }}
+                            style={{ fontWeight: 700 }}
                         >
-                            {loading ? 'Iniciando sesión...' : 'Ingresar'}
+                            {loading ? 'Iniciando sesión...' : worldCup ? '⚽ ¡Vamos, ingresar!' : 'Ingresar'}
                         </button>
                     </form>
 
                     <p className="mt-8 text-center text-sm font-medium text-slate-600">
                         ¿No tenés cuenta?{' '}
-                        <Link
-                            to="/register"
-                            className="font-medium text-[#DC2626] underline-offset-2 hover:text-[#B91C1C] hover:underline"
-                        >
+                        <Link to="/register" className={getWorldCupRegisterLinkClass()}>
                             Registrate aquí
                         </Link>
                     </p>
