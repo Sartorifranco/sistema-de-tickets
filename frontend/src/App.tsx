@@ -5,9 +5,11 @@ import 'react-toastify/dist/ReactToastify.css';
 import io from 'socket.io-client';
 
 import { AuthProvider, AuthContext } from './context/AuthContext';
+import { SystemModulesProvider } from './context/SystemModulesContext';
 import { getSocketUrl } from './config/axiosConfig';
 import { NotificationProvider } from './context/NotificationContext';
 import Layout from './components/Layout/Layout';
+import AdminModuleSettingsPage from './pages/AdminModuleSettingsPage';
 
 // Importaciones de páginas
 import LoginPage from './pages/LoginPage';
@@ -88,6 +90,7 @@ const App: React.FC = () => {
     return (
         <Router>
             <AuthProvider>
+                <SystemModulesProvider>
                 <SocketConnectionManager>
                     <Routes>
                         {/* Redirección raíz a login */}
@@ -107,27 +110,28 @@ const App: React.FC = () => {
                             {/* Rutas de Admin */}
                             <Route path="/admin" element={<PrivateRoute roles={['admin']} permission={P.DASHBOARD_VIEW}><AdminDashboard /></PrivateRoute>} />
                             <Route path="/admin/users" element={<PrivateRoute roles={['admin']} permission={P.USERS_VIEW}><AdminUsersPage /></PrivateRoute>} />
-                            <Route path="/admin/companies" element={<PrivateRoute roles={['admin']} permission={P.COMPANIES_VIEW}><AdminCompaniesPage /></PrivateRoute>} />
-                            <Route path="/admin/companies/:companyId/departments" element={<PrivateRoute roles={['admin']} permission={P.COMPANIES_MANAGE}><AdminCompanyDepartmentsPage /></PrivateRoute>} />
+                            <Route path="/admin/configuracion" element={<PrivateRoute roles={['admin']}><AdminModuleSettingsPage /></PrivateRoute>} />
+                            <Route path="/admin/companies" element={<PrivateRoute roles={['admin']} permission={P.COMPANIES_VIEW} module="companies"><AdminCompaniesPage /></PrivateRoute>} />
+                            <Route path="/admin/companies/:companyId/departments" element={<PrivateRoute roles={['admin']} permission={P.COMPANIES_MANAGE} module="companies"><AdminCompanyDepartmentsPage /></PrivateRoute>} />
                             <Route path="/admin/tickets" element={<PrivateRoute roles={['admin']} permission={P.TICKETS_VIEW}><AdminTicketsPage /></PrivateRoute>} />
                             <Route path="/admin/tickets/:id" element={<PrivateRoute roles={['admin']} permission={P.TICKETS_VIEW}><AdminTicketDetailPage /></PrivateRoute>} />
-                            <Route path="/admin/reports" element={<PrivateRoute roles={['admin']} permission={P.REPORTS_VIEW}><AdminReportsPage /></PrivateRoute>} />
-                            <Route path="/admin/problemas" element={<PrivateRoute roles={['admin']} permission={P.PROBLEMS_MANAGE}><AdminProblemsPage /></PrivateRoute>} />
-                            <Route path="/admin/ubicaciones" element={<PrivateRoute roles={['admin']} permission={P.LOCATIONS_MANAGE}><AdminLocationsPage /></PrivateRoute>} />
-                            <Route path="/admin/depositarios" element={<PrivateRoute roles={['admin']} permission={P.DEPOSITARIOS_VIEW}><DepositariosPage /></PrivateRoute>} />
-                            <Route path="/admin/equipos" element={<PrivateRoute roles={['admin']} permission={P.MONITORING_EQUIPOS}><EquipmentMonitoringPage /></PrivateRoute>} />
-                            <Route path="/admin/monitoreo" element={<PrivateRoute roles={['admin']} permission={P.MONITORING_REALTIME}><MonitoringPage /></PrivateRoute>} />
-                            <Route path="/admin/tesoreria-maquinas" element={<PrivateRoute roles={['admin']} permission={P.TREASURY_MACHINES_VIEW}><TreasuryMachinesDashboard /></PrivateRoute>} />
+                            <Route path="/admin/reports" element={<PrivateRoute roles={['admin']} permission={P.REPORTS_VIEW} module="reports"><AdminReportsPage /></PrivateRoute>} />
+                            <Route path="/admin/problemas" element={<PrivateRoute roles={['admin']} permission={P.PROBLEMS_MANAGE} module="problems"><AdminProblemsPage /></PrivateRoute>} />
+                            <Route path="/admin/ubicaciones" element={<PrivateRoute roles={['admin']} permission={P.LOCATIONS_MANAGE} module="locations"><AdminLocationsPage /></PrivateRoute>} />
+                            <Route path="/admin/depositarios" element={<PrivateRoute roles={['admin']} permission={P.DEPOSITARIOS_VIEW} module="depositarios"><DepositariosPage /></PrivateRoute>} />
+                            <Route path="/admin/equipos" element={<PrivateRoute roles={['admin']} permission={P.MONITORING_EQUIPOS} module="monitoring"><EquipmentMonitoringPage /></PrivateRoute>} />
+                            <Route path="/admin/monitoreo" element={<PrivateRoute roles={['admin']} permission={P.MONITORING_REALTIME} module="monitoring"><MonitoringPage /></PrivateRoute>} />
+                            <Route path="/admin/tesoreria-maquinas" element={<PrivateRoute roles={['admin']} permission={P.TREASURY_MACHINES_VIEW} module="treasury"><TreasuryMachinesDashboard /></PrivateRoute>} />
 
                             {/* Rutas de Agente */}
                             <Route path="/agent" element={<PrivateRoute roles={['agent']}><AgentDashboard /></PrivateRoute>} />
                             <Route path="/agent/tickets" element={<PrivateRoute roles={['agent']} permission={P.TICKETS_VIEW}><AgentTicketsPage /></PrivateRoute>} />
                             <Route path="/agent/tickets/:id" element={<PrivateRoute roles={['agent']} permission={P.TICKETS_VIEW}><AgentTicketDetailPage /></PrivateRoute>} />
-                            <Route path="/reports" element={<PrivateRoute roles={['admin', 'agent']} permission={P.REPORTS_VIEW}><ReportsPage /></PrivateRoute>} />
-                            <Route path="/agent/depositarios" element={<PrivateRoute roles={['agent']} permission={P.DEPOSITARIOS_VIEW}><DepositariosPage /></PrivateRoute>} />
-                            <Route path="/agent/equipos" element={<PrivateRoute roles={['agent']} permission={P.MONITORING_EQUIPOS}><EquipmentMonitoringPage /></PrivateRoute>} />
-                            <Route path="/agent/monitoreo" element={<PrivateRoute roles={['agent']} permission={P.MONITORING_REALTIME}><MonitoringPage /></PrivateRoute>} />
-                            <Route path="/agent/tesoreria-maquinas" element={<PrivateRoute roles={['agent']} permission={P.TREASURY_MACHINES_VIEW}><TreasuryMachinesDashboard /></PrivateRoute>} />
+                            <Route path="/reports" element={<PrivateRoute roles={['admin', 'agent']} permission={P.REPORTS_VIEW} module="reports"><ReportsPage /></PrivateRoute>} />
+                            <Route path="/agent/depositarios" element={<PrivateRoute roles={['agent']} permission={P.DEPOSITARIOS_VIEW} module="depositarios"><DepositariosPage /></PrivateRoute>} />
+                            <Route path="/agent/equipos" element={<PrivateRoute roles={['agent']} permission={P.MONITORING_EQUIPOS} module="monitoring"><EquipmentMonitoringPage /></PrivateRoute>} />
+                            <Route path="/agent/monitoreo" element={<PrivateRoute roles={['agent']} permission={P.MONITORING_REALTIME} module="monitoring"><MonitoringPage /></PrivateRoute>} />
+                            <Route path="/agent/tesoreria-maquinas" element={<PrivateRoute roles={['agent']} permission={P.TREASURY_MACHINES_VIEW} module="treasury"><TreasuryMachinesDashboard /></PrivateRoute>} />
                             
                             {/* Rutas de Cliente (también para Jefe y Compras - empleados Bacar) */}
                             <Route path="/client" element={<PrivateRoute roles={['client', 'boss', 'purchasing']}><ClientDashboard /></PrivateRoute>} />
@@ -135,19 +139,20 @@ const App: React.FC = () => {
                             <Route path="/client/tickets/:id" element={<PrivateRoute roles={['client', 'boss', 'purchasing']}><ClientTicketDetailPage /></PrivateRoute>} />
 
                             {/* Módulo de Compras - Deploy Oculto: solo correos en PURCHASING_ALLOWED_EMAILS */}
-                            <Route path="/purchases" element={<PrivateRoute><PurchasingRouteGuard><MyPurchasesPage /></PurchasingRouteGuard></PrivateRoute>} />
-                            <Route path="/purchases/new" element={<PrivateRoute><PurchasingRouteGuard><PurchaseRequestPage /></PurchasingRouteGuard></PrivateRoute>} />
-                            <Route path="/purchases/approvals" element={<PrivateRoute roles={['boss']}><PurchasingRouteGuard><BossApprovalPage /></PurchasingRouteGuard></PrivateRoute>} />
-                            <Route path="/purchases/management" element={<PrivateRoute roles={['purchasing']}><PurchasingRouteGuard><PurchasingAgentPage /></PurchasingRouteGuard></PrivateRoute>} />
-                            <Route path="/purchases/metrics" element={<PrivateRoute roles={['purchasing', 'admin']} permission={P.PURCHASES_VIEW}><PurchasingRouteGuard><PurchasingMetricsPage /></PurchasingRouteGuard></PrivateRoute>} />
-                            <Route path="/purchases/management/:purchaseId" element={<PrivateRoute roles={['purchasing']}><PurchasingRouteGuard><PurchaseDetailPage /></PurchasingRouteGuard></PrivateRoute>} />
-                            <Route path="/purchases/invoices" element={<PrivateRoute roles={['purchasing', 'admin']} permission={P.PURCHASES_INVOICES}><PurchasingRouteGuard><InvoicesPage /></PurchasingRouteGuard></PrivateRoute>} />
+                            <Route path="/purchases" element={<PrivateRoute module="purchases"><PurchasingRouteGuard><MyPurchasesPage /></PurchasingRouteGuard></PrivateRoute>} />
+                            <Route path="/purchases/new" element={<PrivateRoute module="purchases"><PurchasingRouteGuard><PurchaseRequestPage /></PurchasingRouteGuard></PrivateRoute>} />
+                            <Route path="/purchases/approvals" element={<PrivateRoute roles={['boss']} module="purchases"><PurchasingRouteGuard><BossApprovalPage /></PurchasingRouteGuard></PrivateRoute>} />
+                            <Route path="/purchases/management" element={<PrivateRoute roles={['purchasing']} module="purchases"><PurchasingRouteGuard><PurchasingAgentPage /></PurchasingRouteGuard></PrivateRoute>} />
+                            <Route path="/purchases/metrics" element={<PrivateRoute roles={['purchasing', 'admin']} permission={P.PURCHASES_VIEW} module="purchases"><PurchasingRouteGuard><PurchasingMetricsPage /></PurchasingRouteGuard></PrivateRoute>} />
+                            <Route path="/purchases/management/:purchaseId" element={<PrivateRoute roles={['purchasing']} module="purchases"><PurchasingRouteGuard><PurchaseDetailPage /></PurchasingRouteGuard></PrivateRoute>} />
+                            <Route path="/purchases/invoices" element={<PrivateRoute roles={['purchasing', 'admin']} permission={P.PURCHASES_INVOICES} module="purchases"><PurchasingRouteGuard><InvoicesPage /></PurchasingRouteGuard></PrivateRoute>} />
                         </Route>
 
                         <Route path="*" element={<NotFoundPage />} />
                     </Routes>
                     <ToastContainer position="bottom-right" autoClose={5000} hideProgressBar={false} />
                 </SocketConnectionManager>
+                </SystemModulesProvider>
             </AuthProvider>
         </Router>
     );

@@ -2,13 +2,14 @@ import React, { useState } from 'react';
 import { NavLink, Outlet } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { toast } from 'react-toastify';
-import { Home, User, Users, Building, MapPin, AlertTriangle, Ticket, BarChart3, Landmark, Monitor, Activity, ShoppingCart, FileText, CheckCircle, PlusCircle, ClipboardList, Banknote } from 'lucide-react';
+import { Home, User, Users, Building, MapPin, AlertTriangle, Ticket, BarChart3, Landmark, Monitor, Activity, ShoppingCart, FileText, CheckCircle, PlusCircle, ClipboardList, Banknote, Settings } from 'lucide-react';
 import NotificationBell from '../NotificationBell/NotificationBell';
 import FcmTokenHandler from '../FcmTokenHandler/FcmTokenHandler';
 import PushNotificationButton from '../PushNotificationButton/PushNotificationButton';
 import { canAccessPurchasingModule } from '../../config/purchasingFeatureFlag';
 import { PERMISSION_KEYS as P } from '../../constants/permissions';
 import { hasPermission } from '../../utils/permissions';
+import { useSystemModules } from '../../context/SystemModulesContext';
 import { isWorldCupThemeActive } from '../../config/worldCupTheme';
 import {
     WorldCupAppConfetti,
@@ -21,6 +22,7 @@ const iconClass = 'w-5 h-5 flex-shrink-0';
 
 const Layout: React.FC = () => {
     const { user, logout } = useAuth();
+    const { isModuleEnabled } = useSystemModules();
     const [isSidebarOpen, setIsSidebarOpen] = useState(false);
     const worldCup = isWorldCupThemeActive();
 
@@ -49,37 +51,38 @@ const Layout: React.FC = () => {
                         {hasPermission(user, P.USERS_VIEW) && (
                             <li><NavLink to="/admin/users" className={getLinkClassName}><Users className={iconClass} />Usuarios</NavLink></li>
                         )}
-                        {hasPermission(user, P.COMPANIES_VIEW) && (
+                        <li><NavLink to="/admin/configuracion" className={getLinkClassName}><Settings className={iconClass} />Configuración</NavLink></li>
+                        {isModuleEnabled('companies') && hasPermission(user, P.COMPANIES_VIEW) && (
                             <li><NavLink to="/admin/companies" className={getLinkClassName}><Building className={iconClass} />Empresas</NavLink></li>
                         )}
-                        {hasPermission(user, P.DEPOSITARIOS_VIEW) && (
+                        {isModuleEnabled('depositarios') && hasPermission(user, P.DEPOSITARIOS_VIEW) && (
                             <li><NavLink to="/admin/depositarios" className={getLinkClassName}><Landmark className={iconClass} />Gestión de Depositarios</NavLink></li>
                         )}
-                        {hasPermission(user, P.TREASURY_MACHINES_VIEW) && (
+                        {isModuleEnabled('treasury') && hasPermission(user, P.TREASURY_MACHINES_VIEW) && (
                             <li><NavLink to="/admin/tesoreria-maquinas" className={getLinkClassName}><Banknote className={iconClass} />Máquinas Tesorería</NavLink></li>
                         )}
-                        {hasPermission(user, P.MONITORING_EQUIPOS) && (
+                        {isModuleEnabled('monitoring') && hasPermission(user, P.MONITORING_EQUIPOS) && (
                             <li><NavLink to="/admin/equipos" className={getLinkClassName}><Monitor className={iconClass} />Monitoreo Equipos</NavLink></li>
                         )}
-                        {hasPermission(user, P.MONITORING_REALTIME) && (
+                        {isModuleEnabled('monitoring') && hasPermission(user, P.MONITORING_REALTIME) && (
                             <li><NavLink to="/admin/monitoreo" className={getLinkClassName}><Activity className={iconClass} />Monitoreo en Tiempo Real</NavLink></li>
                         )}
-                        {hasPermission(user, P.LOCATIONS_MANAGE) && (
+                        {isModuleEnabled('locations') && hasPermission(user, P.LOCATIONS_MANAGE) && (
                             <li><NavLink to="/admin/ubicaciones" className={getLinkClassName}><MapPin className={iconClass} />Ubicaciones</NavLink></li>
                         )}
-                        {hasPermission(user, P.PROBLEMS_MANAGE) && (
+                        {isModuleEnabled('problems') && hasPermission(user, P.PROBLEMS_MANAGE) && (
                             <li><NavLink to="/admin/problemas" className={getLinkClassName}><AlertTriangle className={iconClass} />Problemáticas</NavLink></li>
                         )}
                         {hasPermission(user, P.TICKETS_VIEW) && (
                             <li><NavLink to="/admin/tickets" className={getLinkClassName}><Ticket className={iconClass} />Tickets</NavLink></li>
                         )}
-                        {hasPermission(user, P.REPORTS_VIEW) && (
+                        {isModuleEnabled('reports') && hasPermission(user, P.REPORTS_VIEW) && (
                             <li><NavLink to="/admin/reports" className={getLinkClassName}><BarChart3 className={iconClass} />Reportes</NavLink></li>
                         )}
-                        {canAccessPurchasingModule(user?.email) && hasPermission(user, P.PURCHASES_VIEW) && (
+                        {isModuleEnabled('purchases') && canAccessPurchasingModule(user?.email) && hasPermission(user, P.PURCHASES_VIEW) && (
                             <li><NavLink to="/purchases" end className={getLinkClassName}><ShoppingCart className={iconClass} />Compras</NavLink></li>
                         )}
-                        {canAccessPurchasingModule(user?.email) && hasPermission(user, P.PURCHASES_INVOICES) && (
+                        {isModuleEnabled('purchases') && canAccessPurchasingModule(user?.email) && hasPermission(user, P.PURCHASES_INVOICES) && (
                             <li><NavLink to="/purchases/invoices" className={getLinkClassName}><FileText className={iconClass} />Facturas</NavLink></li>
                         )}
                     </>
@@ -93,22 +96,22 @@ const Layout: React.FC = () => {
                         {hasPermission(user, P.TICKETS_VIEW) && (
                             <li><NavLink to="/agent/tickets" className={getLinkClassName}><Ticket className={iconClass} />Mis Tickets</NavLink></li>
                         )}
-                        {hasPermission(user, P.DEPOSITARIOS_VIEW) && (
+                        {isModuleEnabled('depositarios') && hasPermission(user, P.DEPOSITARIOS_VIEW) && (
                             <li><NavLink to="/agent/depositarios" className={getLinkClassName}><Landmark className={iconClass} />Mantenimiento Equipos</NavLink></li>
                         )}
-                        {hasPermission(user, P.TREASURY_MACHINES_VIEW) && (
+                        {isModuleEnabled('treasury') && hasPermission(user, P.TREASURY_MACHINES_VIEW) && (
                             <li><NavLink to="/agent/tesoreria-maquinas" className={getLinkClassName}><Banknote className={iconClass} />Máquinas Tesorería</NavLink></li>
                         )}
-                        {hasPermission(user, P.MONITORING_EQUIPOS) && (
+                        {isModuleEnabled('monitoring') && hasPermission(user, P.MONITORING_EQUIPOS) && (
                             <li><NavLink to="/agent/equipos" className={getLinkClassName}><Monitor className={iconClass} />Monitoreo Equipos</NavLink></li>
                         )}
-                        {hasPermission(user, P.MONITORING_REALTIME) && (
+                        {isModuleEnabled('monitoring') && hasPermission(user, P.MONITORING_REALTIME) && (
                             <li><NavLink to="/agent/monitoreo" className={getLinkClassName}><Activity className={iconClass} />Monitoreo en Tiempo Real</NavLink></li>
                         )}
-                        {hasPermission(user, P.REPORTS_VIEW) && (
+                        {isModuleEnabled('reports') && hasPermission(user, P.REPORTS_VIEW) && (
                             <li><NavLink to="/reports" className={getLinkClassName}><BarChart3 className={iconClass} />Reportes</NavLink></li>
                         )}
-                        {canAccessPurchasingModule(user?.email) && (
+                        {isModuleEnabled('purchases') && canAccessPurchasingModule(user?.email) && (
                             <li><NavLink to="/purchases" end className={getLinkClassName}><ShoppingCart className={iconClass} />Compras</NavLink></li>
                         )}
                     </>
@@ -121,7 +124,7 @@ const Layout: React.FC = () => {
                         <li><NavLink to="/client" end className={getLinkClassName}><Home className={iconClass} />Dashboard</NavLink></li>
                         <li><NavLink to="/profile" className={getLinkClassName}><User className={iconClass} />Mi Perfil</NavLink></li>
                         <li><NavLink to="/client/tickets" className={getLinkClassName}><Ticket className={iconClass} />Mis Tickets</NavLink></li>
-                        {isBacar && canAccessPurchasingModule(user?.email) && (
+                        {isModuleEnabled('purchases') && isBacar && canAccessPurchasingModule(user?.email) && (
                             <li><NavLink to="/purchases" end className={getLinkClassName}><ShoppingCart className={iconClass} />Compras</NavLink></li>
                         )}
                     </>
@@ -134,7 +137,7 @@ const Layout: React.FC = () => {
                         <li><NavLink to="/client" end className={getLinkClassName}><Home className={iconClass} />Dashboard</NavLink></li>
                         <li><NavLink to="/profile" className={getLinkClassName}><User className={iconClass} />Mi Perfil</NavLink></li>
                         <li><NavLink to="/client/tickets" className={getLinkClassName}><Ticket className={iconClass} />Mis Tickets</NavLink></li>
-                        {canAccessPurchasingModule(user?.email) && (
+                        {isModuleEnabled('purchases') && canAccessPurchasingModule(user?.email) && (
                             <>
                                 <li><NavLink to="/purchases" end className={getLinkClassName}><ClipboardList className={iconClass} />Mis solicitudes</NavLink></li>
                                 <li><NavLink to="/purchases/new" className={getLinkClassName}><PlusCircle className={iconClass} />Nueva solicitud</NavLink></li>
@@ -150,7 +153,7 @@ const Layout: React.FC = () => {
                         <li><NavLink to="/client" end className={getLinkClassName}><Home className={iconClass} />Dashboard</NavLink></li>
                         <li><NavLink to="/profile" className={getLinkClassName}><User className={iconClass} />Mi Perfil</NavLink></li>
                         <li><NavLink to="/client/tickets" className={getLinkClassName}><Ticket className={iconClass} />Mis Tickets</NavLink></li>
-                        {canAccessPurchasingModule(user?.email) && (
+                        {isModuleEnabled('purchases') && canAccessPurchasingModule(user?.email) && (
                             <>
                                 <li><NavLink to="/purchases" end className={getLinkClassName}><ClipboardList className={iconClass} />Mis solicitudes</NavLink></li>
                                 <li><NavLink to="/purchases/management" className={getLinkClassName}><BarChart3 className={iconClass} />Gestión de compras</NavLink></li>
@@ -164,7 +167,7 @@ const Layout: React.FC = () => {
                     <>
                         <li className="text-xs uppercase tracking-wider font-bold text-slate-900 mt-2 mb-2 px-3">Proveedor</li>
                         <li><NavLink to="/profile" className={getLinkClassName}><User className={iconClass} />Mi Perfil</NavLink></li>
-                        {canAccessPurchasingModule(user?.email) && (
+                        {isModuleEnabled('purchases') && canAccessPurchasingModule(user?.email) && (
                             <li><NavLink to="/purchases" end className={getLinkClassName}><ClipboardList className={iconClass} />Presupuestos</NavLink></li>
                         )}
                     </>

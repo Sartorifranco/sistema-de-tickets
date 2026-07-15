@@ -260,6 +260,13 @@ const updateUser = asyncHandler(async (req, res) => {
         const hashedPassword = await bcrypt.hash(password, salt);
         updateFields.push('password = ?');
         updateValues.push(hashedPassword);
+        // Si un admin restablece la contraseña, activar la cuenta pendiente de email
+        if (!user[0].is_active) {
+            updateFields.push('is_active = ?');
+            updateValues.push(1);
+            updateFields.push('activation_token = NULL');
+            updateFields.push('activation_token_expires = NULL');
+        }
     }
 
     if (updateFields.length === 0) {
@@ -387,9 +394,12 @@ const adminResetPassword = asyncHandler(async (req, res) => {
     const salt = await bcrypt.genSalt(10);
     const hashedNewPassword = await bcrypt.hash(newPassword, salt);
 
-    await pool.execute('UPDATE users SET password = ? WHERE id = ?', [hashedNewPassword, userId]);
+    await pool.execute(
+        'UPDATE users SET password = ?, is_active = 1, activation_token = NULL, activation_token_expires = NULL WHERE id = ?',
+        [hashedNewPassword, userId]
+    );
 
-    res.status(200).json({ success: true, message: 'Contraseña actualizada.' });
+    res.status(200).json({ success: true, message: 'Contraseña actualizada y cuenta activada.' });
 });
 
 // @desc    Obtener mis preferencias de notificación

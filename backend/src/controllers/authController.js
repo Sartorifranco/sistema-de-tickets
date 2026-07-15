@@ -145,7 +145,8 @@ const activateAccount = asyncHandler(async (req, res) => {
 // --- loginUser (sin cambios) ---
 const loginUser = asyncHandler(async (req, res) => {
     const { email, password } = req.body;
-    const [users] = await pool.execute('SELECT * FROM users WHERE email = ?', [email]);
+    const emailNorm = String(email || '').trim().toLowerCase();
+    const [users] = await pool.execute('SELECT * FROM users WHERE email = ?', [emailNorm]);
     const user = users[0];
     if (!user || !(await bcrypt.compare(password, user.password))) {
         res.status(401);

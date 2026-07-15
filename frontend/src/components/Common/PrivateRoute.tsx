@@ -3,6 +3,8 @@ import { Navigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { PermissionKey } from '../../constants/permissions';
 import { hasAnyPermission, hasPermission } from '../../utils/permissions';
+import { SystemModuleKey } from '../../constants/systemModules';
+import { useModuleEnabled } from '../../context/SystemModulesContext';
 
 interface PrivateRouteProps {
     children: React.ReactElement;
@@ -11,11 +13,20 @@ interface PrivateRouteProps {
     permission?: PermissionKey;
     /** Cualquiera de estos permisos (admin/agente) */
     anyPermission?: PermissionKey[];
+    /** Módulo opcional: si está deshabilitado globalmente, bloquea la ruta */
+    module?: SystemModuleKey;
 }
 
-const PrivateRoute: React.FC<PrivateRouteProps> = ({ children, roles, permission, anyPermission }) => {
+const PrivateRoute: React.FC<PrivateRouteProps> = ({
+    children,
+    roles,
+    permission,
+    anyPermission,
+    module,
+}) => {
     const { isAuthenticated, user, loading } = useAuth();
     const location = useLocation();
+    const moduleEnabled = useModuleEnabled(module);
 
     if (loading) {
         return <div className="flex justify-center items-center h-screen">Cargando...</div>;
@@ -23,6 +34,14 @@ const PrivateRoute: React.FC<PrivateRouteProps> = ({ children, roles, permission
 
     if (!isAuthenticated) {
         return <Navigate to="/login" state={{ from: location }} replace />;
+    }
+
+    if (!moduleEnabled) {
+        return (
+            <div className="p-8 text-center text-red-500">
+                Este módulo está desactivado en Configuración.
+            </div>
+        );
     }
 
     if (roles && roles.length > 0 && user && !roles.includes(user.role)) {
