@@ -1,6 +1,9 @@
 const asyncHandler = require('express-async-handler');
 const pool = require('../config/db');
 
+/** Títulos de tickets rutinarios de actualización de usuario (ambas ortografías). */
+const SQL_IS_USER_UPDATE_TITLE = `LOWER(TRIM(t.title)) IN ('actualización de usuario', 'actualizacion de usuario')`;
+
 // @desc    Obtener todas las métricas para la página de reportes, filtrado
 // @route   GET /api/reports
 // @access  Private (Admin)
@@ -117,10 +120,12 @@ const getReports = asyncHandler(async (req, res) => {
                 u.id as agentId, 
                 COALESCE(CONCAT(u.first_name, ' ', u.last_name), u.username) AS agentName, 
                 COUNT(t_filtered.id) AS assignedTickets,
-                SUM(CASE WHEN t_filtered.status IN ('closed', 'resolved') THEN 1 ELSE 0 END) AS closedTickets
+                SUM(CASE WHEN t_filtered.status IN ('closed', 'resolved') THEN 1 ELSE 0 END) AS closedTickets,
+                SUM(CASE WHEN t_filtered.status IN ('closed', 'resolved') AND t_filtered.is_user_update = 1 THEN 1 ELSE 0 END) AS closedUserUpdates
             FROM users u
             LEFT JOIN (
-                SELECT t.id, t.status, t.assigned_to_user_id
+                SELECT t.id, t.status, t.assigned_to_user_id,
+                       CASE WHEN ${SQL_IS_USER_UPDATE_TITLE} THEN 1 ELSE 0 END AS is_user_update
                 FROM tickets t
                 LEFT JOIN users u_client ON t.user_id = u_client.id
                 WHERE t.created_at BETWEEN ? AND ?
@@ -141,10 +146,12 @@ const getReports = asyncHandler(async (req, res) => {
                 u.id as agentId,
                 COALESCE(CONCAT(u.first_name, ' ', u.last_name), u.username) AS agentName,
                 COUNT(t_filtered.id) AS resolvedTickets,
+                SUM(CASE WHEN t_filtered.is_user_update = 1 THEN 1 ELSE 0 END) AS resolvedUserUpdates,
                 AVG(TIMESTAMPDIFF(HOUR, t_filtered.created_at, t_filtered.closed_at)) AS avgResolutionTimeHours
             FROM users u
             LEFT JOIN (
-                SELECT t.id, t.created_at, t.closed_at, t.assigned_to_user_id
+                SELECT t.id, t.created_at, t.closed_at, t.assigned_to_user_id,
+                       CASE WHEN ${SQL_IS_USER_UPDATE_TITLE} THEN 1 ELSE 0 END AS is_user_update
                 FROM tickets t
                 LEFT JOIN users u_client ON t.user_id = u_client.id 
                 WHERE t.status IN ('resolved', 'closed')
@@ -200,20 +207,30 @@ const getReports = asyncHandler(async (req, res) => {
     const agentResolutionTimes = agentResolutionTimeResult[0].map(row => {
         const avgTime = parseFloat(row.avgResolutionTimeHours);
         const formattedAvgTime = !isNaN(avgTime) ? parseFloat(avgTime.toFixed(2)) : null;
+        const resolvedTickets = Number(row.resolvedTickets) || 0;
+        const resolvedUserUpdates = Number(row.resolvedUserUpdates) || 0;
         return {
             agentName: row.agentName,
-            resolvedTickets: row.resolvedTickets || 0,
+            resolvedTickets,
+            resolvedUserUpdates,
+            resolvedProductive: Math.max(0, resolvedTickets - resolvedUserUpdates),
             avgResolutionTimeHours: formattedAvgTime,
-            agentId: row.agentId 
+            agentId: row.agentId,
         };
     });
     
-    const agentPerformance = agentPerformanceResult[0].map(row => ({
-        agentName: row.agentName,
-        assignedTickets: row.assignedTickets || 0,
-        closedTickets: row.closedTickets || 0,
-        agentId: row.agentId 
-    }));
+    const agentPerformance = agentPerformanceResult[0].map(row => {
+        const closedTickets = Number(row.closedTickets) || 0;
+        const closedUserUpdates = Number(row.closedUserUpdates) || 0;
+        return {
+            agentName: row.agentName,
+            assignedTickets: Number(row.assignedTickets) || 0,
+            closedTickets,
+            closedUserUpdates,
+            closedProductive: Math.max(0, closedTickets - closedUserUpdates),
+            agentId: row.agentId,
+        };
+    });
 
     // Estructura final de respuesta
     const metrics = {

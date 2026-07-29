@@ -17,12 +17,32 @@ import { clCard, clInput, clModalPanel, clTd, clTh } from '../utils/cleanLightUi
 interface ReportData {
     ticketsByStatus: { status: string; count: number }[];
     ticketsByPriority: { priority: string; count: number }[];
-    ticketsByDepartment: { departmentName: string; count: number; departmentId: number }[]; 
-    agentPerformance: { agentName: string; assignedTickets: number; closedTickets: number, agentId: number }[];
-    agentResolutionTimes: { agentName: string; resolvedTickets: number; avgResolutionTimeHours: number | null, agentId: number }[];
-    ticketsByCategory: { categoryName: string; count: number; categoryId: number }[]; 
-    topClients: { clientName: string; count: number, clientId: number }[];
+    ticketsByDepartment: { departmentName: string; count: number; departmentId: number }[];
+    agentPerformance: {
+        agentName: string;
+        assignedTickets: number;
+        closedTickets: number;
+        closedUserUpdates?: number;
+        closedProductive?: number;
+        agentId: number;
+    }[];
+    agentResolutionTimes: {
+        agentName: string;
+        resolvedTickets: number;
+        resolvedUserUpdates?: number;
+        resolvedProductive?: number;
+        avgResolutionTimeHours: number | null;
+        agentId: number;
+    }[];
+    ticketsByCategory: { categoryName: string; count: number; categoryId: number }[];
+    topClients: { clientName: string; count: number; clientId: number }[];
     ticketsByHour: { hour: number; count: number }[];
+}
+
+/** Desglose sutil: solo si hay actualizaciones de usuario. */
+function formatUserUpdateBreakdown(productive: number, userUpdates: number): string | null {
+    if (!userUpdates || userUpdates <= 0) return null;
+    return `${productive} productivos · ${userUpdates} actualiz. usuario`;
 }
 
 // --- Interface para los datos de los filtros ---
@@ -273,7 +293,21 @@ const AdminReportsPage: React.FC = () => {
             // Las tablas siguientes se acomodan automáticamente debajo de la anterior
             autoTable(doc, {
                 head: [['Agente', 'Tickets Resueltos', 'Tiempo Promedio (Horas)']],
-                body: reportData.agentResolutionTimes.map(item => [item.agentName, item.resolvedTickets, item.avgResolutionTimeHours !== null ? `${item.avgResolutionTimeHours.toFixed(2)} hs` : 'N/A']),
+                body: reportData.agentResolutionTimes.map((item) => {
+                    const updates = item.resolvedUserUpdates || 0;
+                    const productive = item.resolvedProductive ?? item.resolvedTickets - updates;
+                    const breakdown = formatUserUpdateBreakdown(productive, updates);
+                    const resolvedLabel = breakdown
+                        ? `${item.resolvedTickets} (${breakdown})`
+                        : String(item.resolvedTickets);
+                    return [
+                        item.agentName,
+                        resolvedLabel,
+                        item.avgResolutionTimeHours !== null
+                            ? `${item.avgResolutionTimeHours.toFixed(2)} hs`
+                            : 'N/A',
+                    ];
+                }),
             });
 
             autoTable(doc, {
@@ -345,11 +379,34 @@ const AdminReportsPage: React.FC = () => {
     };
 
     const agentChartData: ChartData<'bar'> = {
-        labels: reportData.agentPerformance.map(item => item.agentName), 
+        labels: reportData.agentPerformance.map(item => item.agentName),
         datasets: [
             { label: 'Asignados', data: reportData.agentPerformance.map(item => item.assignedTickets), backgroundColor: '#10B981' },
-            { label: 'Cerrados', data: reportData.agentPerformance.map(item => item.closedTickets), backgroundColor: '#6366F1' },
+            {
+                label: 'Cerrados',
+                data: reportData.agentPerformance.map(item => item.closedTickets),
+                backgroundColor: '#6366F1',
+            },
         ],
+    };
+
+    const agentChartOptions = {
+        maintainAspectRatio: false,
+        plugins: {
+            tooltip: {
+                callbacks: {
+                    afterLabel: (ctx: { datasetIndex: number; dataIndex: number }) => {
+                        if (ctx.datasetIndex !== 1) return '';
+                        const agent = reportData.agentPerformance[ctx.dataIndex];
+                        if (!agent) return '';
+                        const updates = agent.closedUserUpdates || 0;
+                        const productive = agent.closedProductive ?? agent.closedTickets - updates;
+                        const breakdown = formatUserUpdateBreakdown(productive, updates);
+                        return breakdown || '';
+                    },
+                },
+            },
+        },
     };
 
     return (
@@ -495,13 +552,16 @@ const AdminReportsPage: React.FC = () => {
                         </div>
                         
                         <div className={`${clCard} p-6 cursor-pointer`}>
-                            <h2 className="text-xl font-bold text-gray-800 mb-4 text-center border-b border-gray-100 pb-2">Rendimiento por Agente</h2>
+                            <h2 className="text-xl font-bold text-gray-800 mb-1 text-center border-b border-gray-100 pb-2">Rendimiento por Agente</h2>
+                            <p className="text-xs text-gray-500 text-center mb-3">
+                                Los totales incluyen actualizaciones de usuario; el desglose las separa del resto.
+                            </p>
                             <div className="h-80">
-                                <Bar 
-                                    ref={agentChartRef} 
-                                    data={agentChartData} 
-                                    options={{ maintainAspectRatio: false }} 
-                                    onClick={(e) => handleChartClick(agentChartRef, e, 'agentPerformance')} 
+                                <Bar
+                                    ref={agentChartRef}
+                                    data={agentChartData}
+                                    options={agentChartOptions}
+                                    onClick={(e) => handleChartClick(agentChartRef, e, 'agentPerformance')}
                                 />
                             </div>
                         </div>
@@ -509,7 +569,10 @@ const AdminReportsPage: React.FC = () => {
 
                     <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
                         <div className={`${clCard} overflow-hidden`}>
-                            <h2 className="text-xl font-semibold p-6 border-b border-gray-100 text-gray-900">Tiempo de Resolución por Agente</h2>
+                            <h2 className="text-xl font-semibold px-6 pt-6 pb-1 text-gray-900">Tiempo de Resolución por Agente</h2>
+                            <p className="text-xs text-gray-500 px-6 pb-4 border-b border-gray-100">
+                                Los totales incluyen actualizaciones de usuario; el desglose las separa del resto.
+                            </p>
                             <table className="min-w-full divide-y divide-gray-100">
                                 <thead className="bg-gray-50/90">
                                     <tr>
@@ -519,15 +582,30 @@ const AdminReportsPage: React.FC = () => {
                                     </tr>
                                 </thead>
                                 <tbody className="bg-white divide-y divide-gray-100">
-                                    {reportData.agentResolutionTimes.map(agent => (
-                                        <tr key={agent.agentId} className="hover:bg-gray-50/80 transition-colors">
-                                            <td className={`${clTd} font-medium text-gray-900`}>{agent.agentName}</td>
-                                            <td className={`${clTd} text-center text-gray-700`}>{agent.resolvedTickets}</td>
-                                            <td className={`${clTd} text-center text-gray-700 font-bold`}>
-                                                {agent.avgResolutionTimeHours !== null ? `${agent.avgResolutionTimeHours.toFixed(2)} hs` : 'N/A'}
-                                            </td>
-                                        </tr>
-                                    ))}
+                                    {reportData.agentResolutionTimes.map((agent) => {
+                                        const updates = agent.resolvedUserUpdates || 0;
+                                        const productive =
+                                            agent.resolvedProductive ?? agent.resolvedTickets - updates;
+                                        const breakdown = formatUserUpdateBreakdown(productive, updates);
+                                        return (
+                                            <tr key={agent.agentId} className="hover:bg-gray-50/80 transition-colors">
+                                                <td className={`${clTd} font-medium text-gray-900`}>{agent.agentName}</td>
+                                                <td className={`${clTd} text-center text-gray-700`}>
+                                                    <div>{agent.resolvedTickets}</div>
+                                                    {breakdown && (
+                                                        <div className="text-xs text-gray-500 font-normal mt-0.5">
+                                                            {breakdown}
+                                                        </div>
+                                                    )}
+                                                </td>
+                                                <td className={`${clTd} text-center text-gray-700 font-bold`}>
+                                                    {agent.avgResolutionTimeHours !== null
+                                                        ? `${agent.avgResolutionTimeHours.toFixed(2)} hs`
+                                                        : 'N/A'}
+                                                </td>
+                                            </tr>
+                                        );
+                                    })}
                                 </tbody>
                             </table>
                         </div>
