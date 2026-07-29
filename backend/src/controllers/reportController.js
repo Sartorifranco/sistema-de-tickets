@@ -1,8 +1,20 @@
 const asyncHandler = require('express-async-handler');
 const pool = require('../config/db');
 
-/** Títulos de tickets rutinarios de actualización de usuario (ambas ortografías). */
-const SQL_IS_USER_UPDATE_TITLE = `LOWER(TRIM(t.title)) IN ('actualización de usuario', 'actualizacion de usuario')`;
+/**
+ * Títulos de tickets rutinarios de gestión de usuarios. Agregar variantes acá
+ * si se dan de alta nuevas problemáticas predefinidas del mismo tipo.
+ */
+const ROUTINE_USER_TASK_TITLES = [
+    'dar de alta un usuario',
+    'dar de baja un usuario',
+    'actualización de usuario',
+    'actualizacion de usuario',
+];
+
+const SQL_IS_ROUTINE_USER_TASK = `LOWER(TRIM(t.title)) IN (${ROUTINE_USER_TASK_TITLES.map(
+    (title) => `'${title}'`
+).join(', ')})`;
 
 // @desc    Obtener todas las métricas para la página de reportes, filtrado
 // @route   GET /api/reports
@@ -125,7 +137,7 @@ const getReports = asyncHandler(async (req, res) => {
             FROM users u
             LEFT JOIN (
                 SELECT t.id, t.status, t.assigned_to_user_id,
-                       CASE WHEN ${SQL_IS_USER_UPDATE_TITLE} THEN 1 ELSE 0 END AS is_user_update
+                       CASE WHEN ${SQL_IS_ROUTINE_USER_TASK} THEN 1 ELSE 0 END AS is_user_update
                 FROM tickets t
                 LEFT JOIN users u_client ON t.user_id = u_client.id
                 WHERE t.created_at BETWEEN ? AND ?
@@ -151,7 +163,7 @@ const getReports = asyncHandler(async (req, res) => {
             FROM users u
             LEFT JOIN (
                 SELECT t.id, t.created_at, t.closed_at, t.assigned_to_user_id,
-                       CASE WHEN ${SQL_IS_USER_UPDATE_TITLE} THEN 1 ELSE 0 END AS is_user_update
+                       CASE WHEN ${SQL_IS_ROUTINE_USER_TASK} THEN 1 ELSE 0 END AS is_user_update
                 FROM tickets t
                 LEFT JOIN users u_client ON t.user_id = u_client.id 
                 WHERE t.status IN ('resolved', 'closed')

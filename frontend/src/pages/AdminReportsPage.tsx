@@ -39,10 +39,10 @@ interface ReportData {
     ticketsByHour: { hour: number; count: number }[];
 }
 
-/** Desglose sutil: solo si hay actualizaciones de usuario. */
+/** Desglose sutil: solo si hay tareas rutinarias de gestión de usuarios. */
 function formatUserUpdateBreakdown(productive: number, userUpdates: number): string | null {
     if (!userUpdates || userUpdates <= 0) return null;
-    return `${productive} productivos · ${userUpdates} actualiz. usuario`;
+    return `${productive} productivos · ${userUpdates} gestión de usuarios`;
 }
 
 // --- Interface para los datos de los filtros ---
@@ -554,7 +554,7 @@ const AdminReportsPage: React.FC = () => {
                         <div className={`${clCard} p-6 cursor-pointer`}>
                             <h2 className="text-xl font-bold text-gray-800 mb-1 text-center border-b border-gray-100 pb-2">Rendimiento por Agente</h2>
                             <p className="text-xs text-gray-500 text-center mb-3">
-                                Los totales incluyen actualizaciones de usuario; el desglose las separa del resto.
+                                Los totales incluyen tareas rutinarias de gestión de usuarios; el desglose las separa del resto.
                             </p>
                             <div className="h-80">
                                 <Bar
@@ -571,7 +571,7 @@ const AdminReportsPage: React.FC = () => {
                         <div className={`${clCard} overflow-hidden`}>
                             <h2 className="text-xl font-semibold px-6 pt-6 pb-1 text-gray-900">Tiempo de Resolución por Agente</h2>
                             <p className="text-xs text-gray-500 px-6 pb-4 border-b border-gray-100">
-                                Los totales incluyen actualizaciones de usuario; el desglose las separa del resto.
+                                Los totales incluyen tareas rutinarias de gestión de usuarios; el desglose las separa del resto.
                             </p>
                             <table className="min-w-full divide-y divide-gray-100">
                                 <thead className="bg-gray-50/90">
