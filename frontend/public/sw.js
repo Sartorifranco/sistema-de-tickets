@@ -3,7 +3,7 @@ self.addEventListener('push', function(event) {
   let title = 'Nueva notificación';
   let body = '';
   let url = '/';
-  let icon = '/logo192.png';
+  let icon = '/images/logo-b-sola.png';
 
   if (event.data) {
     try {

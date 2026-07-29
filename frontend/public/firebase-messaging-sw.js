@@ -24,7 +24,7 @@ messaging.onBackgroundMessage((payload) => {
     const title = payload.notification?.title || payload.data?.title || 'Nueva notificación';
     const options = {
         body: payload.notification?.body || payload.data?.body || '',
-        icon: '/logo192.png',
+        icon: '/images/logo-b-sola.png',
         data: payload.data || {},
     };
     self.registration.showNotification(title, options);
