@@ -95,6 +95,17 @@ export interface TicketData {
     category_id: number | null;
     department_id: number | null;
     assigned_to_user_id: number | null;
+    /** Agentes adicionales / lista completa de asignados (multi-agente) */
+    assignees?: Array<{
+        id: number;
+        is_primary?: number | boolean;
+        username?: string | null;
+        first_name?: string | null;
+        last_name?: string | null;
+        role?: string | null;
+    }>;
+    assigned_to_user_ids?: number[];
+    agent_names?: string | null;
     created_at: string;
     updated_at: string;
     location_id?: number | null;
@@ -289,6 +300,7 @@ export interface MaintenanceRecord {
     first_name?: string;
     last_name?: string;
     companion_name?: string;
+    companion_user_id?: number | null;
     performed_by?: 'permaquim' | 'bacar'; // Quién realizó el mantenimiento
     maintenance_date: string;
     tasks_log: MaintenanceTask[]; // JSON parseado

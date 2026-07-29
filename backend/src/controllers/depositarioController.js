@@ -1,6 +1,66 @@
 const asyncHandler = require('express-async-handler');
 const pool = require('../config/db');
 const { sendRouteReportEmail } = require('../config/mailer');
+const {
+    MAINTENANCE_COMPANION_ROLES,
+    resolveAssignableUserIds,
+    syncTicketAssignees,
+} = require('../utils/ticketAssignees');
+
+const MAINTENANCE_TICKET_CATEGORY = 'Problemas de depositarios (General)';
+
+function formatPersonName(user) {
+    if (!user) return '';
+    if (user.first_name && user.last_name) return `${user.first_name} ${user.last_name}`;
+    return user.username || `Usuario #${user.id}`;
+}
+
+function buildMaintenanceTicketDescription({
+    companyName,
+    alias,
+    serial,
+    address,
+    technicianName,
+    companionName,
+    performedBy,
+    date,
+    billCounter,
+    delta,
+    tasks,
+    observations,
+}) {
+    const taskLines = (Array.isArray(tasks) ? tasks : [])
+        .map((t) => {
+            const mark = t.done ? '[x]' : '[ ]';
+            const comment = t.comment ? ` — ${t.comment}` : '';
+            return `- ${mark} ${t.name}${comment}`;
+        })
+        .join('\n');
+
+    const performedLabel = performedBy === 'permaquim' ? 'Permaquim' : 'Bacar';
+    const lines = [
+        `Registro automático de mantenimiento de depositario.`,
+        ``,
+        `Empresa: ${companyName || 'N/D'}`,
+        `Depositario: ${alias || 'N/D'}`,
+        serial ? `Serie: ${serial}` : null,
+        address ? `Dirección: ${address}` : null,
+        `Fecha: ${date || new Date().toISOString()}`,
+        `Realizado por: ${performedLabel}`,
+        `Técnico responsable: ${technicianName}`,
+        companionName ? `Acompañante: ${companionName}` : `Acompañante: (ninguno)`,
+        billCounter ? `Contador cabezal: ${billCounter}` : null,
+        delta > 0 ? `Delta vs. último: +${delta}` : null,
+        ``,
+        `Checklist:`,
+        taskLines || '- (sin tareas)',
+        ``,
+        `Observaciones:`,
+        observations && String(observations).trim() ? String(observations).trim() : '(sin observaciones)',
+    ].filter((l) => l !== null);
+
+    return lines.join('\n');
+}
 
 // @desc    Obtener lista de depositarios
 const getDepositarios = asyncHandler(async (req, res) => {
@@ -307,19 +367,188 @@ const deleteDepositario = asyncHandler(async (req, res) => {
 });
 
 const addMaintenance = asyncHandler(async (req, res) => {
-    const { id } = req.params; const { companion_name, tasks, observations, date, bill_counter, performed_by } = req.body;
+    const { id } = req.params;
+    const {
+        companion_name,
+        companion_user_id,
+        tasks,
+        observations,
+        date,
+        bill_counter,
+        performed_by,
+    } = req.body;
+
     if (!performed_by || !['permaquim', 'bacar'].includes(performed_by)) {
-        res.status(400); throw new Error('Debe indicar si el mantenimiento fue realizado por Permaquim o Bacar');
+        res.status(400);
+        throw new Error('Debe indicar si el mantenimiento fue realizado por Permaquim o Bacar');
     }
-    const current = parseInt(bill_counter) || 0; let delta = 0;
-    const [last] = await pool.execute('SELECT bill_counter FROM mantenimientos WHERE depositario_id = ? ORDER BY maintenance_date DESC LIMIT 1', [id]);
-    if (last.length > 0 && current > 0) { const prev = last[0].bill_counter || 0; delta = current >= prev ? current - prev : current; }
-    await pool.execute('INSERT INTO mantenimientos (depositario_id, user_id, companion_name, performed_by, maintenance_date, tasks_log, observations, bill_counter, usage_delta) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)', [id, req.user.id, companion_name, performed_by, date || new Date(), JSON.stringify(tasks||[]), observations, current, delta]);
-    res.status(201).json({ success: true, message: 'Registrado.', deltaInfo: delta > 0 ? `+${delta}` : '' });
+
+    const [depRows] = await pool.execute(
+        `SELECT d.*, c.name AS company_name
+         FROM depositarios d
+         LEFT JOIN companies c ON c.id = d.company_id
+         WHERE d.id = ? AND d.is_active = 1`,
+        [id]
+    );
+    if (depRows.length === 0) {
+        res.status(404);
+        throw new Error('Depositario no encontrado');
+    }
+    const depositario = depRows[0];
+
+    let companionUserId = null;
+    let companionDisplayName = companion_name ? String(companion_name).trim() : '';
+    if (companion_user_id !== undefined && companion_user_id !== null && companion_user_id !== '') {
+        const cid = parseInt(companion_user_id, 10);
+        if (Number.isNaN(cid)) {
+            res.status(400);
+            throw new Error('Acompañante inválido');
+        }
+        if (cid === req.user.id) {
+            res.status(400);
+            throw new Error('El acompañante no puede ser el mismo técnico responsable');
+        }
+        const validated = await resolveAssignableUserIds([cid], MAINTENANCE_COMPANION_ROLES);
+        if (validated.length === 0) {
+            res.status(400);
+            throw new Error('El acompañante debe ser un agente o administrador del sistema');
+        }
+        companionUserId = validated[0];
+        const [[companionUser]] = await pool.execute(
+            'SELECT id, username, first_name, last_name FROM users WHERE id = ?',
+            [companionUserId]
+        );
+        companionDisplayName = formatPersonName(companionUser);
+    }
+
+    const current = parseInt(bill_counter, 10) || 0;
+    let delta = 0;
+    const [last] = await pool.execute(
+        'SELECT bill_counter FROM mantenimientos WHERE depositario_id = ? ORDER BY maintenance_date DESC LIMIT 1',
+        [id]
+    );
+    if (last.length > 0 && current > 0) {
+        const prev = last[0].bill_counter || 0;
+        delta = current >= prev ? current - prev : current;
+    }
+
+    const maintenanceDate = date || new Date();
+    const tasksLog = Array.isArray(tasks) ? tasks : [];
+
+    const [maintResult] = await pool.execute(
+        `INSERT INTO mantenimientos
+            (depositario_id, user_id, companion_name, companion_user_id, performed_by, maintenance_date, tasks_log, observations, bill_counter, usage_delta)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        [
+            id,
+            req.user.id,
+            companionDisplayName || null,
+            companionUserId,
+            performed_by,
+            maintenanceDate,
+            JSON.stringify(tasksLog),
+            observations || null,
+            current,
+            delta,
+        ]
+    );
+
+    // Ticket automático cerrado con el mismo registro de trabajo
+    let autoTicketId = null;
+    try {
+        const [catRows] = await pool.execute(
+            `SELECT id FROM ticket_categories
+             WHERE TRIM(name) = ?
+             ORDER BY id ASC
+             LIMIT 1`,
+            [MAINTENANCE_TICKET_CATEGORY]
+        );
+        let categoryId = catRows[0]?.id;
+        if (!categoryId) {
+            const [insCat] = await pool.execute(
+                'INSERT INTO ticket_categories (name, company_id) VALUES (?, NULL)',
+                [MAINTENANCE_TICKET_CATEGORY]
+            );
+            categoryId = insCat.insertId;
+        }
+
+        const [depDept] = await pool.execute(
+            `SELECT id FROM departments
+             WHERE UPPER(TRIM(name)) LIKE '%MANTENIMIENTO%'
+             ORDER BY id ASC
+             LIMIT 1`
+        );
+        let departmentId = depDept[0]?.id;
+        if (!departmentId) {
+            const [anyDept] = await pool.execute('SELECT id FROM departments ORDER BY id ASC LIMIT 1');
+            departmentId = anyDept[0]?.id;
+        }
+        if (!departmentId) {
+            throw new Error('No hay departamentos configurados para crear el ticket automático');
+        }
+
+        const technicianName = formatPersonName(req.user);
+        const companyName = depositario.company_name || 'Empresa N/D';
+        const title = `Mantenimiento ${depositario.alias} — ${companyName}`;
+        const description = buildMaintenanceTicketDescription({
+            companyName,
+            alias: depositario.alias,
+            serial: depositario.serial_number,
+            address: depositario.address || depositario.location_description,
+            technicianName,
+            companionName: companionDisplayName,
+            performedBy: performed_by,
+            date: maintenanceDate,
+            billCounter: current || null,
+            delta,
+            tasks: tasksLog,
+            observations,
+        });
+
+        const [ticketResult] = await pool.execute(
+            `INSERT INTO tickets (
+                user_id, title, description, priority, category_id, department_id, status,
+                depositario_id, assigned_to_user_id, closed_at
+            ) VALUES (?, ?, ?, 'medium', ?, ?, 'closed', ?, ?, NOW())`,
+            [req.user.id, title, description, categoryId, departmentId, id, req.user.id]
+        );
+        autoTicketId = ticketResult.insertId;
+
+        const assigneeIds = [req.user.id];
+        if (companionUserId) assigneeIds.push(companionUserId);
+        await syncTicketAssignees(autoTicketId, assigneeIds);
+    } catch (err) {
+        console.error('No se pudo crear el ticket automático de mantenimiento:', err.message);
+    }
+
+    res.status(201).json({
+        success: true,
+        message: autoTicketId
+            ? `Registrado. Ticket #${autoTicketId} creado y cerrado.`
+            : 'Registrado.',
+        deltaInfo: delta > 0 ? `+${delta}` : '',
+        maintenanceId: maintResult.insertId,
+        ticketId: autoTicketId,
+    });
 });
 
 const getMaintenanceHistory = asyncHandler(async (req, res) => {
-    const [history] = await pool.execute(`SELECT m.*, u.username, u.first_name, u.last_name FROM mantenimientos m LEFT JOIN users u ON m.user_id = u.id WHERE m.depositario_id = ? ORDER BY m.maintenance_date DESC`, [req.params.id]);
+    const [history] = await pool.execute(
+        `SELECT m.*,
+                u.username, u.first_name, u.last_name,
+                COALESCE(
+                    NULLIF(TRIM(CONCAT(COALESCE(cu.first_name, ''), ' ', COALESCE(cu.last_name, ''))), ''),
+                    cu.username,
+                    m.companion_name
+                ) AS companion_name,
+                m.companion_user_id
+         FROM mantenimientos m
+         LEFT JOIN users u ON m.user_id = u.id
+         LEFT JOIN users cu ON m.companion_user_id = cu.id
+         WHERE m.depositario_id = ?
+         ORDER BY m.maintenance_date DESC`,
+        [req.params.id]
+    );
     res.status(200).json({ success: true, data: history });
 });
 

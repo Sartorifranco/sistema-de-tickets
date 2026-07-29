@@ -2,6 +2,7 @@
 const asyncHandler = require('express-async-handler'); // Asegúrate de que este middleware esté instalado
 const pool = require('../config/db'); // Importa tu pool de conexión a la base de datos
 const { logActivity } = require('../services/activityLogService'); // Importar el servicio de log
+const { isUserTicketAssignee } = require('../utils/ticketAssignees');
 
 // @desc    Añadir un comentario a un ticket
 // @route   POST /api/tickets/:ticketId/comments
@@ -36,9 +37,12 @@ const addCommentToTicket = asyncHandler(async (req, res) => {
         res.status(403);
         throw new Error('No tienes permiso para comentar en este ticket.');
     }
-    if (userRole === 'agent' && ticket.assigned_to_user_id !== userId && ticket.department_id !== req.user.department_id) { // MODIFICADO: Añadir chequeo de departamento
-        res.status(403);
-        throw new Error('No tienes permiso para comentar en este ticket.');
+    if (userRole === 'agent') {
+        const isAssignee = await isUserTicketAssignee(ticketId, userId, ticket.assigned_to_user_id);
+        if (!isAssignee && ticket.department_id !== req.user.department_id) {
+            res.status(403);
+            throw new Error('No tienes permiso para comentar en este ticket.');
+        }
     }
 
     const [result] = await pool.execute(

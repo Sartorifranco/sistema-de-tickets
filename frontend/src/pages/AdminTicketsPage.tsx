@@ -147,7 +147,10 @@ const AdminTicketsPage: React.FC = () => {
             const formData = new FormData();
             Object.entries(ticketData).forEach(([key, value]) => {
                 if (value !== null && value !== undefined) {
-                    formData.append(key, String(value));
+                    formData.append(
+                        key,
+                        Array.isArray(value) ? JSON.stringify(value) : String(value)
+                    );
                 }
             });
             attachments.forEach(file => formData.append('attachments', file));
@@ -280,7 +283,7 @@ const AdminTicketsPage: React.FC = () => {
                                                 </p>
                                             )}
                                         </td>
-                                        <td className={`${clTd} whitespace-nowrap`}>{ticket.agent_name || 'Sin Asignar'}</td>
+                                        <td className={`${clTd} whitespace-nowrap`}>{ticket.agent_names || ticket.agent_name || 'Sin Asignar'}</td>
                                         <td className={`${clTd} whitespace-nowrap text-gray-600`}>
                                             {formatLocalDate(ticket.created_at)}
                                         </td>

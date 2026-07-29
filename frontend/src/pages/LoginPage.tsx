@@ -46,12 +46,16 @@ const LoginPage: React.FC = () => {
         e.preventDefault();
         setLoading(true);
         try {
-            const success = await login({ email, password });
+            const success = await login({ email: email.trim(), password });
             if (success) {
                 addNotification('Inicio de sesión exitoso.', 'success');
+            } else {
+                toast.error('No se pudo iniciar sesión. Revisá email y contraseña.');
             }
-        } catch (err: any) {
-            toast.error(err.message || 'Error en el inicio de sesión.');
+        } catch (err: unknown) {
+            const message =
+                err instanceof Error ? err.message : 'Error en el inicio de sesión.';
+            toast.error(message);
         } finally {
             setLoading(false);
         }

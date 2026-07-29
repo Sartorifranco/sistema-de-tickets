@@ -181,7 +181,7 @@ const AdminTicketsListPage: React.FC = () => {
                                     <td className="px-6 py-4">{ticketStatusTranslations[ticket.status] || ticket.status}</td>
                                     <td className="px-6 py-4">{ticketPriorityTranslations[ticket.priority] || ticket.priority}</td>
                                     <td className="px-6 py-4">{ticket.user_username}</td>
-                                    <td className="px-6 py-4">{ticket.agent_name || 'Sin Asignar'}</td>
+                                    <td className="px-6 py-4">{ticket.agent_names || ticket.agent_name || 'Sin Asignar'}</td>
                                     <td className="px-6 py-4 text-right">
                                         <button onClick={() => navigate(`/admin/tickets/${ticket.id}`)} className="text-indigo-600 hover:underline mr-4">Ver</button>
                                         <button onClick={() => handleEditTicket(ticket)} className="text-blue-600 hover:underline mr-4">Editar</button>

@@ -49,7 +49,15 @@ const createCategory = asyncHandler(async (req, res) => {
 const updateCategory = asyncHandler(async (req, res) => {
     const { id } = req.params;
     const { name, company_id } = req.body;
-    await pool.execute('UPDATE ticket_categories SET name=?, company_id=? WHERE id=?', [name, company_id || null, id]);
+    if (!name || !String(name).trim()) {
+        res.status(400);
+        throw new Error('El nombre de la categoría es requerido.');
+    }
+    await pool.execute('UPDATE ticket_categories SET name=?, company_id=? WHERE id=?', [
+        String(name).trim(),
+        company_id === undefined || company_id === '' ? null : company_id,
+        id,
+    ]);
     res.json({ success: true, message: 'Categoría actualizada' });
 });
 
@@ -70,7 +78,31 @@ const createProblem = asyncHandler(async (req, res) => {
 const updateProblem = asyncHandler(async (req, res) => {
     const { id } = req.params;
     const { title, description, category_id, department_id } = req.body;
-    await pool.execute('UPDATE predefined_problems SET title=?, description=?, category_id=?, department_id=? WHERE id=?', [title, description, category_id, department_id, id]);
+
+    if (!title || department_id === undefined || department_id === null || department_id === '') {
+        res.status(400);
+        throw new Error('Título y departamento son requeridos.');
+    }
+
+    const [existing] = await pool.execute(
+        'SELECT id, category_id FROM predefined_problems WHERE id = ?',
+        [id]
+    );
+    if (existing.length === 0) {
+        res.status(404);
+        throw new Error('Problema no encontrado.');
+    }
+
+    // El front a veces no envía category_id; conservar el actual para no romper el UPDATE
+    const nextCategoryId =
+        category_id !== undefined && category_id !== null && category_id !== ''
+            ? Number(category_id)
+            : existing[0].category_id;
+
+    await pool.execute(
+        'UPDATE predefined_problems SET title = ?, description = ?, category_id = ?, department_id = ? WHERE id = ?',
+        [String(title).trim(), description ?? '', nextCategoryId, Number(department_id), id]
+    );
     res.json({ success: true, message: 'Problema actualizado' });
 });
 

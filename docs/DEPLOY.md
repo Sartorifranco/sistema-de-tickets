@@ -67,6 +67,9 @@ node scripts/run-rbac-migration.js
 # Máquinas de tesorería
 node scripts/run-treasury-machines-migration.js
 
+# Multi-agentes en tickets + ticket automático de mantenimiento depositarios
+node scripts/run-ticket-assignees-migration.js
+
 # Otras migraciones (si aún no se aplicaron)
 # mysql -u root -p ticket_system < migrations/create_user_fcm_tokens.sql
 # node run-migration-fcm.js

@@ -37,6 +37,7 @@ const EMPTY_FORM_BASE = {
     horas_estimadas: undefined as number | undefined,
     horas_reales: undefined as number | undefined,
     assigned_to_user_id: undefined as number | undefined,
+    assigned_to_user_ids: [] as number[],
     telefono_contacto: '' as string,
     github_repo: '' as string,
 };
@@ -76,11 +77,18 @@ type FormDataType = Partial<TicketData> & {
     horas_estimadas?: number;
     horas_reales?: number;
     assigned_to_user_id?: number;
+    assigned_to_user_ids?: number[];
 };
 
 function buildFormFromTicket(t: TicketData): FormDataType {
     const hEst = t.horas_estimadas;
     const hReal = t.horas_reales;
+    const assigneeIds =
+        t.assignees && t.assignees.length > 0
+            ? t.assignees.map((a) => a.id)
+            : t.assigned_to_user_id
+              ? [t.assigned_to_user_id]
+              : [];
     return {
         ...EMPTY_FORM_BASE,
         title: t.title ?? '',
@@ -91,7 +99,8 @@ function buildFormFromTicket(t: TicketData): FormDataType {
         user_id: t.user_id ?? undefined,
         location_id: t.location_id ?? undefined,
         depositario_id: t.depositario_id ?? undefined,
-        assigned_to_user_id: t.assigned_to_user_id ?? undefined,
+        assigned_to_user_id: assigneeIds[0],
+        assigned_to_user_ids: assigneeIds,
         subcategoria: t.subcategoria ? String(t.subcategoria) : '',
         es_tarea_interna: !!(t.es_tarea_interna === true || t.es_tarea_interna === 1 || String(t.es_tarea_interna ?? '') === '1'),
         horas_estimadas: hEst !== undefined && hEst !== null && hEst !== '' ? Number(hEst) : undefined,
@@ -465,15 +474,31 @@ const TicketFormModal: React.FC<TicketFormModalProps> = ({
         }
 
         if (name === 'assigned_to_user_id') {
+            // Compat: un solo valor → lista de uno
+            const nextId = value === '' ? undefined : numValue || undefined;
             setFormData((prev) => ({
                 ...prev,
-                assigned_to_user_id: value === '' ? undefined : numValue || undefined,
+                assigned_to_user_id: nextId,
+                assigned_to_user_ids: nextId ? [nextId] : [],
             }));
             return;
         }
 
         const newValue = name.endsWith('_id') ? numValue || undefined : value;
         setFormData((prev) => ({ ...prev, [name]: newValue }));
+    };
+
+    const toggleAssignee = (userId: number) => {
+        setFormData((prev) => {
+            const current = prev.assigned_to_user_ids || [];
+            const exists = current.includes(userId);
+            const next = exists ? current.filter((id) => id !== userId) : [...current, userId];
+            return {
+                ...prev,
+                assigned_to_user_ids: next,
+                assigned_to_user_id: next[0],
+            };
+        });
     };
 
     const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -543,6 +568,11 @@ const TicketFormModal: React.FC<TicketFormModalProps> = ({
 
         if (!showAdminStaffFields) {
             delete payload.assigned_to_user_id;
+            delete (payload as any).assigned_to_user_ids;
+        } else {
+            const ids = formData.assigned_to_user_ids || [];
+            (payload as any).assigned_to_user_ids = ids;
+            payload.assigned_to_user_id = ids[0] ?? null;
         }
 
         const phoneTrim =
@@ -578,7 +608,9 @@ const TicketFormModal: React.FC<TicketFormModalProps> = ({
                 payload.user_id === loggedInUser.id);
 
         if (creatingForSelfAsStaff && (currentUserRole === 'agent' || currentUserRole === 'admin')) {
-            if (payload.assigned_to_user_id === undefined || payload.assigned_to_user_id === null) {
+            const currentIds = (payload as any).assigned_to_user_ids as number[] | undefined;
+            if (!currentIds || currentIds.length === 0) {
+                (payload as any).assigned_to_user_ids = [loggedInUser.id];
                 payload.assigned_to_user_id = loggedInUser.id;
             }
         }
@@ -599,7 +631,7 @@ const TicketFormModal: React.FC<TicketFormModalProps> = ({
         isCreateMode &&
         isSelfRequesterInUi &&
         (currentUserRole === 'agent' || currentUserRole === 'admin') &&
-        (formData.assigned_to_user_id === undefined || formData.assigned_to_user_id === null);
+        (!(formData.assigned_to_user_ids || []).length);
     const selectedDeptNameForUi =
         departments.find((d) => d.id === formData.department_id)?.name ??
         filteredDepartments.find((d) => d.id === formData.department_id)?.name;
@@ -943,29 +975,46 @@ const TicketFormModal: React.FC<TicketFormModalProps> = ({
                             </div>
 
                             <div>
-                                <label className="block text-gray-700 font-medium">Asignado a</label>
-                                <select
-                                    name="assigned_to_user_id"
-                                    value={formData.assigned_to_user_id ?? ''}
-                                    onChange={handleChange}
-                                    className={`${clInput} mt-1`}
-                                >
-                                    <option value="">Sin asignar</option>
-                                    {assignableStaff.map((u) => (
-                                        <option key={u.id} value={u.id}>
-                                            {u.first_name && u.last_name
-                                                ? `${u.first_name} ${u.last_name}`
-                                                : u.username}{' '}
-                                            {u.role === 'admin' ? '(Admin)' : ''}
-                                        </option>
-                                    ))}
-                                </select>
+                                <label className="block text-gray-700 font-medium">Agentes asignados</label>
+                                <div className={`${clInput} mt-1 max-h-40 overflow-y-auto space-y-1 py-2`}>
+                                    {assignableStaff.length === 0 ? (
+                                        <p className="text-sm text-gray-500 px-1">No hay agentes disponibles.</p>
+                                    ) : (
+                                        assignableStaff.map((u) => {
+                                            const checked = (formData.assigned_to_user_ids || []).includes(u.id);
+                                            const label =
+                                                u.first_name && u.last_name
+                                                    ? `${u.first_name} ${u.last_name}`
+                                                    : u.username;
+                                            const isPrimary =
+                                                checked && (formData.assigned_to_user_ids || [])[0] === u.id;
+                                            return (
+                                                <label
+                                                    key={u.id}
+                                                    className="flex items-center gap-2 cursor-pointer text-sm text-gray-800 px-1 py-0.5 hover:bg-gray-50 rounded"
+                                                >
+                                                    <input
+                                                        type="checkbox"
+                                                        checked={checked}
+                                                        onChange={() => toggleAssignee(u.id)}
+                                                        className="rounded border-gray-300 text-blue-600"
+                                                    />
+                                                    <span>
+                                                        {label}
+                                                        {u.role === 'admin' ? ' (Admin)' : ''}
+                                                        {isPrimary ? ' — responsable' : ''}
+                                                    </span>
+                                                </label>
+                                            );
+                                        })
+                                    )}
+                                </div>
                                 <p className="text-xs text-gray-500 mt-1">
-                                    Incluye tu usuario para usar el ticket como bitácora personal.
+                                    Podés elegir 2 o más. El primero marcado queda como responsable principal.
                                 </p>
                                 {willAutoAssignToSelf && loggedInUser?.username && (
                                     <p className="text-xs mt-2 rounded-md border border-blue-200 bg-blue-50 text-blue-800 px-2 py-1">
-                                        Se autoasignara a {loggedInUser.username} al crear este ticket a tu nombre.
+                                        Se autoasignará a {loggedInUser.username} al crear este ticket a tu nombre.
                                     </p>
                                 )}
                             </div>

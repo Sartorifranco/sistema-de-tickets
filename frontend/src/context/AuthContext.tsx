@@ -96,10 +96,13 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
             }
         } catch (err: unknown) {
             setLoading(false);
-            const message = isAxiosErrorTypeGuard(err) ? (err.response?.data as ApiResponseError)?.message || 'Error de inicio de sesión.' : 'Error inesperado.';
+            const message = isAxiosErrorTypeGuard(err)
+                ? (err.response?.data as ApiResponseError)?.message || 'Error de inicio de sesión.'
+                : 'Error inesperado.';
             setError(message);
-            logout(); // Llama a logout para limpiar cualquier estado inconsistente
-            return false; // Login falló
+            logout();
+            // Propagar el mensaje para que LoginPage pueda mostrarlo en toast
+            throw new Error(message);
         }
     }, [logout]);
 

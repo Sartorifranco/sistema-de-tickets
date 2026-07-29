@@ -35,7 +35,17 @@ const TicketDetailForm: React.FC<TicketDetailFormProps> = ({ ticket, onSave, onC
     );
 
     useEffect(() => {
-        setFormData(ticket);
+        const assigneeIds =
+            ticket.assignees?.length
+                ? ticket.assignees.map((a) => a.id)
+                : ticket.assigned_to_user_id
+                  ? [ticket.assigned_to_user_id]
+                  : [];
+        setFormData({
+            ...ticket,
+            assigned_to_user_ids: assigneeIds,
+            assigned_to_user_id: assigneeIds[0] ?? null,
+        });
     }, [ticket]);
 
     const fetchComments = useCallback(async () => {
@@ -123,17 +133,48 @@ const TicketDetailForm: React.FC<TicketDetailFormProps> = ({ ticket, onSave, onC
                         </select>
                     </div>
                     <div>
-                        <label className="block text-sm font-medium">Asignado a</label>
-                        <select name="assigned_to_user_id" value={formData.assigned_to_user_id || ''} onChange={handleChange} className="w-full p-2 border rounded mt-1">
-                            <option value="">Sin Asignar</option>
-                            {assignableForTicket.map((agent) => (
-                                <option key={agent.id} value={agent.id}>
-                                    {agent.first_name && agent.last_name
+                        <label className="block text-sm font-medium">Agentes asignados</label>
+                        <div className="w-full p-2 border rounded mt-1 max-h-36 overflow-y-auto space-y-1">
+                            {assignableForTicket.map((agent) => {
+                                const ids = formData.assigned_to_user_ids?.length
+                                    ? formData.assigned_to_user_ids
+                                    : formData.assigned_to_user_id
+                                      ? [formData.assigned_to_user_id]
+                                      : [];
+                                const checked = ids.includes(agent.id);
+                                const label =
+                                    agent.first_name && agent.last_name
                                         ? `${agent.first_name} ${agent.last_name}`
-                                        : agent.username}
-                                </option>
-                            ))}
-                        </select>
+                                        : agent.username;
+                                return (
+                                    <label key={agent.id} className="flex items-center gap-2 text-sm cursor-pointer">
+                                        <input
+                                            type="checkbox"
+                                            checked={checked}
+                                            onChange={() => {
+                                                const current = formData.assigned_to_user_ids?.length
+                                                    ? [...formData.assigned_to_user_ids]
+                                                    : formData.assigned_to_user_id
+                                                      ? [formData.assigned_to_user_id]
+                                                      : [];
+                                                const next = checked
+                                                    ? current.filter((id) => id !== agent.id)
+                                                    : [...current, agent.id];
+                                                setFormData((prev) => ({
+                                                    ...prev,
+                                                    assigned_to_user_ids: next,
+                                                    assigned_to_user_id: next[0] ?? null,
+                                                }));
+                                            }}
+                                        />
+                                        <span>
+                                            {label}
+                                            {checked && ids[0] === agent.id ? ' — responsable' : ''}
+                                        </span>
+                                    </label>
+                                );
+                            })}
+                        </div>
                     </div>
                 </div>
                 <div>

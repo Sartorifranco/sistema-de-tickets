@@ -122,7 +122,12 @@ const AgentTicketsPage: React.FC = () => {
         try {
             const formData = new FormData();
             Object.entries(ticketData).forEach(([key, value]) => {
-                if (value) formData.append(key, String(value));
+                if (value !== null && value !== undefined && value !== '') {
+                    formData.append(
+                        key,
+                        Array.isArray(value) ? JSON.stringify(value) : String(value)
+                    );
+                }
             });
             attachments.forEach(file => formData.append('attachments', file));
             await api.post('/api/tickets', formData, {
@@ -296,7 +301,7 @@ const AgentTicketsPage: React.FC = () => {
                                         <td className={`${clTd} whitespace-nowrap`}>{ticket.id}</td>
                                         <td className={`${clTd} font-medium text-gray-900`}>{ticket.title}</td>
                                         <td className={`${clTd} whitespace-nowrap`}>{ticket.client_name}</td>
-                                        {view === 'all' && <td className={`${clTd} whitespace-nowrap`}>{ticket.agent_name || 'N/A'}</td>}
+                                        {view === 'all' && <td className={`${clTd} whitespace-nowrap`}>{ticket.agent_names || ticket.agent_name || 'N/A'}</td>}
                                         <td className={`${clTd} whitespace-nowrap text-gray-600`}>
                                             {formatLocalDate(ticket.created_at)}
                                         </td>

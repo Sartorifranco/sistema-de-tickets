@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback, useRef } from 'react';
 import axios from 'axios';
 import api from '../config/axiosConfig';
 import { useAuth } from '../context/AuthContext';
-import { Depositario, MaintenanceTask, MaintenanceRecord, Company } from '../types';
+import { Depositario, MaintenanceTask, MaintenanceRecord, Company, User } from '../types';
 import { toast } from 'react-toastify';
 import { formatLocalDate } from '../utils/dateFormatter';
 import DepositaryMap from '../components/Depositarios/DepositaryMap';
@@ -209,9 +209,10 @@ const MaintenanceModal: React.FC<{
 }> = ({ depositario, onClose, onSave }) => {
     const { user } = useAuth();
     const [loading, setLoading] = useState(false);
+    const [agents, setAgents] = useState<User[]>([]);
     
     const [performedBy, setPerformedBy] = useState<'permaquim' | 'bacar'>('bacar');
-    const [companion, setCompanion] = useState('');
+    const [companionUserId, setCompanionUserId] = useState<string>('');
     const now = new Date();
     now.setMinutes(now.getMinutes() - now.getTimezoneOffset());
     const [date, setDate] = useState(now.toISOString().slice(0, 16));
@@ -227,6 +228,26 @@ const MaintenanceModal: React.FC<{
         { name: 'Otro', done: false, comment: '' },
     ]);
 
+    useEffect(() => {
+        let cancelled = false;
+        (async () => {
+            try {
+                const res = await api.get('/api/users/agents');
+                const list: User[] = (res.data?.data || []).filter(
+                    (a: User) =>
+                        (a.role === 'agent' || a.role === 'admin') &&
+                        a.id !== user?.id
+                );
+                if (!cancelled) setAgents(list);
+            } catch {
+                if (!cancelled) setAgents([]);
+            }
+        })();
+        return () => {
+            cancelled = true;
+        };
+    }, [user?.id]);
+
     const handleTaskChange = (index: number, field: keyof MaintenanceTask, value: any) => {
         const newTasks = [...tasks];
         newTasks[index] = { ...newTasks[index], [field]: value };
@@ -237,15 +258,23 @@ const MaintenanceModal: React.FC<{
         e.preventDefault();
         setLoading(true);
         try {
-            await api.post(`/api/depositarios/${depositario.id}/maintenance`, {
-                companion_name: companion,
+            const payload: Record<string, unknown> = {
                 performed_by: performedBy,
                 date: date,
                 observations: observations,
                 tasks: tasks,
-                bill_counter: billCounter
-            });
-            toast.success('Mantenimiento registrado con éxito');
+                bill_counter: billCounter,
+            };
+            if (companionUserId) {
+                payload.companion_user_id = Number(companionUserId);
+            }
+            const res = await api.post(`/api/depositarios/${depositario.id}/maintenance`, payload);
+            const ticketId = res.data?.ticketId;
+            toast.success(
+                ticketId
+                    ? `Mantenimiento registrado. Ticket #${ticketId} creado y cerrado.`
+                    : 'Mantenimiento registrado con éxito'
+            );
             onSave();
             onClose();
         } catch (error) {
@@ -300,7 +329,24 @@ const MaintenanceModal: React.FC<{
 
                         <div>
                             <label className="block text-sm font-semibold text-gray-700 mb-1">Acompañante (Opcional)</label>
-                            <input type="text" value={companion} onChange={e => setCompanion(e.target.value)} className="w-full p-2 border rounded focus:ring-blue-500 focus:border-blue-500" placeholder="Nombre del acompañante"/>
+                            <select
+                                value={companionUserId}
+                                onChange={(e) => setCompanionUserId(e.target.value)}
+                                className="w-full p-2 border rounded focus:ring-blue-500 focus:border-blue-500 bg-white"
+                            >
+                                <option value="">Sin acompañante</option>
+                                {agents.map((a) => (
+                                    <option key={a.id} value={a.id}>
+                                        {a.first_name && a.last_name
+                                            ? `${a.first_name} ${a.last_name}`
+                                            : a.username}
+                                        {a.role === 'admin' ? ' (Admin)' : ''}
+                                    </option>
+                                ))}
+                            </select>
+                            <p className="text-xs text-gray-500 mt-1">
+                                Si elegís acompañante, se sumará automáticamente al ticket cerrado que se genera.
+                            </p>
                         </div>
                         <div className="bg-gray-50 p-4 rounded-lg border">
                             <h3 className="font-bold text-lg mb-3 text-gray-800">Checklist de Tareas</h3>

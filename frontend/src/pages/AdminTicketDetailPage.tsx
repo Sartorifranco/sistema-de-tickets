@@ -335,7 +335,7 @@ const AdminTicketDetailPage: React.FC = () => {
 
                         <div className={`${clCard} p-6`}>
                             <h2 className="text-xl font-bold text-gray-800 mb-4 border-b border-gray-100 pb-2">Agente Asignado</h2>
-                            <p className="font-semibold text-lg">{ticket.agent_name || 'Sin asignar'}</p>
+                            <p className="font-semibold text-lg">{ticket.agent_names || ticket.agent_name || 'Sin asignar'}</p>
                         </div>
 
                         <div className={`${clCard} p-6`}>

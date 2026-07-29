@@ -2,6 +2,14 @@ const asyncHandler = require('express-async-handler');
 const pool = require('../config/db');
 const { sendPushToUsers } = require('../services/pushNotificationService');
 const { sendWebPushToUsers } = require('../services/webPushService');
+const {
+    ASSIGNABLE_ROLES,
+    parseAssigneeIdList,
+    resolveAssignableUserIds,
+    syncTicketAssignees,
+    getTicketAssignees,
+    enrichTicketsWithAssignees,
+} = require('../utils/ticketAssignees');
 
 function parseOptionalDecimal(value) {
     if (value === undefined || value === null || value === '') return null;
@@ -75,6 +83,7 @@ const createTicket = asyncHandler(async (req, res) => {
         telefono_contacto,
         github_repo,
         assigned_to_user_id: assignedToBody,
+        assigned_to_user_ids: assignedToIdsBody,
     } = req.body;
     const loggedInUser = req.user;
 
@@ -144,19 +153,12 @@ const createTicket = asyncHandler(async (req, res) => {
     const finalTelefonoContacto = parseOptionalPhone(telefono_contacto);
     const finalGithubRepo = parseOptionalGithubRepo(github_repo);
 
-    let finalAssignedTo = null;
-    if (assignedToBody !== undefined && assignedToBody !== null && assignedToBody !== '') {
-        const aid = parseInt(assignedToBody, 10);
-        if (!Number.isNaN(aid)) {
-            const [assignRows] = await pool.execute('SELECT id, role FROM users WHERE id = ?', [aid]);
-            if (
-                assignRows.length > 0 &&
-                ['agent', 'admin', 'boss', 'purchasing'].includes(assignRows[0].role)
-            ) {
-                finalAssignedTo = aid;
-            }
-        }
+    let assigneeIds = parseAssigneeIdList(assignedToIdsBody);
+    if (assigneeIds.length === 0 && assignedToBody !== undefined && assignedToBody !== null && assignedToBody !== '') {
+        assigneeIds = parseAssigneeIdList([assignedToBody]);
     }
+    assigneeIds = await resolveAssignableUserIds(assigneeIds, ASSIGNABLE_ROLES);
+    const finalAssignedTo = assigneeIds.length > 0 ? assigneeIds[0] : null;
 
     const initialStatus = finalAssignedTo ? 'in-progress' : 'open';
 
@@ -191,6 +193,10 @@ const createTicket = asyncHandler(async (req, res) => {
     
     const newTicketId = result.insertId;
 
+    if (assigneeIds.length > 0) {
+        await syncTicketAssignees(newTicketId, assigneeIds);
+    }
+
     // ... (El resto de la lógica de adjuntos y notificaciones se mantiene IGUAL) ...
     if (req.files && req.files.length > 0) {
         const attachmentPromises = req.files.map(file => {
@@ -224,10 +230,11 @@ const createTicket = asyncHandler(async (req, res) => {
     }
 
     const [[createdTicket]] = await pool.execute('SELECT * FROM tickets WHERE id = ?', [newTicketId]);
+    const assignees = await getTicketAssignees(newTicketId);
     res.status(201).json({
         success: true,
         message: 'Ticket creado exitosamente.',
-        data: { id: newTicketId, ...createdTicket },
+        data: { id: newTicketId, ...createdTicket, assignees },
     });
 });
 
@@ -283,13 +290,20 @@ const getTickets = asyncHandler(async (req, res) => {
             // Lógica de vista por defecto para el agente (si no hay filtros de reporte)
             if (view === 'unassigned') {
                 whereClauses.push('t.assigned_to_user_id IS NULL');
+                whereClauses.push('NOT EXISTS (SELECT 1 FROM ticket_assignees ta0 WHERE ta0.ticket_id = t.id)');
             } else if (view === 'resolved') {
-                whereClauses.push('t.assigned_to_user_id = ?');
-                params.push(currentUserId);
+                whereClauses.push(`(
+                    t.assigned_to_user_id = ?
+                    OR EXISTS (SELECT 1 FROM ticket_assignees ta1 WHERE ta1.ticket_id = t.id AND ta1.user_id = ?)
+                )`);
+                params.push(currentUserId, currentUserId);
                 whereClauses.push("t.status IN ('resolved', 'closed')");
             } else if (view !== 'all') {
-                whereClauses.push('t.assigned_to_user_id = ?');
-                params.push(currentUserId);
+                whereClauses.push(`(
+                    t.assigned_to_user_id = ?
+                    OR EXISTS (SELECT 1 FROM ticket_assignees ta2 WHERE ta2.ticket_id = t.id AND ta2.user_id = ?)
+                )`);
+                params.push(currentUserId, currentUserId);
             }
         }
     }
@@ -299,9 +313,13 @@ const getTickets = asyncHandler(async (req, res) => {
 
     if (unassigned === 'true') {
         whereClauses.push('t.assigned_to_user_id IS NULL');
+        whereClauses.push('NOT EXISTS (SELECT 1 FROM ticket_assignees ta3 WHERE ta3.ticket_id = t.id)');
     } else if (agentId) { 
-        whereClauses.push('t.assigned_to_user_id = ?');
-        params.push(agentId);
+        whereClauses.push(`(
+            t.assigned_to_user_id = ?
+            OR EXISTS (SELECT 1 FROM ticket_assignees ta4 WHERE ta4.ticket_id = t.id AND ta4.user_id = ?)
+        )`);
+        params.push(agentId, agentId);
     }
 
     // ✅ FILTRO DE DEPARTAMENTO: Acepta nombre o ID (t.department_id)
@@ -348,7 +366,14 @@ const getTickets = asyncHandler(async (req, res) => {
     query += ' ORDER BY t.created_at DESC';
 
     const [tickets] = await pool.execute(query, params);
-    res.status(200).json({ success: true, count: tickets.length, data: tickets });
+    let enriched = tickets;
+    try {
+        enriched = await enrichTicketsWithAssignees(tickets);
+    } catch (err) {
+        // Si la tabla aún no existe (migración pendiente), devolver listado sin enriquecer
+        console.warn('ticket_assignees no disponible:', err.message);
+    }
+    res.status(200).json({ success: true, count: enriched.length, data: enriched });
 });
 
 // @desc    Obtener un ticket por ID
@@ -392,7 +417,23 @@ const getTicketById = asyncHandler(async (req, res) => {
         [ticketId]
     );
 
-    const responseData = { ...ticket, comments, attachments };
+    let assignees = [];
+    try {
+        assignees = await getTicketAssignees(ticketId);
+    } catch (err) {
+        console.warn('ticket_assignees no disponible:', err.message);
+    }
+    const agentNames = assignees.length
+        ? assignees.map((a) => (a.first_name && a.last_name ? `${a.first_name} ${a.last_name}` : a.username)).join(', ')
+        : ticket.agent_name;
+
+    const responseData = {
+        ...ticket,
+        comments,
+        attachments,
+        assignees,
+        agent_names: agentNames,
+    };
     res.status(200).json({ success: true, data: responseData });
 });
 
@@ -422,6 +463,7 @@ const updateTicket = asyncHandler(async (req, res) => {
         telefono_contacto,
         github_repo,
         assigned_to_user_id,
+        assigned_to_user_ids,
     } = req.body;
     const fieldsToUpdate = [];
     const params = [];
@@ -453,37 +495,54 @@ const updateTicket = asyncHandler(async (req, res) => {
         fieldsToUpdate.push('github_repo = ?');
         params.push(parseOptionalGithubRepo(github_repo));
     }
-    if (assigned_to_user_id !== undefined) {
+
+    let syncedAssignees = null;
+    if (assigned_to_user_ids !== undefined) {
+        let ids = parseAssigneeIdList(assigned_to_user_ids);
+        ids = await resolveAssignableUserIds(ids, ASSIGNABLE_ROLES);
+        syncedAssignees = await syncTicketAssignees(ticketId, ids);
+    } else if (assigned_to_user_id !== undefined) {
         const raw = assigned_to_user_id;
         if (raw === null || raw === '') {
-            fieldsToUpdate.push('assigned_to_user_id = ?');
-            params.push(null);
+            syncedAssignees = await syncTicketAssignees(ticketId, []);
         } else {
             const aid = parseInt(raw, 10);
             if (!Number.isNaN(aid)) {
-                const [rows] = await pool.execute('SELECT id, role FROM users WHERE id = ?', [aid]);
-                if (
-                    rows.length > 0 &&
-                    ['agent', 'admin', 'boss', 'purchasing'].includes(rows[0].role)
-                ) {
-                    fieldsToUpdate.push('assigned_to_user_id = ?');
-                    params.push(aid);
+                const validated = await resolveAssignableUserIds([aid], ASSIGNABLE_ROLES);
+                if (validated.length > 0) {
+                    syncedAssignees = await syncTicketAssignees(ticketId, validated);
                 }
             }
         }
     }
-    if (fieldsToUpdate.length === 0) { res.status(400); throw new Error("Debes proporcionar al menos un campo para actualizar."); }
-    params.push(ticketId);
-    const query = `UPDATE tickets SET ${fieldsToUpdate.join(', ')} WHERE id = ?`;
-    await pool.execute(query, params);
+
+    if (fieldsToUpdate.length === 0 && syncedAssignees === null) {
+        res.status(400);
+        throw new Error('Debes proporcionar al menos un campo para actualizar.');
+    }
+    if (fieldsToUpdate.length > 0) {
+        params.push(ticketId);
+        const query = `UPDATE tickets SET ${fieldsToUpdate.join(', ')} WHERE id = ?`;
+        await pool.execute(query, params);
+    }
     const [[updatedTicket]] = await pool.execute('SELECT * FROM tickets WHERE id = ?', [ticketId]);
-    res.status(200).json({ success: true, message: 'Ticket actualizado correctamente.', data: updatedTicket });
+    const assignees = await getTicketAssignees(ticketId);
+    res.status(200).json({
+        success: true,
+        message: 'Ticket actualizado correctamente.',
+        data: { ...updatedTicket, assignees },
+    });
 });
 
 const deleteTicket = asyncHandler(async (req, res) => {
     const { id: ticketId } = req.params;
     
     await pool.execute('DELETE FROM comments WHERE ticket_id = ?', [ticketId]);
+    try {
+        await pool.execute('DELETE FROM ticket_assignees WHERE ticket_id = ?', [ticketId]);
+    } catch (err) {
+        // tabla puede no existir aún
+    }
     const [result] = await pool.execute('DELETE FROM tickets WHERE id = ?', [ticketId]);
     
     if (result.affectedRows === 0) { res.status(404); throw new Error('Ticket no encontrado'); }
@@ -577,6 +636,11 @@ const assignTicketToSelf = asyncHandler(async (req, res) => {
     const [result] = await pool.execute("UPDATE tickets SET assigned_to_user_id = ?, status = 'in-progress' WHERE id = ? AND status = 'open'", [agentId, ticketId]);
     
     if (result.affectedRows > 0) {
+        try {
+            await syncTicketAssignees(ticketId, [agentId]);
+        } catch (err) {
+            console.warn('No se pudo sincronizar ticket_assignees:', err.message);
+        }
         const [[ticket]] = await pool.execute('SELECT user_id, title FROM tickets WHERE id = ?', [ticketId]);
         
         const messageToClient = `El agente ${agentName} ha tomado tu ticket #${ticketId}: "${ticket.title}"`;
@@ -605,7 +669,17 @@ const reassignTicket = asyncHandler(async (req, res) => {
     const assignableRoles = ['agent', 'admin', 'boss', 'purchasing'];
     if (users.length === 0 || !assignableRoles.includes(users[0].role)) { res.status(400); throw new Error('El usuario especificado no puede recibir tickets. Solo agentes, admin, jefes y encargados de compras.'); }
     
-    await pool.execute('UPDATE tickets SET assigned_to_user_id = ? WHERE id = ?', [newAgentId, ticketId]);
+    // Reasignación: el nuevo agente queda como primario; se conservan acompañantes previos si existen
+    let nextAssignees = [parseInt(newAgentId, 10)];
+    try {
+        const current = await getTicketAssignees(ticketId);
+        const others = current.map((a) => a.id).filter((id) => id !== parseInt(newAgentId, 10));
+        nextAssignees = [parseInt(newAgentId, 10), ...others];
+        await syncTicketAssignees(ticketId, nextAssignees);
+    } catch (err) {
+        await pool.execute('UPDATE tickets SET assigned_to_user_id = ? WHERE id = ?', [newAgentId, ticketId]);
+        console.warn('No se pudo sincronizar ticket_assignees en reassign:', err.message);
+    }
 
     const [[ticket]] = await pool.execute('SELECT user_id, title FROM tickets WHERE id = ?', [ticketId]);
     const newAgent = users[0];

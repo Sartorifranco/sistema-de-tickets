@@ -33,13 +33,22 @@ const TicketDetailModal: React.FC<TicketDetailModalProps> = ({ isOpen, onClose, 
     const [editedStatus, setEditedStatus] = useState<TicketStatus>(ticket.status);
     const [editedPriority, setEditedPriority] = useState<TicketPriority>(ticket.priority);
     const [editedDepartmentId, setEditedDepartmentId] = useState<number | null>(ticket.department_id);
-    const [editedAgentId, setEditedAgentId] = useState<number | null>(ticket.assigned_to_user_id);
+    const [editedAgentIds, setEditedAgentIds] = useState<number[]>(
+        ticket.assignees?.length
+            ? ticket.assignees.map((a) => a.id)
+            : ticket.assigned_to_user_id
+              ? [ticket.assigned_to_user_id]
+              : []
+    );
     const [comments, setComments] = useState<TicketComment[]>([]);
     const [loadingComments, setLoadingComments] = useState(false);
 
     const isAdmin = currentUser?.role === 'admin';
     const isAgent = currentUser?.role === 'agent';
-    const canEditTicket = isAdmin || (isAgent && ticket.assigned_to_user_id === currentUser?.id);
+    const isAssignee =
+        ticket.assigned_to_user_id === currentUser?.id ||
+        (ticket.assignees || []).some((a) => a.id === currentUser?.id);
+    const canEditTicket = isAdmin || (isAgent && isAssignee);
 
     const assignableUsers = useMemo(
         () => staffAssignableUsers(users, currentUser ?? undefined),
@@ -68,10 +77,22 @@ const TicketDetailModal: React.FC<TicketDetailModalProps> = ({ isOpen, onClose, 
             setEditedStatus(ticket.status);
             setEditedPriority(ticket.priority);
             setEditedDepartmentId(ticket.department_id);
-            setEditedAgentId(ticket.assigned_to_user_id);
+            setEditedAgentIds(
+                ticket.assignees?.length
+                    ? ticket.assignees.map((a) => a.id)
+                    : ticket.assigned_to_user_id
+                      ? [ticket.assigned_to_user_id]
+                      : []
+            );
             fetchComments();
         }
     }, [isOpen, ticket, fetchComments]);
+
+    const toggleEditedAgent = (userId: number) => {
+        setEditedAgentIds((current) =>
+            current.includes(userId) ? current.filter((id) => id !== userId) : [...current, userId]
+        );
+    };
 
     const handleSave = async () => {
         const updatedFields: Partial<TicketData> = {};
@@ -80,7 +101,20 @@ const TicketDetailModal: React.FC<TicketDetailModalProps> = ({ isOpen, onClose, 
         if (editedStatus !== ticket.status) updatedFields.status = editedStatus;
         if (editedPriority !== ticket.priority) updatedFields.priority = editedPriority;
         if (editedDepartmentId !== ticket.department_id) updatedFields.department_id = editedDepartmentId;
-        if (editedAgentId !== ticket.assigned_to_user_id) updatedFields.assigned_to_user_id = editedAgentId;
+
+        const prevIds =
+            ticket.assignees?.length
+                ? ticket.assignees.map((a) => a.id)
+                : ticket.assigned_to_user_id
+                  ? [ticket.assigned_to_user_id]
+                  : [];
+        const sameAssignees =
+            prevIds.length === editedAgentIds.length &&
+            prevIds.every((id, idx) => id === editedAgentIds[idx]);
+        if (!sameAssignees) {
+            updatedFields.assigned_to_user_ids = editedAgentIds;
+            updatedFields.assigned_to_user_id = editedAgentIds[0] ?? null;
+        }
 
         if (Object.keys(updatedFields).length > 0) {
             await onSave(updatedFields);
@@ -147,17 +181,31 @@ const TicketDetailModal: React.FC<TicketDetailModalProps> = ({ isOpen, onClose, 
                             </select>
                         </div>
                          <div>
-                            <label className="block text-sm font-medium text-gray-700">Asignado a:</label>
-                            <select value={editedAgentId || ''} onChange={(e) => setEditedAgentId(Number(e.target.value))} className="w-full p-2 border rounded mt-1" disabled={!isAdmin}>
-                                <option value="">Sin Asignar</option>
-                                {assignableUsers.map((agent) => (
-                                    <option key={agent.id} value={agent.id}>
-                                        {agent.first_name && agent.last_name
+                            <label className="block text-sm font-medium text-gray-700">Agentes asignados:</label>
+                            <div className="w-full p-2 border rounded mt-1 max-h-36 overflow-y-auto space-y-1 bg-white">
+                                {assignableUsers.map((agent) => {
+                                    const checked = editedAgentIds.includes(agent.id);
+                                    const label =
+                                        agent.first_name && agent.last_name
                                             ? `${agent.first_name} ${agent.last_name}`
-                                            : agent.username}
-                                    </option>
-                                ))}
-                            </select>
+                                            : agent.username;
+                                    const isPrimary = checked && editedAgentIds[0] === agent.id;
+                                    return (
+                                        <label key={agent.id} className="flex items-center gap-2 text-sm cursor-pointer">
+                                            <input
+                                                type="checkbox"
+                                                checked={checked}
+                                                onChange={() => toggleEditedAgent(agent.id)}
+                                                disabled={!isAdmin}
+                                            />
+                                            <span>
+                                                {label}
+                                                {isPrimary ? ' — responsable' : ''}
+                                            </span>
+                                        </label>
+                                    );
+                                })}
+                            </div>
                         </div>
                         <div>
                             <label className="block text-sm font-medium text-gray-700">Creado por:</label>

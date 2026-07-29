@@ -375,17 +375,11 @@ const AdminProblemsPage: React.FC = () => {
                         </div>
                     ) : selectedCategory ? (
                         <div className={`${clCard} p-5 sm:p-6`}>
-                            <div className="mb-5 pb-4 border-b border-gray-100">
-                                <h2 className="text-xl font-bold text-gray-900">{selectedCategory.name}</h2>
-                                <p className="text-sm text-gray-600 mt-1">
-                                    {categoryScopeLabel(selectedCategory)}.{' '}
-                                    {problemCountByCategory.get(selectedCategory.id) || 0}{' '}
-                                    {(problemCountByCategory.get(selectedCategory.id) || 0) === 1
-                                        ? 'problema cargado'
-                                        : 'problemas cargados'}{' '}
-                                    en esta categoría.
-                                </p>
-                            </div>
+                            <CategoryHeader
+                                category={selectedCategory}
+                                problemCount={problemCountByCategory.get(selectedCategory.id) || 0}
+                                onSaved={fetchData}
+                            />
 
                             <div className="mb-4">
                                 <label className="block text-xs font-semibold text-gray-600 mb-1">
@@ -444,6 +438,97 @@ const AdminProblemsPage: React.FC = () => {
     );
 };
 
+const CategoryHeader: React.FC<{
+    category: Category;
+    problemCount: number;
+    onSaved: () => void;
+}> = ({ category, problemCount, onSaved }) => {
+    const [editing, setEditing] = useState(false);
+    const [name, setName] = useState(category.name);
+    const [saving, setSaving] = useState(false);
+
+    useEffect(() => {
+        setName(category.name);
+        setEditing(false);
+    }, [category.id, category.name]);
+
+    const handleSaveName = async () => {
+        const trimmed = name.trim();
+        if (!trimmed) {
+            toast.error('El nombre no puede estar vacío.');
+            return;
+        }
+        setSaving(true);
+        try {
+            await api.put(`/api/admin/categories/${category.id}`, {
+                name: trimmed,
+                company_id: category.company_id,
+            });
+            toast.success('Categoría renombrada.');
+            setEditing(false);
+            onSaved();
+        } catch {
+            toast.error('No se pudo renombrar la categoría.');
+        } finally {
+            setSaving(false);
+        }
+    };
+
+    return (
+        <div className="mb-5 pb-4 border-b border-gray-100">
+            {editing ? (
+                <div className="space-y-3">
+                    <label className="block text-xs font-semibold text-gray-600">Nombre de la categoría</label>
+                    <input
+                        value={name}
+                        onChange={(e) => setName(e.target.value)}
+                        className={clInput}
+                        autoFocus
+                    />
+                    <div className="flex gap-2">
+                        <button
+                            type="button"
+                            onClick={handleSaveName}
+                            disabled={saving}
+                            className="bg-green-600 text-white px-4 py-2 text-sm rounded-lg font-semibold hover:bg-green-700 disabled:opacity-60"
+                        >
+                            {saving ? 'Guardando...' : 'Guardar nombre'}
+                        </button>
+                        <button
+                            type="button"
+                            onClick={() => {
+                                setName(category.name);
+                                setEditing(false);
+                            }}
+                            className="bg-gray-500 text-white px-4 py-2 text-sm rounded-lg font-semibold hover:bg-gray-600"
+                        >
+                            Cancelar
+                        </button>
+                    </div>
+                </div>
+            ) : (
+                <div className="flex flex-wrap items-start justify-between gap-3">
+                    <div>
+                        <h2 className="text-xl font-bold text-gray-900">{category.name}</h2>
+                        <p className="text-sm text-gray-600 mt-1">
+                            {categoryScopeLabel(category)}.{' '}
+                            {problemCount} {problemCount === 1 ? 'problema cargado' : 'problemas cargados'} en
+                            esta categoría.
+                        </p>
+                    </div>
+                    <button
+                        type="button"
+                        onClick={() => setEditing(true)}
+                        className="text-sm font-semibold text-blue-700 hover:underline"
+                    >
+                        Renombrar categoría
+                    </button>
+                </div>
+            )}
+        </div>
+    );
+};
+
 const AllViewProblemRow: React.FC<{
     problem: Problem;
     departments: Department[];
@@ -491,7 +576,10 @@ const ProblemItem: React.FC<{
 
     const handleSave = async () => {
         try {
-            await api.put(`/api/admin/problems/${problem.id}`, values);
+            await api.put(`/api/admin/problems/${problem.id}`, {
+                ...values,
+                category_id: problem.category_id,
+            });
             toast.success('Problema actualizado.');
             setIsEditing(false);
             onSave();

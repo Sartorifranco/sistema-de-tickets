@@ -286,7 +286,7 @@ const AgentTicketDetailPage: React.FC = () => {
                     
                     <div className={`${clCard} p-6`}>
                         <strong className="block text-sm text-gray-500 mb-2">Agente Asignado</strong>
-                        <p className="text-lg font-medium">{ticket.agent_name || 'No asignado'}</p>
+                        <p className="text-lg font-medium">{ticket.agent_names || ticket.agent_name || 'No asignado'}</p>
                     </div>
                     {(user?.role === 'admin' || user?.role === 'agent') && (
                         <div className={`${clCard} p-6`}>
