@@ -4,7 +4,7 @@ const pool = require('../config/db');
 const TOP_TITLES_LIMIT = 3;
 
 /**
- * Agrupa filas { agentId, title, count } en top N títulos + "Otros" por agente.
+ * Agrupa filas { agentId, title, count } en top N títulos + resto por agente.
  * @returns {Map<number, { items: { title: string, count: number }[], othersCount: number, label: string | null }>}
  */
 function buildTitleBreakdownByAgent(rows) {
@@ -20,7 +20,11 @@ function buildTitleBreakdownByAgent(rows) {
 
     const result = new Map();
     for (const [agentId, titles] of byAgent.entries()) {
-        titles.sort((a, b) => b.count - a.count);
+        titles.sort(
+            (a, b) =>
+                b.count - a.count ||
+                a.title.localeCompare(b.title, 'es', { sensitivity: 'base' })
+        );
         const top = titles.slice(0, TOP_TITLES_LIMIT);
         const othersCount = titles.slice(TOP_TITLES_LIMIT).reduce((sum, t) => sum + t.count, 0);
         // Solo mostrar desglose si hay más de un tipo de título (evita repetir el total)
@@ -28,7 +32,7 @@ function buildTitleBreakdownByAgent(rows) {
             titles.length > 1
                 ? [
                       ...top.map((t) => `${t.title} ${t.count}`),
-                      ...(othersCount > 0 ? [`Otros ${othersCount}`] : []),
+                      ...(othersCount > 0 ? [`Resto de títulos ${othersCount}`] : []),
                   ].join(' · ')
                 : null;
         result.set(agentId, { items: top, othersCount, label });

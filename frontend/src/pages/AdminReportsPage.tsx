@@ -43,6 +43,53 @@ interface ReportData {
     ticketsByHour: { hour: number; count: number }[];
 }
 
+function titleBreakdownLines(breakdown?: TitleBreakdown | null): string[] {
+    if (!breakdown) return [];
+    return [
+        ...breakdown.items.map((item) => `${item.title}: ${item.count}`),
+        ...(breakdown.othersCount > 0
+            ? [`Resto de títulos: ${breakdown.othersCount}`]
+            : []),
+    ];
+}
+
+function titleBreakdownText(breakdown?: TitleBreakdown | null): string | null {
+    const lines = titleBreakdownLines(breakdown);
+    return lines.length > 1 ? lines.join(' · ') : null;
+}
+
+const TitleBreakdownList: React.FC<{ breakdown?: TitleBreakdown | null }> = ({
+    breakdown,
+}) => {
+    if (!breakdown || !breakdown.label) return null;
+
+    return (
+        <div className="mt-2 mx-auto max-w-sm rounded-lg border border-gray-100 bg-gray-50/80 px-2.5 py-1.5 text-left">
+            {breakdown.items.map((item, index) => (
+                <div
+                    key={`${item.title}-${index}`}
+                    className="flex items-center justify-between gap-3 py-0.5 text-[11px] leading-4 text-gray-600"
+                >
+                    <span className="min-w-0 truncate" title={item.title}>
+                        {index + 1}. {item.title}
+                    </span>
+                    <span className="shrink-0 rounded-full bg-white px-1.5 py-0.5 font-semibold tabular-nums text-gray-700 shadow-sm ring-1 ring-gray-200">
+                        {item.count}
+                    </span>
+                </div>
+            ))}
+            {breakdown.othersCount > 0 && (
+                <div className="mt-1 flex items-center justify-between gap-3 border-t border-gray-200 pt-1 text-[11px] leading-4 text-gray-500">
+                    <span>Resto de títulos</span>
+                    <span className="shrink-0 font-semibold tabular-nums text-gray-600">
+                        {breakdown.othersCount}
+                    </span>
+                </div>
+            )}
+        </div>
+    );
+};
+
 // --- Interface para los datos de los filtros ---
 interface FilterOptions {
     agents: User[];
@@ -292,9 +339,9 @@ const AdminReportsPage: React.FC = () => {
             autoTable(doc, {
                 head: [['Agente', 'Tickets Resueltos', 'Tiempo Promedio (Horas)']],
                 body: reportData.agentResolutionTimes.map((item) => {
-                    const breakdown = item.titleBreakdown?.label;
+                    const breakdown = titleBreakdownText(item.titleBreakdown);
                     const resolvedLabel = breakdown
-                        ? `${item.resolvedTickets} — ${breakdown}`
+                        ? `${item.resolvedTickets}\n${breakdown}`
                         : String(item.resolvedTickets);
                     return [
                         item.agentName,
@@ -394,7 +441,7 @@ const AdminReportsPage: React.FC = () => {
                     afterLabel: (ctx: { datasetIndex: number; dataIndex: number }) => {
                         if (ctx.datasetIndex !== 1) return '';
                         const agent = reportData.agentPerformance[ctx.dataIndex];
-                        return agent?.titleBreakdown?.label || '';
+                        return titleBreakdownLines(agent?.titleBreakdown);
                     },
                 },
             },
@@ -569,17 +616,14 @@ const AdminReportsPage: React.FC = () => {
                                 </thead>
                                 <tbody className="bg-white divide-y divide-gray-100">
                                     {reportData.agentResolutionTimes.map((agent) => {
-                                        const breakdown = agent.titleBreakdown?.label;
                                         return (
                                             <tr key={agent.agentId} className="hover:bg-gray-50/80 transition-colors">
                                                 <td className={`${clTd} font-medium text-gray-900`}>{agent.agentName}</td>
-                                                <td className={`${clTd} text-center text-gray-700`}>
-                                                    <div>{agent.resolvedTickets}</div>
-                                                    {breakdown && (
-                                                        <div className="text-xs text-gray-500 font-normal mt-0.5 leading-snug max-w-xs mx-auto">
-                                                            {breakdown}
-                                                        </div>
-                                                    )}
+                                                <td className={`${clTd} min-w-[260px] text-center text-gray-700`}>
+                                                    <div className="font-semibold tabular-nums text-gray-900">
+                                                        {agent.resolvedTickets}
+                                                    </div>
+                                                    <TitleBreakdownList breakdown={agent.titleBreakdown} />
                                                 </td>
                                                 <td className={`${clTd} text-center text-gray-700 font-bold`}>
                                                     {agent.avgResolutionTimeHours !== null
