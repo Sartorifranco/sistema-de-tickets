@@ -1,64 +1,87 @@
 const asyncHandler = require('express-async-handler');
 const pool = require('../config/db');
 
-/**
- * Títulos de tickets rutinarios de gestión de usuarios. Agregar variantes acá
- * si se dan de alta nuevas problemáticas predefinidas del mismo tipo.
- */
-const ROUTINE_USER_TASK_TITLES = [
-    'dar de alta un usuario',
-    'dar de baja un usuario',
-    'actualización de usuario',
-    'actualizacion de usuario',
-];
+const TOP_TITLES_LIMIT = 3;
 
-const SQL_IS_ROUTINE_USER_TASK = `LOWER(TRIM(t.title)) IN (${ROUTINE_USER_TASK_TITLES.map(
-    (title) => `'${title}'`
-).join(', ')})`;
+/**
+ * Agrupa filas { agentId, title, count } en top N títulos + "Otros" por agente.
+ * @returns {Map<number, { items: { title: string, count: number }[], othersCount: number, label: string | null }>}
+ */
+function buildTitleBreakdownByAgent(rows) {
+    const byAgent = new Map();
+    for (const row of rows) {
+        const agentId = row.agentId;
+        if (!byAgent.has(agentId)) byAgent.set(agentId, []);
+        byAgent.get(agentId).push({
+            title: String(row.title || 'Sin título').trim() || 'Sin título',
+            count: Number(row.count) || 0,
+        });
+    }
+
+    const result = new Map();
+    for (const [agentId, titles] of byAgent.entries()) {
+        titles.sort((a, b) => b.count - a.count);
+        const top = titles.slice(0, TOP_TITLES_LIMIT);
+        const othersCount = titles.slice(TOP_TITLES_LIMIT).reduce((sum, t) => sum + t.count, 0);
+        // Solo mostrar desglose si hay más de un tipo de título (evita repetir el total)
+        const label =
+            titles.length > 1
+                ? [
+                      ...top.map((t) => `${t.title} ${t.count}`),
+                      ...(othersCount > 0 ? [`Otros ${othersCount}`] : []),
+                  ].join(' · ')
+                : null;
+        result.set(agentId, { items: top, othersCount, label });
+    }
+    return result;
+}
+
+function agentTicketFilters({ agentId, companyId, departmentId, categoryId, clientId }) {
+    return `
+        ${agentId ? 'AND t.assigned_to_user_id = ?' : ''}
+        ${companyId ? 'AND u_client.company_id = ?' : ''}
+        ${departmentId ? 'AND t.department_id = ?' : ''}
+        ${categoryId ? 'AND t.category_id = ?' : ''}
+        ${clientId ? 'AND t.user_id = ?' : ''}
+    `;
+}
 
 // @desc    Obtener todas las métricas para la página de reportes, filtrado
 // @route   GET /api/reports
 // @access  Private (Admin)
 const getReports = asyncHandler(async (req, res) => {
-    // Obtenemos TODOS los filtros del query string
-    const { 
-        startDate, 
-        endDate, 
-        agentId, 
-        companyId, 
-        departmentId, 
-        categoryId, 
-        clientId 
+    const {
+        startDate,
+        endDate,
+        agentId,
+        companyId,
+        departmentId,
+        categoryId,
+        clientId,
     } = req.query;
 
     if (!startDate || !endDate) {
         res.status(400);
-        throw new Error("Las fechas de inicio y fin son requeridas.");
+        throw new Error('Las fechas de inicio y fin son requeridas.');
     }
-    
+
     const startOfDay = `${startDate} 00:00:00`;
     const endOfDay = `${endDate} 23:59:59`;
 
-    // --- Preparamos los filtros dinámicos ---
-    
-    // Filtros base de fechas
     const whereClauses = ['t.created_at BETWEEN ? AND ?'];
     const params = [startOfDay, endOfDay];
 
-    // Filtros específicos para las consultas de agentes (users)
-    const agentUserFilter = ['u.role IN (\'agent\', \'admin\')']; 
+    const agentUserFilter = ["u.role IN ('agent', 'admin')"];
     const agentUserParams = [];
 
-    // Añadir filtros dinámicamente si existen
     if (agentId) {
         whereClauses.push('t.assigned_to_user_id = ?');
         params.push(agentId);
-        
         agentUserFilter.push('u.id = ?');
         agentUserParams.push(agentId);
     }
     if (companyId) {
-        whereClauses.push('u.company_id = ?'); // 'u' aquí es el cliente del ticket
+        whereClauses.push('u.company_id = ?');
         params.push(companyId);
     }
     if (departmentId) {
@@ -74,7 +97,6 @@ const getReports = asyncHandler(async (req, res) => {
         params.push(clientId);
     }
 
-    // FROM base para las consultas generales (1, 2, 3, 6, 7, 8)
     const baseFrom = `
         FROM tickets t
         LEFT JOIN users u ON t.user_id = u.id
@@ -82,106 +104,139 @@ const getReports = asyncHandler(async (req, res) => {
         LEFT JOIN ticket_categories c ON t.category_id = c.id
     `;
     const fullWhereClause = `WHERE ${whereClauses.join(' AND ')}`;
-    
-    // Params para las subconsultas de agentes 
-    // (quitamos las 2 primeras fechas porque las pondremos manual en la subquery)
-    const subQueryParams = params.slice(2); 
+    const subQueryParams = params.slice(2);
+    const ticketFiltersSql = agentTicketFilters({
+        agentId,
+        companyId,
+        departmentId,
+        categoryId,
+        clientId,
+    });
 
-    // --- Ejecución de Consultas en Paralelo ---
-    
     const [
         ticketsByStatusResult,
         ticketsByPriorityResult,
         ticketsByDepartmentResult,
         agentPerformanceResult,
         agentResolutionTimeResult,
-        ticketsByCategoryResult, // Nueva métrica
-        topClientsResult,        // Nueva métrica
-        ticketsByHourResult      // Nueva métrica
+        closedTitlesByAgentResult,
+        resolvedTitlesByAgentResult,
+        ticketsByCategoryResult,
+        topClientsResult,
+        ticketsByHourResult,
     ] = await Promise.all([
-        // 1. Tickets por Estado
         pool.execute(
-            `SELECT t.status, COUNT(t.id) AS count 
-             ${baseFrom} 
-             ${fullWhereClause} 
-             GROUP BY t.status`, 
-            params
-        ),
-        
-        // 2. Tickets por Prioridad
-        pool.execute(
-            `SELECT t.priority, COUNT(t.id) AS count 
-             ${baseFrom} 
-             ${fullWhereClause} 
-             GROUP BY t.priority`, 
+            `SELECT t.status, COUNT(t.id) AS count
+             ${baseFrom}
+             ${fullWhereClause}
+             GROUP BY t.status`,
             params
         ),
 
-        // 3. Tickets por Departamento
-        pool.execute(`
+        pool.execute(
+            `SELECT t.priority, COUNT(t.id) AS count
+             ${baseFrom}
+             ${fullWhereClause}
+             GROUP BY t.priority`,
+            params
+        ),
+
+        pool.execute(
+            `
             SELECT d.name AS departmentName, d.id AS departmentId, COUNT(t.id) AS count
             ${baseFrom}
             ${fullWhereClause}
             GROUP BY d.id, d.name
             HAVING departmentName IS NOT NULL
-        `, params),
+        `,
+            params
+        ),
 
-        // 4. Rendimiento de Agente (con subconsulta filtrada)
-        pool.execute(`
-            SELECT 
-                u.id as agentId, 
-                COALESCE(CONCAT(u.first_name, ' ', u.last_name), u.username) AS agentName, 
+        // 4. Rendimiento de Agente
+        pool.execute(
+            `
+            SELECT
+                u.id as agentId,
+                COALESCE(CONCAT(u.first_name, ' ', u.last_name), u.username) AS agentName,
                 COUNT(t_filtered.id) AS assignedTickets,
-                SUM(CASE WHEN t_filtered.status IN ('closed', 'resolved') THEN 1 ELSE 0 END) AS closedTickets,
-                SUM(CASE WHEN t_filtered.status IN ('closed', 'resolved') AND t_filtered.is_user_update = 1 THEN 1 ELSE 0 END) AS closedUserUpdates
+                SUM(CASE WHEN t_filtered.status IN ('closed', 'resolved') THEN 1 ELSE 0 END) AS closedTickets
             FROM users u
             LEFT JOIN (
-                SELECT t.id, t.status, t.assigned_to_user_id,
-                       CASE WHEN ${SQL_IS_ROUTINE_USER_TASK} THEN 1 ELSE 0 END AS is_user_update
+                SELECT t.id, t.status, t.assigned_to_user_id
                 FROM tickets t
                 LEFT JOIN users u_client ON t.user_id = u_client.id
                 WHERE t.created_at BETWEEN ? AND ?
-                  ${agentId ? 'AND t.assigned_to_user_id = ?' : ''}
-                  ${companyId ? 'AND u_client.company_id = ?' : ''}
-                  ${departmentId ? 'AND t.department_id = ?' : ''}
-                  ${categoryId ? 'AND t.category_id = ?' : ''}
-                  ${clientId ? 'AND t.user_id = ?' : ''}
+                  ${ticketFiltersSql}
             ) t_filtered ON u.id = t_filtered.assigned_to_user_id
             WHERE ${agentUserFilter.join(' AND ')}
             GROUP BY u.id, u.username, u.first_name, u.last_name
             ORDER BY assignedTickets DESC
-        `, [startOfDay, endOfDay, ...subQueryParams, ...agentUserParams]),
+        `,
+            [startOfDay, endOfDay, ...subQueryParams, ...agentUserParams]
+        ),
 
-        // 5. Tiempo de Resolución de Agente (con subconsulta filtrada)
-        pool.execute(`
+        // 5. Tiempo de Resolución de Agente
+        pool.execute(
+            `
             SELECT
                 u.id as agentId,
                 COALESCE(CONCAT(u.first_name, ' ', u.last_name), u.username) AS agentName,
                 COUNT(t_filtered.id) AS resolvedTickets,
-                SUM(CASE WHEN t_filtered.is_user_update = 1 THEN 1 ELSE 0 END) AS resolvedUserUpdates,
                 AVG(TIMESTAMPDIFF(HOUR, t_filtered.created_at, t_filtered.closed_at)) AS avgResolutionTimeHours
             FROM users u
             LEFT JOIN (
-                SELECT t.id, t.created_at, t.closed_at, t.assigned_to_user_id,
-                       CASE WHEN ${SQL_IS_ROUTINE_USER_TASK} THEN 1 ELSE 0 END AS is_user_update
+                SELECT t.id, t.created_at, t.closed_at, t.assigned_to_user_id
                 FROM tickets t
-                LEFT JOIN users u_client ON t.user_id = u_client.id 
+                LEFT JOIN users u_client ON t.user_id = u_client.id
                 WHERE t.status IN ('resolved', 'closed')
                   AND t.closed_at IS NOT NULL
                   AND t.closed_at BETWEEN ? AND ?
-                  ${agentId ? 'AND t.assigned_to_user_id = ?' : ''}
-                  ${companyId ? 'AND u_client.company_id = ?' : ''}
-                  ${departmentId ? 'AND t.department_id = ?' : ''}
-                  ${categoryId ? 'AND t.category_id = ?' : ''}
-                  ${clientId ? 'AND t.user_id = ?' : ''}
+                  ${ticketFiltersSql}
             ) t_filtered ON u.id = t_filtered.assigned_to_user_id
             WHERE ${agentUserFilter.join(' AND ')}
             GROUP BY u.id, u.username, u.first_name, u.last_name
-            ORDER BY resolvedTickets DESC;
-        `, [startOfDay, endOfDay, ...subQueryParams, ...agentUserParams]),
-        
-        // 6. Tickets por Problemática (Categoría)
-        pool.execute(`
+            ORDER BY resolvedTickets DESC
+        `,
+            [startOfDay, endOfDay, ...subQueryParams, ...agentUserParams]
+        ),
+
+        // 4b. Títulos de cerrados (misma ventana que rendimiento: created_at)
+        pool.execute(
+            `
+            SELECT t.assigned_to_user_id AS agentId,
+                   TRIM(t.title) AS title,
+                   COUNT(*) AS count
+            FROM tickets t
+            LEFT JOIN users u_client ON t.user_id = u_client.id
+            WHERE t.created_at BETWEEN ? AND ?
+              AND t.status IN ('resolved', 'closed')
+              AND t.assigned_to_user_id IS NOT NULL
+              ${ticketFiltersSql}
+            GROUP BY t.assigned_to_user_id, TRIM(t.title)
+        `,
+            [startOfDay, endOfDay, ...subQueryParams]
+        ),
+
+        // 5b. Títulos de resueltos (misma ventana que resolución: closed_at)
+        pool.execute(
+            `
+            SELECT t.assigned_to_user_id AS agentId,
+                   TRIM(t.title) AS title,
+                   COUNT(*) AS count
+            FROM tickets t
+            LEFT JOIN users u_client ON t.user_id = u_client.id
+            WHERE t.status IN ('resolved', 'closed')
+              AND t.closed_at IS NOT NULL
+              AND t.closed_at BETWEEN ? AND ?
+              AND t.assigned_to_user_id IS NOT NULL
+              ${ticketFiltersSql}
+            GROUP BY t.assigned_to_user_id, TRIM(t.title)
+        `,
+            [startOfDay, endOfDay, ...subQueryParams]
+        ),
+
+        pool.execute(
+            `
             SELECT c.name AS categoryName, c.id AS categoryId, COUNT(t.id) AS count
             ${baseFrom}
             ${fullWhereClause}
@@ -189,13 +244,15 @@ const getReports = asyncHandler(async (req, res) => {
             HAVING categoryName IS NOT NULL
             ORDER BY count DESC
             LIMIT 10
-        `, params),
+        `,
+            params
+        ),
 
-        // 7. Top 10 Clientes
-        pool.execute(`
-            SELECT 
+        pool.execute(
+            `
+            SELECT
                 u.id as clientId,
-                COALESCE(CONCAT(u.first_name, ' ', u.last_name), u.username) as clientName, 
+                COALESCE(CONCAT(u.first_name, ' ', u.last_name), u.username) as clientName,
                 COUNT(t.id) as count
             ${baseFrom}
             ${fullWhereClause}
@@ -203,61 +260,74 @@ const getReports = asyncHandler(async (req, res) => {
             GROUP BY t.user_id, u.first_name, u.last_name, u.username
             ORDER BY count DESC
             LIMIT 10
-        `, params),
+        `,
+            params
+        ),
 
-        // 8. Tickets por Hora del Día
-        pool.execute(`
+        pool.execute(
+            `
             SELECT HOUR(t.created_at) as hour, COUNT(t.id) as count
             ${baseFrom}
             ${fullWhereClause}
             GROUP BY HOUR(t.created_at)
             ORDER BY hour ASC
-        `, params)
+        `,
+            params
+        ),
     ]);
 
-    // Procesamiento de los resultados
-    const agentResolutionTimes = agentResolutionTimeResult[0].map(row => {
+    const closedBreakdownByAgent = buildTitleBreakdownByAgent(closedTitlesByAgentResult[0] || []);
+    const resolvedBreakdownByAgent = buildTitleBreakdownByAgent(resolvedTitlesByAgentResult[0] || []);
+
+    const agentResolutionTimes = agentResolutionTimeResult[0].map((row) => {
         const avgTime = parseFloat(row.avgResolutionTimeHours);
         const formattedAvgTime = !isNaN(avgTime) ? parseFloat(avgTime.toFixed(2)) : null;
-        const resolvedTickets = Number(row.resolvedTickets) || 0;
-        const resolvedUserUpdates = Number(row.resolvedUserUpdates) || 0;
+        const breakdown = resolvedBreakdownByAgent.get(row.agentId);
         return {
             agentName: row.agentName,
-            resolvedTickets,
-            resolvedUserUpdates,
-            resolvedProductive: Math.max(0, resolvedTickets - resolvedUserUpdates),
+            resolvedTickets: Number(row.resolvedTickets) || 0,
             avgResolutionTimeHours: formattedAvgTime,
             agentId: row.agentId,
+            titleBreakdown: breakdown
+                ? {
+                      items: breakdown.items,
+                      othersCount: breakdown.othersCount,
+                      label: breakdown.label,
+                  }
+                : null,
         };
     });
-    
-    const agentPerformance = agentPerformanceResult[0].map(row => {
-        const closedTickets = Number(row.closedTickets) || 0;
-        const closedUserUpdates = Number(row.closedUserUpdates) || 0;
+
+    const agentPerformance = agentPerformanceResult[0].map((row) => {
+        const breakdown = closedBreakdownByAgent.get(row.agentId);
         return {
             agentName: row.agentName,
             assignedTickets: Number(row.assignedTickets) || 0,
-            closedTickets,
-            closedUserUpdates,
-            closedProductive: Math.max(0, closedTickets - closedUserUpdates),
+            closedTickets: Number(row.closedTickets) || 0,
             agentId: row.agentId,
+            titleBreakdown: breakdown
+                ? {
+                      items: breakdown.items,
+                      othersCount: breakdown.othersCount,
+                      label: breakdown.label,
+                  }
+                : null,
         };
     });
 
-    // Estructura final de respuesta
-    const metrics = {
-        ticketsByStatus: ticketsByStatusResult[0] || [],
-        ticketsByPriority: ticketsByPriorityResult[0] || [],
-        ticketsByDepartment: ticketsByDepartmentResult[0] || [],
-        agentPerformance: agentPerformance,
-        agentResolutionTimes: agentResolutionTimes,
-        ticketsByCategory: ticketsByCategoryResult[0] || [],
-        topClients: topClientsResult[0] || [],
-        ticketsByHour: ticketsByHourResult[0] || [],
-        // 'companyReport' lo quitamos para simplificar
-    };
-    
-    res.status(200).json({ success: true, data: metrics });
+    res.status(200).json({
+        success: true,
+        data: {
+            ticketsByStatus: ticketsByStatusResult[0] || [],
+            ticketsByPriority: ticketsByPriorityResult[0] || [],
+            ticketsByDepartment: ticketsByDepartmentResult[0] || [],
+            agentPerformance,
+            agentResolutionTimes,
+            ticketsByCategory: ticketsByCategoryResult[0] || [],
+            topClients: topClientsResult[0] || [],
+            ticketsByHour: ticketsByHourResult[0] || [],
+        },
+    });
 });
 
 module.exports = {
