@@ -9,7 +9,7 @@ import { formatLocalDate } from '../utils/dateFormatter';
 import CommentForm from '../components/Common/CommentForm';
 import CommentBody from '../components/Common/CommentBody';
 import { isInternalComment } from '../utils/commentHtml';
-import { postTicketComment } from '../utils/ticketComments';
+import { postTicketComment, commentErrorMessage } from '../utils/ticketComments';
 import ContactPhoneRow from '../components/Common/ContactPhoneRow';
 import { InternalTaskBadge, isTicketInternalTask } from '../components/Tickets/InternalTaskBadge';
 import TicketWorklogSidebar from '../components/Tickets/TicketWorklogSidebar';
@@ -79,8 +79,8 @@ const AdminTicketDetailPage: React.FC = () => {
             await postTicketComment(ticket.id, commentText, isInternal, images);
             toast.success('Comentario añadido exitosamente.');
             fetchTicketDetails();
-        } catch {
-            toast.error('Error al añadir el comentario.');
+        } catch (err) {
+            toast.error(commentErrorMessage(err));
         }
     };
     

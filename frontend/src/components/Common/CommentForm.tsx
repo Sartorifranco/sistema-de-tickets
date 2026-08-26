@@ -38,7 +38,10 @@ const CommentForm: React.FC<CommentFormProps> = ({ onAddComment, userRole }) => 
     };
 
     const handleImageSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
-        const files = Array.from(e.target.files || []).filter((f) => f.type.startsWith('image/'));
+        // Algunos navegadores no reportan MIME para HEIC/HEIF: se acepta por extensión.
+        const files = Array.from(e.target.files || []).filter(
+            (f) => f.type.startsWith('image/') || /\.(heic|heif|avif)$/i.test(f.name)
+        );
         if (files.length === 0) return;
         setPendingImages((prev) => [...prev, ...files].slice(0, 5));
         e.target.value = '';
@@ -118,7 +121,7 @@ const CommentForm: React.FC<CommentFormProps> = ({ onAddComment, userRole }) => 
                 <input
                     ref={fileInputRef}
                     type="file"
-                    accept="image/jpeg,image/png,image/gif,image/webp"
+                    accept="image/jpeg,image/png,image/gif,image/webp,image/heic,image/heif,image/avif,.heic,.heif,.avif"
                     multiple
                     className="hidden"
                     onChange={handleImageSelect}

@@ -142,6 +142,11 @@ app.use((err, req, res, next) => {
     }
     const statusCode = res.statusCode >= 400 ? res.statusCode : 500;
     const message = err.message || 'Error interno del servidor.';
+    if (statusCode >= 500) {
+        console.error(`[API ERROR] ${statusCode} ${req.method} ${req.originalUrl}: ${message}`, err.stack || '');
+    } else {
+        console.warn(`[API] ${statusCode} ${req.method} ${req.originalUrl}: ${message}`);
+    }
     if (req.path.startsWith('/api')) {
         return res.status(statusCode).json({ success: false, message });
     }

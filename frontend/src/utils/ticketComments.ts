@@ -1,4 +1,14 @@
+import axios from 'axios';
 import api from '../config/axiosConfig';
+
+/** Mensaje del backend (formato no soportado, límite de archivos, etc.) o el genérico. */
+export function commentErrorMessage(err: unknown, fallback = 'Error al añadir el comentario.'): string {
+    if (axios.isAxiosError(err)) {
+        const serverMessage = (err.response?.data as { message?: string } | undefined)?.message;
+        if (serverMessage) return serverMessage;
+    }
+    return fallback;
+}
 
 export async function postTicketComment(
     ticketId: number,

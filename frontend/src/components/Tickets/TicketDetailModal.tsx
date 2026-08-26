@@ -11,7 +11,7 @@ import ContactPhoneRow from '../Common/ContactPhoneRow';
 import CommentForm from '../Common/CommentForm';
 import CommentBody from '../Common/CommentBody';
 import { isInternalComment } from '../../utils/commentHtml';
-import { postTicketComment } from '../../utils/ticketComments';
+import { postTicketComment, commentErrorMessage } from '../../utils/ticketComments';
 import { InternalTaskBadge, isTicketInternalTask } from './InternalTaskBadge';
 import { staffAssignableUsers } from '../../utils/ticketAccess';
 
@@ -127,8 +127,8 @@ const TicketDetailModal: React.FC<TicketDetailModalProps> = ({ isOpen, onClose, 
             await postTicketComment(ticket.id, commentText, isInternal, images);
             addNotification('Comentario añadido.', 'success');
             fetchComments();
-        } catch {
-            addNotification('Error al añadir comentario.', 'error');
+        } catch (err) {
+            addNotification(commentErrorMessage(err, 'Error al añadir comentario.'), 'error');
         }
     };
 

@@ -9,7 +9,7 @@ import { formatLocalDate } from '../utils/dateFormatter';
 import CommentForm from '../components/Common/CommentForm';
 import CommentBody from '../components/Common/CommentBody';
 import { isInternalComment } from '../utils/commentHtml';
-import { postTicketComment } from '../utils/ticketComments';
+import { postTicketComment, commentErrorMessage } from '../utils/ticketComments';
 import { clCard } from '../utils/cleanLightUi';
 
 const Badge: React.FC<{ color: string; children: React.ReactNode }> = ({ color, children }) => (
@@ -60,8 +60,8 @@ const ClientTicketDetailPage: React.FC = () => {
             }
 
             fetchTicketDetails();
-        } catch {
-            toast.error('Error al añadir comentario.');
+        } catch (err) {
+            toast.error(commentErrorMessage(err, 'Error al añadir comentario.'));
         }
     };
 

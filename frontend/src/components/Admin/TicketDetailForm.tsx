@@ -10,7 +10,7 @@ import { staffAssignableUsers } from '../../utils/ticketAccess';
 import CommentForm from '../Common/CommentForm';
 import CommentBody from '../Common/CommentBody';
 import { isInternalComment } from '../../utils/commentHtml';
-import { postTicketComment } from '../../utils/ticketComments';
+import { postTicketComment, commentErrorMessage } from '../../utils/ticketComments';
 
 interface TicketDetailFormProps {
     ticket: TicketData;
@@ -98,8 +98,8 @@ const TicketDetailForm: React.FC<TicketDetailFormProps> = ({ ticket, onSave, onC
             await postTicketComment(ticket.id, commentText, isInternal, images);
             addNotification('Comentario añadido.', 'success');
             fetchComments();
-        } catch {
-            addNotification('Error al añadir comentario.', 'error');
+        } catch (err) {
+            addNotification(commentErrorMessage(err, 'Error al añadir comentario.'), 'error');
         }
     };
 

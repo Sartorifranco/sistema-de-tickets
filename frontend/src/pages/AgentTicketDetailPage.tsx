@@ -10,7 +10,7 @@ import { formatLocalDate } from '../utils/dateFormatter';
 import CommentForm from '../components/Common/CommentForm';
 import CommentBody from '../components/Common/CommentBody';
 import { isInternalComment } from '../utils/commentHtml';
-import { postTicketComment } from '../utils/ticketComments';
+import { postTicketComment, commentErrorMessage } from '../utils/ticketComments';
 import ContactPhoneRow from '../components/Common/ContactPhoneRow';
 import TicketWorklogSidebar from '../components/Tickets/TicketWorklogSidebar';
 import { staffAssignableUsers, ticketRequiresRealHoursForClosure } from '../utils/ticketAccess';
@@ -94,8 +94,8 @@ const AgentTicketDetailPage: React.FC = () => {
             await postTicketComment(ticket.id, commentText, isInternal, images);
             toast.success(isInternal ? 'Nota interna añadida.' : 'Comentario añadido.');
             await fetchAllData();
-        } catch {
-            toast.error('Error al añadir comentario.');
+        } catch (err) {
+            toast.error(commentErrorMessage(err, 'Error al añadir comentario.'));
         }
     };
 

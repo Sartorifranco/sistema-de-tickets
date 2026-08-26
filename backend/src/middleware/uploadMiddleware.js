@@ -34,7 +34,8 @@ const upload = multer({
 
         // 1. Definir extensiones permitidas (incluyendo el punto)
         const allowedExts = [
-            '.jpeg', '.jpg', '.png', '.gif', 
+            '.jpeg', '.jpg', '.png', '.gif',
+            '.webp', '.heic', '.heif', '.avif', // Capturas de pantalla y fotos de iPhone
             '.pdf', '.doc', '.docx', '.xls', '.xlsx',
             '.mp4', '.mov', '.avi', '.wmv', '.mkv' // Extensiones de video
         ];
@@ -44,6 +45,10 @@ const upload = multer({
             'image/jpeg',
             'image/png',
             'image/gif',
+            'image/webp',
+            'image/heic',
+            'image/heif',
+            'image/avif',
             'application/pdf',
             'application/msword', // .doc
             'application/vnd.openxmlformats-officedocument.wordprocessingml.document', // .docx
@@ -61,15 +66,53 @@ const upload = multer({
         const extMatch = allowedExts.includes(ext);
         const mimeMatch = allowedMimeTypes.includes(file.mimetype);
 
-        if (extMatch && mimeMatch) {
+        // Algunos navegadores no reportan MIME para HEIC/HEIF: alcanza la extensión.
+        const genericMime = !file.mimetype || file.mimetype === 'application/octet-stream';
+
+        if (extMatch && (mimeMatch || genericMime)) {
             // Archivo aceptado
             return cb(null, true);
         }
         
         // Archivo rechazado
-        cb(new Error('Error: Tipo de archivo no soportado. (' + file.mimetype + ')'));
+        cb(new Error(`El archivo "${file.originalname}" no tiene un formato soportado (${file.mimetype || 'desconocido'}).`));
     }
 });
+
+/**
+ * Traduce los errores de multer a un mensaje entendible para el usuario.
+ */
+const describeUploadError = (err, maxFiles) => {
+    if (err instanceof multer.MulterError) {
+        switch (err.code) {
+            case 'LIMIT_FILE_SIZE':
+                return 'Cada archivo puede pesar hasta 50 MB.';
+            case 'LIMIT_FILE_COUNT':
+            case 'LIMIT_UNEXPECTED_FILE':
+                return maxFiles
+                    ? `Se pueden adjuntar hasta ${maxFiles} archivos por vez.`
+                    : 'Se adjuntaron más archivos de los permitidos.';
+            case 'LIMIT_FIELD_VALUE':
+                return 'El texto es demasiado largo. Probá con menos contenido pegado.';
+            default:
+                return `No se pudo procesar el adjunto (${err.code}).`;
+        }
+    }
+    return err.message || 'No se pudo procesar el adjunto.';
+};
+
+/**
+ * Envuelve un middleware de multer para responder 400 con el motivo real
+ * en lugar de un 500 sin información.
+ */
+const withUploadErrors = (middleware, maxFiles) => (req, res, next) => {
+    middleware(req, res, (err) => {
+        if (!err) return next();
+        console.error(`[Upload] ${req.method} ${req.originalUrl} rechazado:`, err.message);
+        res.status(400);
+        next(new Error(describeUploadError(err, maxFiles)));
+    });
+};
 
 // Multer en memoria para Firebase Storage (facturas de proveedores)
 const memoryStorage = multer.memoryStorage();
@@ -97,3 +140,4 @@ const uploadBudgetPdf = multer({
 module.exports = upload;
 module.exports.uploadToMemory = uploadToMemory;
 module.exports.uploadBudgetPdf = uploadBudgetPdf;
+module.exports.withUploadErrors = withUploadErrors;

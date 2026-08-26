@@ -20,6 +20,9 @@ const {
 const { authenticateToken, authorize, authorizeAccess } = require('../middleware/authMiddleware');
 const { PERMISSION_KEYS: P } = require('../constants/permissions');
 const upload = require('../middleware/uploadMiddleware');
+const { withUploadErrors } = require('../middleware/uploadMiddleware');
+
+const MAX_COMMENT_IMAGES = 5;
 
 router.use(authenticateToken);
 
@@ -30,7 +33,7 @@ router
     .route('/')
     .get(authorizeAccess(['admin', 'agent', 'client', 'boss', 'purchasing'], { adminPermissions: [P.TICKETS_VIEW] }), getTickets)
     .post(
-        upload.array('attachments'),
+        withUploadErrors(upload.array('attachments')),
         authorize(['client', 'admin', 'agent', 'boss', 'purchasing']),
         createTicket
     );
@@ -67,7 +70,7 @@ router
         getTicketComments
     )
     .post(
-        upload.array('images', 5),
+        withUploadErrors(upload.array('images', MAX_COMMENT_IMAGES), MAX_COMMENT_IMAGES),
         authorize(['admin', 'agent', 'client', 'boss', 'purchasing']),
         addCommentToTicket
     );
