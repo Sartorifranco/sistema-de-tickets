@@ -100,7 +100,7 @@ const DepositaryMap: React.FC = () => {
                                 {point.mapStatus === 'yellow' && (
                                     <div className="bg-yellow-100 border-l-4 border-yellow-500 text-yellow-800 px-3 py-2 rounded mb-3 text-sm">
                                         <div className="font-bold">⚠️ ALERTA</div>
-                                        <span className="block text-xs mt-1">Mantenimiento hace +15 días.</span>
+                                        <span className="block text-xs mt-1">Mantenimiento hace +20 días.</span>
                                     </div>
                                 )}
                                 {point.mapStatus === 'green' && (

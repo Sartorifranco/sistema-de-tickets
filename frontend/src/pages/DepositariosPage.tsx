@@ -18,7 +18,7 @@ const getMaintenanceCardClass = (lastMaintenance: string | null | undefined): st
     today.setHours(0, 0, 0, 0);
     last.setHours(0, 0, 0, 0);
     const daysSince = Math.floor((today.getTime() - last.getTime()) / (1000 * 60 * 60 * 24));
-    if (daysSince <= 15) return 'border-t-4 border-green-500 bg-green-50';
+    if (daysSince < 20) return 'border-t-4 border-green-500 bg-green-50';
     if (daysSince <= 30) return 'border-t-4 border-yellow-500 bg-yellow-50';
     return 'border-t-4 border-red-500 bg-red-50';
 };

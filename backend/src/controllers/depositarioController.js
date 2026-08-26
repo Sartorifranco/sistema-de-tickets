@@ -119,7 +119,7 @@ const getMapData = asyncHandler(async (req, res) => {
             }
             if (tickets > 0) status = 'red'; 
             else if (daysPassed >= 30) status = 'red'; 
-            else if (daysPassed >= 15) status = 'yellow'; 
+            else if (daysPassed >= 20) status = 'yellow'; 
             const urgencyScore = (tickets * 1000) + daysPassed;
             return { ...depo, daysPassed, open_tickets_count: tickets, mapStatus: status, urgencyScore };
         });
