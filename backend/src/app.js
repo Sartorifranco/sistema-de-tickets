@@ -163,6 +163,17 @@ app.get('*', (req, res) => {
   res.sendFile(path.resolve(__dirname, '../../frontend/build', 'index.html'));
 });
 
+// --- 8b. CAÍDAS DEL PROCESO (deja rastro en el log antes de que PM2 reinicie) ---
+process.on('unhandledRejection', (reason) => {
+    const err = reason instanceof Error ? reason : new Error(String(reason));
+    console.error('[CRASH EVITADO] Promesa rechazada sin manejar:', err.message, err.stack || '');
+});
+
+process.on('uncaughtException', (err) => {
+    console.error('[CRASH] Excepción no capturada:', err.message, err.stack || '');
+    process.exit(1);
+});
+
 // --- 9. INICIO DEL SERVIDOR ---
 const PORT = process.env.PORT || 5040;
 server.listen(PORT, '0.0.0.0', () => {
