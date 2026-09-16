@@ -1,5 +1,6 @@
 const cron = require('node-cron');
-const pool = require('../config/db'); // ✅ CORRECCIÓN APLICADA AQUÍ
+const pool = require('../config/db');
+const { closeResolvedTicketDueToInactivity } = require('./ticketAutoClose');
 
 console.log('Módulo de tareas programadas (cron) inicializado.');
 
@@ -10,7 +11,10 @@ const closeOldResolvedTickets = async () => {
         connection = await pool.getConnection();
 
         const [ticketsToClose] = await connection.execute(
-            `SELECT id, user_id FROM tickets WHERE status = 'resolved' AND updated_at < NOW() - INTERVAL 48 HOUR`
+            `SELECT t.id, t.user_id, t.title, t.assigned_to_user_id, u.email AS requester_email
+             FROM tickets t
+             LEFT JOIN users u ON t.user_id = u.id
+             WHERE t.status = 'resolved' AND t.updated_at < NOW() - INTERVAL 48 HOUR`
         );
 
         if (ticketsToClose.length === 0) {
@@ -21,17 +25,7 @@ const closeOldResolvedTickets = async () => {
         console.log(`[Cron Job] Se encontraron ${ticketsToClose.length} tickets para cerrar.`);
 
         for (const ticket of ticketsToClose) {
-            // ✅ CORRECCIÓN: Se añade 'closure_reason' a la consulta UPDATE.
-            await connection.execute(
-                `UPDATE tickets SET status = 'closed', closure_reason = 'AUTO_INACTIVITY' WHERE id = ?`,
-                [ticket.id]
-            );
-
-            const commentText = 'Este ticket ha sido cerrado automáticamente después de 48 horas sin actividad en estado "Resuelto".';
-            await connection.execute(
-                'INSERT INTO comments (ticket_id, user_id, comment_text, is_internal) VALUES (?, ?, ?, ?)',
-                [ticket.id, null, commentText, false]
-            );
+            await closeResolvedTicketDueToInactivity(ticket, connection);
         }
 
         console.log(`[Cron Job] Tarea completada. Se cerraron ${ticketsToClose.length} tickets.`);
@@ -50,4 +44,4 @@ const startCronJobs = () => {
     cronTask.start();
 };
 
-module.exports = { startCronJobs };
+module.exports = { startCronJobs, closeOldResolvedTickets };

@@ -6,7 +6,8 @@
   "scripts": {
     "start": "node src/app.js",
     "dev": "nodemon src/app.js",
-    "seed": "node seeders/seed.js"
+    "seed": "node seeders/seed.js",
+    "test:bacarnet": "node scripts/test-bacarnet-integration.js"
   },
   "keywords": [],
   "author": "",

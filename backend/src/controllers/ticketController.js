@@ -10,6 +10,7 @@ const {
     getTicketAssignees,
     enrichTicketsWithAssignees,
 } = require('../utils/ticketAssignees');
+const { notifyBacarnetTicketStatusChangeSafe } = require('../services/bacarnetWebhookService');
 
 function parseOptionalDecimal(value) {
     if (value === undefined || value === null || value === '') return null;
@@ -561,9 +562,11 @@ const updateTicketStatus = asyncHandler(async (req, res) => {
 
     const [tickets] = await pool.execute(
         `SELECT t.user_id, t.assigned_to_user_id, t.title, t.status, t.horas_reales, t.es_tarea_interna,
-                d.name AS department_name
+                d.name AS department_name,
+                u.email AS requester_email
          FROM tickets t
          LEFT JOIN departments d ON t.department_id = d.id
+         LEFT JOIN users u ON t.user_id = u.id
          WHERE t.id = ?`,
         [ticketId]
     );
@@ -625,6 +628,19 @@ const updateTicketStatus = asyncHandler(async (req, res) => {
     }
 
     req.io.to('admin').to('agent').emit('dashboard_update', { message: `Estado del ticket #${ticketId} actualizado` });
+
+    const webhookSource = ['client', 'boss', 'purchasing'].includes(userRole) ? 'client' : 'agent';
+    notifyBacarnetTicketStatusChangeSafe({
+        stTicketId: ticketId,
+        status: newStatus,
+        previousStatus: ticket.status,
+        requesterEmail: ticket.requester_email || null,
+        title: ticket.title,
+        assignedToUserId: ticket.assigned_to_user_id,
+        changedAt: new Date().toISOString(),
+        source: webhookSource,
+    });
+
     res.status(200).json({ success: true, message: `El estado del ticket se actualizó a '${newStatus}'.` });
 });
 

@@ -107,6 +107,8 @@ app.use('/api/suppliers', require('./routes/supplierRoutes'));
 app.use('/api/system-modules', require('./routes/systemModuleRoutes'));
 
 // ✅ RUTAS PÚBLICAS (Para registro sin token)
+app.use('/api/integrations/bacarnet', require('./routes/bacarnetIntegrationRoutes'));
+
 app.use('/api/public', require('./routes/publicDataRoutes'));
 
 // ✅ RUTAS DE ADMINISTRACIÓN (Problemáticas y Ubicaciones)
