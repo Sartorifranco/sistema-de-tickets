@@ -1,19 +1,4 @@
-const nodemailer = require('nodemailer');
-require('dotenv').config();
-
-const transporter = nodemailer.createTransport({
-    host: process.env.EMAIL_HOST,
-    port: process.env.EMAIL_PORT,
-    secure: process.env.EMAIL_PORT == 465,
-    auth: {
-        user: process.env.EMAIL_USER,
-        pass: process.env.EMAIL_PASS,
-    },
-});
-
-function isEmailConfigured() {
-    return !!(process.env.EMAIL_HOST && process.env.EMAIL_USER && process.env.EMAIL_PASS);
-}
+const { isEmailConfigured, sendMailWithRetry } = require('../config/mailTransport');
 
 const sendActivationEmail = async (to, token) => {
     if (!isEmailConfigured()) {
@@ -43,14 +28,13 @@ const sendActivationEmail = async (to, token) => {
         `,
     };
 
-    try {
-        await transporter.sendMail(mailOptions);
+    const result = await sendMailWithRetry(mailOptions);
+    if (result.ok) {
         console.log(`[EmailService] Correo de activación enviado a ${to}`);
-        return { ok: true };
-    } catch (error) {
-        console.error('[EmailService] Error al enviar el correo de activación:', error.message);
-        return { ok: false, error: error.message };
+    } else {
+        console.error('[EmailService] Error al enviar el correo de activación:', result.error);
     }
+    return result;
 };
 
 const sendWelcomeEmail = async (to, username) => {
@@ -78,14 +62,13 @@ const sendWelcomeEmail = async (to, username) => {
         `,
     };
 
-    try {
-        await transporter.sendMail(mailOptions);
+    const result = await sendMailWithRetry(mailOptions);
+    if (result.ok) {
         console.log(`[EmailService] Correo de bienvenida enviado a ${to}`);
-        return { ok: true };
-    } catch (error) {
-        console.error('[EmailService] Error al enviar el correo de bienvenida:', error.message);
-        return { ok: false, error: error.message };
+    } else {
+        console.error('[EmailService] Error al enviar el correo de bienvenida:', result.error);
     }
+    return result;
 };
 
 const sendSupplierInvitationEmail = async (to, companyName, invitationUrl) => {
@@ -111,14 +94,14 @@ const sendSupplierInvitationEmail = async (to, companyName, invitationUrl) => {
             </div>
         `,
     };
-    try {
-        await transporter.sendMail(mailOptions);
+
+    const result = await sendMailWithRetry(mailOptions);
+    if (result.ok) {
         console.log(`[EmailService] Invitación enviada a proveedor ${to}`);
-        return { ok: true };
-    } catch (error) {
-        console.error('[EmailService] Error al enviar invitación:', error.message);
-        return { ok: false, error: error.message };
+    } else {
+        console.error('[EmailService] Error al enviar invitación:', result.error);
     }
+    return result;
 };
 
 module.exports = {

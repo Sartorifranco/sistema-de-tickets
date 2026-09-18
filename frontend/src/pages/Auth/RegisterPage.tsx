@@ -126,15 +126,15 @@ const RegisterPage: React.FC = () => {
                         <div className="text-center">
                             <h2 className="mb-4 text-2xl font-bold text-emerald-600">¡Registro exitoso!</h2>
                             <p className="text-slate-700">
-                                Hemos enviado un correo electrónico a <strong>{formData.email}</strong>.
+                                Tu cuenta con <strong>{formData.email}</strong> ya está lista.
                             </p>
-                            <p className="mt-2 text-slate-700">Por favor, seguí las instrucciones para activar tu cuenta.</p>
+                            <p className="mt-2 text-slate-700">Podés iniciar sesión con tu email y la contraseña que elegiste.</p>
                             <button
                                 type="button"
                                 onClick={() => navigate('/login')}
                                 className="mt-8 w-full rounded-xl bg-[#DC2626] py-3 font-semibold text-white shadow-sm transition-colors hover:bg-[#B91C1C] focus:outline-none focus:ring-2 focus:ring-[#DC2626] focus:ring-offset-2"
                             >
-                                Volver al inicio de sesión
+                                Ir a iniciar sesión
                             </button>
                         </div>
                     ) : (

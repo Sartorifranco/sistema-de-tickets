@@ -2,7 +2,7 @@ const asyncHandler = require('express-async-handler');
 const crypto = require('crypto');
 const pool = require('../config/db');
 const bcrypt = require('bcryptjs');
-const { sendActivationEmail, sendWelcomeEmail } = require('../services/emailService');
+const { sendWelcomeEmail } = require('../services/emailService');
 
 // @desc    Crear nuevo usuario (por Admin)
 const createUser = asyncHandler(async (req, res) => {
@@ -105,7 +105,7 @@ const createUser = asyncHandler(async (req, res) => {
     });
 });
 
-// @desc    Reenviar correo de activación (admin)
+// @desc    Activar cuenta pendiente (admin; ya no depende de correo)
 const resendUserActivation = asyncHandler(async (req, res) => {
     const email = String(req.body.email || '')
         .trim()
@@ -114,10 +114,7 @@ const resendUserActivation = asyncHandler(async (req, res) => {
         return res.status(400).json({ success: false, message: 'Indicá el email del usuario.' });
     }
 
-    const [rows] = await pool.execute(
-        'SELECT id, username, is_active FROM users WHERE email = ?',
-        [email]
-    );
+    const [rows] = await pool.execute('SELECT id, is_active FROM users WHERE email = ?', [email]);
     if (!rows.length) {
         return res.status(404).json({ success: false, message: 'No hay usuario con ese email.' });
     }
@@ -125,30 +122,18 @@ const resendUserActivation = asyncHandler(async (req, res) => {
     if (user.is_active) {
         return res.status(400).json({
             success: false,
-            message: 'El usuario ya está activo. Puede iniciar sesión o usar "olvidé mi contraseña" si corresponde.',
+            message: 'El usuario ya está activo. Puede iniciar sesión.',
         });
     }
 
-    const activationToken = crypto.randomBytes(32).toString('hex');
-    const activationTokenExpires = new Date(Date.now() + 8 * 60 * 60 * 1000);
     await pool.execute(
-        'UPDATE users SET activation_token = ?, activation_token_expires = ? WHERE id = ?',
-        [activationToken, activationTokenExpires, user.id]
+        'UPDATE users SET is_active = 1, activation_token = NULL, activation_token_expires = NULL WHERE id = ?',
+        [user.id]
     );
-
-    const mail = await sendActivationEmail(email, activationToken);
-    if (!mail.ok) {
-        return res.status(503).json({
-            success: false,
-            message:
-                'No se pudo enviar el correo. Verificá EMAIL_HOST, EMAIL_USER y EMAIL_PASS en el servidor, o activá el usuario manualmente.',
-            detail: mail.error,
-        });
-    }
 
     return res.status(200).json({
         success: true,
-        message: `Correo de activación reenviado a ${email}.`,
+        message: `Cuenta activada para ${email}. Ya puede iniciar sesión.`,
     });
 });
 

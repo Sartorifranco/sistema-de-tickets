@@ -2,9 +2,16 @@ const pool = require('../config/db');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const asyncHandler = require('express-async-handler');
-const crypto = require('crypto');
-const { sendActivationEmail, sendWelcomeEmail } = require('../services/emailService');
+const { sendWelcomeEmail } = require('../services/emailService');
 const { buildAuthUserPayload } = require('../services/userPermissionsService');
+
+function sendWelcomeEmailOptional(email, username) {
+    sendWelcomeEmail(email, username).then((result) => {
+        if (!result?.ok) {
+            console.warn('[Auth] Correo de bienvenida no enviado (opcional):', result?.error || 'error desconocido');
+        }
+    });
+}
 
 // ✅ --- registerUser (VERSIÓN MEJORADA) ---
 // Ahora genera el username automáticamente en formato camelCase y asegura que sea único.
@@ -42,8 +49,6 @@ const registerUser = asyncHandler(async (req, res) => {
 
     const salt = await bcrypt.genSalt(10);
     const hashedPassword = await bcrypt.hash(password, salt);
-    const activationToken = crypto.randomBytes(32).toString('hex');
-    const activationTokenExpires = new Date(Date.now() + 8 * 60 * 60 * 1000);
 
     if (existingEmailRows.length > 0) {
         const existing = existingEmailRows[0];
@@ -54,40 +59,25 @@ const registerUser = asyncHandler(async (req, res) => {
                 code: 'EMAIL_IN_USE',
             });
         }
+        const [userRow] = await pool.execute('SELECT username FROM users WHERE id = ?', [existing.id]);
+        const recoveredUsername = userRow[0]?.username || username;
         await pool.execute(
             `UPDATE users SET password = ?, company_id = ?, department_id = ?, first_name = ?, last_name = ?,
-             activation_token = ?, activation_token_expires = ?, is_active = 0
+             activation_token = NULL, activation_token_expires = NULL, is_active = 1
              WHERE id = ?`,
-            [
-                hashedPassword,
-                company_id,
-                department_id,
-                firstName,
-                lastName,
-                activationToken,
-                activationTokenExpires,
-                existing.id,
-            ]
+            [hashedPassword, company_id, department_id, firstName, lastName, existing.id]
         );
-        const mail = await sendActivationEmail(emailNorm, activationToken);
-        if (!mail.ok) {
-            return res.status(503).json({
-                success: false,
-                message:
-                    'Tu registro quedó guardado pero no pudimos enviar el email. Pedí al administrador que reenvíe la activación.',
-                code: 'EMAIL_SEND_FAILED',
-            });
-        }
+        sendWelcomeEmailOptional(emailNorm, recoveredUsername);
         return res.status(200).json({
             success: true,
-            message: 'Ya habías iniciado el registro. Te reenviamos el correo de activación.',
+            message: 'Registro completado. Ya podés iniciar sesión con tu email y contraseña.',
         });
     }
 
     const sql = `
         INSERT INTO users 
         (username, email, password, role, company_id, department_id, first_name, last_name, is_active, activation_token, activation_token_expires) 
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, NULL, NULL)
     `;
     const params = [
         username,
@@ -98,26 +88,15 @@ const registerUser = asyncHandler(async (req, res) => {
         department_id,
         firstName,
         lastName,
-        false,
-        activationToken,
-        activationTokenExpires,
+        true,
     ];
 
     await pool.execute(sql, params);
-    const mail = await sendActivationEmail(emailNorm, activationToken);
-
-    if (!mail.ok) {
-        return res.status(503).json({
-            success: false,
-            message:
-                'Tu cuenta fue creada pero no pudimos enviar el email de activación. Contactá al administrador del sistema.',
-            code: 'EMAIL_SEND_FAILED',
-        });
-    }
+    sendWelcomeEmailOptional(emailNorm, username);
 
     return res.status(201).json({
         success: true,
-        message: 'Registro exitoso. Revisá tu email (incluida la carpeta de spam) para activar tu cuenta.',
+        message: 'Registro exitoso. Ya podés iniciar sesión con tu email y contraseña.',
     });
 });
 
@@ -154,15 +133,18 @@ const loginUser = asyncHandler(async (req, res) => {
     }
     if (!user.is_active) {
         if (user.role === 'client') {
-            res.status(401);
-            throw new Error('Tu cuenta no ha sido activada. Por favor, revisa tu correo electrónico.');
-        }
-        if (user.role === 'supplier') {
+            await pool.execute(
+                'UPDATE users SET is_active = 1, activation_token = NULL, activation_token_expires = NULL WHERE id = ?',
+                [user.id]
+            );
+            user.is_active = 1;
+        } else if (user.role === 'supplier') {
             res.status(401);
             throw new Error('Debe establecer su contraseña usando el link de invitación enviado por email.');
+        } else {
+            res.status(401);
+            throw new Error('Cuenta inactiva.');
         }
-        res.status(401);
-        throw new Error('Cuenta inactiva.');
     }
     // Access token: 7 días (para llamadas a la API)
     const token = jwt.sign(

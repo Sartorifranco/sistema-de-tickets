@@ -64,8 +64,8 @@ const ActivateAccountPage: React.FC = () => {
                     <>
                         <h2 className="text-2xl font-bold text-red-600">Error de Activación</h2>
                         <p className="text-gray-700">{message}</p>
-                        <Link to="/register" className="block w-full bg-gray-300 text-gray-800 py-3 rounded-lg mt-6 hover:bg-gray-400 font-semibold">
-                            Volver al Registro
+                        <Link to="/login" className="block w-full bg-red-600 text-white py-3 rounded-lg mt-6 hover:bg-red-700 font-semibold">
+                            Ir a Iniciar Sesión
                         </Link>
                     </>
                 )}

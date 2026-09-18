@@ -116,7 +116,7 @@ const UserFormModal: React.FC<UserFormModalProps> = ({
             if (typeof data === 'object' && data?.message) {
                 msg = data.message;
             } else if (error.response?.status === 409) {
-                msg = 'El email ya está registrado. Si el usuario no activó la cuenta, volvé a crearlo con el mismo email para activarlo, o usá Reenviar activación.';
+                msg = 'El email ya está registrado. Si la cuenta quedó pendiente, el usuario puede volver a registrarse con el mismo email o iniciar sesión.';
             }
             toast.error(msg);
         } finally {

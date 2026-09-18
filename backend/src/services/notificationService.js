@@ -4,7 +4,7 @@
  * Email (Nodemailer), Push (FCM), WhatsApp (Twilio)
  */
 require('dotenv').config();
-const nodemailer = require('nodemailer');
+const { getTransporter, verifyEmailConnection, sendMailWithRetry } = require('../config/mailTransport');
 const pool = require('../config/db');
 const { admin } = require('../config/firebase');
 const { sendWebPushToUsers } = require('./webPushService');
@@ -20,17 +20,6 @@ if (process.env.TWILIO_ACCOUNT_SID && process.env.TWILIO_AUTH_TOKEN) {
         console.warn('[NotificationService] Twilio no disponible:', err.message);
     }
 }
-
-const transporter = nodemailer.createTransport({
-    host: process.env.EMAIL_HOST,
-    port: parseInt(process.env.EMAIL_PORT, 10) || 587,
-    secure: process.env.EMAIL_PORT == 465,
-    auth: {
-        user: process.env.EMAIL_USER,
-        pass: process.env.EMAIL_PASS,
-    },
-    tls: { rejectUnauthorized: true },
-});
 
 /** Normaliza número para WhatsApp: +54 9 11 1234-5678 -> whatsapp:+5491112345678 */
 const normalizeWhatsAppNumber = (num) => {
@@ -227,7 +216,7 @@ const sendPurchaseEmail = async (to, templateKey, data) => {
             return { ok: false };
         }
         const from = process.env.EMAIL_USER ? `"Compras BACAR" <${process.env.EMAIL_USER}>` : '"Compras BACAR" <noreply@bacarsa.com.ar>';
-        await transporter.sendMail({
+        await getTransporter().sendMail({
             from,
             to: String(to).trim(),
             subject: tpl.subject,
@@ -418,26 +407,6 @@ const getNotificationConfigStatus = async () => {
     return status;
 };
 
-// --- Verificar conexión SMTP (Gmail: usar contraseña de aplicación, EMAIL_PASS entre comillas si tiene espacios) ---
-const verifyEmailConnection = async () => {
-    if (!process.env.EMAIL_HOST || !process.env.EMAIL_USER || !process.env.EMAIL_PASS) {
-        return { ok: false, error: 'Faltan EMAIL_HOST, EMAIL_USER o EMAIL_PASS en .env' };
-    }
-    try {
-        await transporter.verify();
-        return { ok: true };
-    } catch (err) {
-        const msg = (err.message || '').toLowerCase();
-        let hint = '';
-        if (msg.includes('invalid login') || msg.includes('authentication failed') || msg.includes('535')) {
-            hint = ' Gmail: use contraseña de aplicación (App Password). Si tiene espacios, ponga EMAIL_PASS entre comillas en .env.';
-        } else if (msg.includes('self signed') || msg.includes('certificate')) {
-            hint = ' Problema de certificado TLS.';
-        }
-        return { ok: false, error: (err.message || 'Error SMTP') + hint };
-    }
-};
-
 // --- Enviar email de prueba ---
 const sendTestEmail = async (toEmail) => {
     const email = String(toEmail || '').trim();
@@ -454,13 +423,8 @@ const sendTestEmail = async (toEmail) => {
             </div>
         `,
     };
-    try {
-        const from = process.env.EMAIL_USER ? `"Compras BACAR" <${process.env.EMAIL_USER}>` : '"Compras BACAR"';
-        await transporter.sendMail({ from, to: email, subject: testTpl.subject, html: testTpl.html });
-        return { ok: true };
-    } catch (err) {
-        return { ok: false, error: err.message || 'Error al enviar.' };
-    }
+    const from = process.env.EMAIL_USER ? `"Compras BACAR" <${process.env.EMAIL_USER}>` : '"Compras BACAR"';
+    return sendMailWithRetry({ from, to: email, subject: testTpl.subject, html: testTpl.html });
 };
 
 // --- Enviar mensaje de prueba por WhatsApp ---
