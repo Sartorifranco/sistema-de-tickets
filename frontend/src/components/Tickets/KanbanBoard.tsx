@@ -88,8 +88,9 @@ const KanbanCard: React.FC<{
                 isDragging ? 'opacity-90 shadow-lg ring-2 ring-blue-100 z-50' : ''
             }`}
         >
-            <Link to={`/admin/tickets/${ticket.id}`} className="block" onClick={(e) => isDragging && e.preventDefault()}>
-                <h4 className="font-bold text-gray-800 truncate mb-2" title={ticket.title}>
+            <Link to={`/admin/tickets/${ticket.id}`} className="block min-w-0" onClick={(e) => isDragging && e.preventDefault()}>
+                <h4 className="font-bold text-gray-800 break-words mb-2 leading-snug" title={ticket.title}>
+                    <span className="text-gray-400 font-semibold mr-1">#{ticket.id}</span>
                     {ticket.title}
                 </h4>
                 <div className="flex flex-wrap gap-1 mb-2 items-center">
@@ -98,7 +99,7 @@ const KanbanCard: React.FC<{
                     </span>
                     {isTicketInternalTask(ticket) && <InternalTaskBadge />}
                 </div>
-                <p className="text-sm text-gray-500 truncate mb-1">{ticket.client_name || '—'}</p>
+                <p className="text-sm text-gray-500 break-words mb-1">{ticket.client_name || '—'}</p>
                 <p className="text-xs text-gray-400">{formatShortDate(ticket.created_at)}</p>
             </Link>
         </div>
@@ -115,7 +116,7 @@ const DroppableColumn: React.FC<{
     return (
         <div
             ref={setNodeRef}
-            className={`flex-shrink-0 w-72 rounded-2xl border border-gray-100 bg-gray-50/90 p-4 min-h-[200px] transition-colors shadow-sm ${
+            className={`min-w-0 w-full rounded-2xl border border-gray-100 bg-gray-50/90 p-4 min-h-[200px] transition-colors shadow-sm ${
                 isOver ? 'ring-2 ring-blue-200 bg-blue-50/60' : ''
             }`}
         >
@@ -173,7 +174,8 @@ const KanbanBoard: React.FC<KanbanBoardProps> = ({ tickets, onUpdateTicketStatus
 
     return (
         <DndContext sensors={sensors} onDragEnd={handleDragEnd}>
-            <div className="flex gap-4 overflow-x-auto pb-4">
+            {/* Grilla responsive: 1 columna en móvil, 2 en tablet, 4 en escritorio ancho (sin scroll horizontal) */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4 pb-2">
                 {KANBAN_COLUMNS.map((col) => (
                     <DroppableColumn
                         key={col.id}

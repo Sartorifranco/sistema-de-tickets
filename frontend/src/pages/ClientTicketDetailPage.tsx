@@ -124,7 +124,7 @@ const ClientTicketDetailPage: React.FC = () => {
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                 <div className={`lg:col-span-2 ${clCard} p-6`}>
                     <h2 className="text-xl font-bold text-gray-800 mb-4 border-b border-gray-100 pb-2">Descripción</h2>
-                    <p className="text-gray-700 whitespace-pre-wrap">{ticket.description}</p>
+                    <p className="text-gray-700 whitespace-pre-wrap break-words">{ticket.description}</p>
                 </div>
 
                 <div className={`lg:col-span-1 ${clCard} p-6 flex flex-col`}>
@@ -148,7 +148,7 @@ const ClientTicketDetailPage: React.FC = () => {
                                 .map(comment => (
                                     <div key={comment.id} className={`flex flex-col ${comment.user_id === user?.id ? 'items-end' : 'items-start'}`}>
                                         <div
-                                            className={`p-4 rounded-xl max-w-lg border ${
+                                            className={`p-4 rounded-xl max-w-lg min-w-0 break-words border ${
                                                 comment.user_id === user?.id
                                                     ? 'bg-gray-50 border-gray-100'
                                                     : 'bg-white border-gray-200 shadow-sm'

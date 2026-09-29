@@ -6,6 +6,13 @@ export const clTh =
 export const clThRight =
     'px-6 py-3.5 text-right text-xs font-semibold uppercase tracking-wider text-gray-500';
 export const clTd = 'px-6 py-4 align-top text-sm text-gray-900';
+
+/** Variantes compactas para tablas densas (evitan scroll horizontal). */
+export const clThCompact =
+    'px-3 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-500';
+export const clThCompactRight =
+    'px-3 py-3 text-right text-xs font-semibold uppercase tracking-wider text-gray-500';
+export const clTdCompact = 'px-3 py-3 align-top text-sm text-gray-900 break-words';
 export const clCard = 'bg-white rounded-2xl border border-gray-100 shadow-sm';
 
 /** Panel interior de modales (overlay oscuro se mantiene fuera). */

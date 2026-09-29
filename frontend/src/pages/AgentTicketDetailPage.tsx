@@ -148,7 +148,7 @@ const AgentTicketDetailPage: React.FC = () => {
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
                             <div>
                                 <strong className="block text-sm text-gray-500">Cliente</strong>
-                                <p className="text-lg">{ticket.client_name}</p>
+                                <p className="text-lg break-words">{ticket.client_name}</p>
                             </div>
                             <ContactPhoneRow phone={ticket.telefono_contacto} className="text-lg" />
                             <div>
@@ -167,7 +167,7 @@ const AgentTicketDetailPage: React.FC = () => {
                             </div>
                             <div className="sm:col-span-2">
                                 <strong className="block text-sm text-gray-500">Descripción</strong>
-                                <p className="whitespace-pre-wrap mt-1 p-3 bg-gray-50 rounded-md border">{ticket.description}</p>
+                                <p className="whitespace-pre-wrap break-words mt-1 p-3 bg-gray-50 rounded-md border">{ticket.description}</p>
                             </div>
                         </div>
                     </div>

@@ -181,7 +181,7 @@ const AdminTicketDetailPage: React.FC = () => {
                         <div className={`${clCard} p-6`}>
                             <h2 className="text-xl font-bold text-gray-800 mb-4 border-b border-gray-100 pb-2">Detalles del Ticket</h2>
                             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
-                                <div><strong className="block text-gray-500">Cliente:</strong> {ticket.client_name}</div>
+                                <div className="min-w-0 break-words"><strong className="block text-gray-500">Cliente:</strong> {ticket.client_name}</div>
                                 <ContactPhoneRow phone={ticket.telefono_contacto} />
                                 <div><strong className="block text-gray-500">Departamento:</strong> {ticket.ticket_department_name ? `${ticket.ticket_department_name} (${ticket.department_id})` : ticket.department_id}</div>
                                 <div><strong className="block text-gray-500">Categoría:</strong> {ticket.ticket_category_name || 'N/A'}</div>
@@ -191,7 +191,7 @@ const AdminTicketDetailPage: React.FC = () => {
                                 {ticket.github_repo && String(ticket.github_repo).trim() !== '' ? (
                                     <div>
                                         <strong className="block text-gray-500">Repo GitHub:</strong>{' '}
-                                        <span className="font-mono text-sm">{String(ticket.github_repo).trim()}</span>
+                                        <span className="font-mono text-sm break-all">{String(ticket.github_repo).trim()}</span>
                                     </div>
                                 ) : null}
                                 <div><strong className="block text-gray-500">Creado:</strong> {formatLocalDate(ticket.created_at)}</div>
@@ -212,7 +212,7 @@ const AdminTicketDetailPage: React.FC = () => {
                                     </p>
                                 )}
                             <h3 className="text-lg font-semibold mt-6 mb-2">Descripción</h3>
-                            <p className="text-gray-700 whitespace-pre-wrap">{ticket.description}</p>
+                            <p className="text-gray-700 whitespace-pre-wrap break-words">{ticket.description}</p>
                         </div>
 
                         {ticket.attachments && ticket.attachments.length > 0 && (

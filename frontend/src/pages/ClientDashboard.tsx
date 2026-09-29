@@ -27,9 +27,8 @@ const DetailsModal: React.FC<{ title: string; items: Partial<TicketData>[]; onCl
                     ) : items.length > 0 ? (
                         <ul className="space-y-2">
                             {items.map((ticket) => (
-                                <li key={ticket.id} className="p-2 border-b flex justify-between items-center">
-                                    <span>#{ticket.id} - {ticket.title}</span>
-                                    <Link to={`/client/tickets/${ticket.id}`} className="text-red-600 hover:underline">Ver</Link>
+                                <li key={ticket.id} className="p-2 border-b flex justify-between items-center gap-3"><span className="min-w-0 break-words">#{ticket.id} - {ticket.title}</span>
+                                    <Link to={`/client/tickets/${ticket.id}`} className="text-red-600 hover:underline shrink-0">Ver</Link>
                                 </li>
                             ))}
                         </ul>

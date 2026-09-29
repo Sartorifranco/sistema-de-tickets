@@ -290,29 +290,32 @@ const AdminUsersPage: React.FC = () => {
                     ) : (
                         <>
                             {/* ✅ VISTA DE TABLA PARA ESCRITORIO (md y superior) */}
-                            <table className="min-w-full divide-y divide-gray-200 hidden md:table">
+                            <table className="w-full table-fixed divide-y divide-gray-200 hidden lg:table">
                                <thead className="bg-gray-50">
                                     <tr>
-                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Username</th>
-                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Email</th>
-                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Rol</th>
-                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Empresa</th>
-                                        <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">Acciones</th>
+                                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Usuario</th>
+                                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase w-28">Rol</th>
+                                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase w-[18%]">Empresa</th>
+                                        <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase w-[26%]">Acciones</th>
                                     </tr>
                                 </thead>
                                 <tbody className="bg-white divide-y divide-gray-200">
                                     {users.map((userItem) => (
                                         <tr key={userItem.id}>
-                                            <td className="px-6 py-4 whitespace-nowrap">{userItem.username}</td>
-                                            <td className="px-6 py-4 whitespace-nowrap">{userItem.email}</td>
-                                            <td className="px-6 py-4 whitespace-nowrap">{userItem.role}</td>
-                                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{allCompanies.find(c => c.id === userItem.company_id)?.name || 'N/A'}</td>
-                                            <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                                            <td className="px-4 py-4 align-top min-w-0">
+                                                <p className="font-semibold text-gray-900 break-words">{userItem.username}</p>
+                                                <p className="text-sm text-gray-500 break-all">{userItem.email}</p>
+                                            </td>
+                                            <td className="px-4 py-4 align-top">
+                                                <span className="inline-block text-xs font-medium bg-blue-50 text-blue-800 px-2 py-0.5 rounded-full">{userItem.role}</span>
+                                            </td>
+                                            <td className="px-4 py-4 break-words align-top text-sm text-gray-500">{allCompanies.find(c => c.id === userItem.company_id)?.name || 'N/A'}</td>
+                                            <td className="px-4 py-4 text-right text-sm font-medium align-top"><div className="flex flex-wrap justify-end gap-x-4 gap-y-1">
                                                 {hasPermission(user, P.USERS_EDIT) && (
-                                                    <button onClick={() => handleEditUser(userItem)} className="text-indigo-600 hover:text-indigo-900 mr-4">Editar</button>
+                                                    <button onClick={() => handleEditUser(userItem)} className="text-indigo-600 hover:text-indigo-900">Editar</button>
                                                 )}
                                                 {hasPermission(user, P.USERS_RESET_PASSWORD) && (
-                                                    <button onClick={() => handleOpenResetModal(userItem)} className="text-yellow-600 hover:text-yellow-900 mr-4">Resetear</button>
+                                                    <button onClick={() => handleOpenResetModal(userItem)} className="text-yellow-600 hover:text-yellow-900">Resetear</button>
                                                 )}
                                                 {(userItem.role === 'admin' || userItem.role === 'agent') &&
                                                     canManagePermissions(user) && (
@@ -321,7 +324,7 @@ const AdminUsersPage: React.FC = () => {
                                                             setPermissionsTarget(userItem);
                                                             setIsPermissionsModalOpen(true);
                                                         }}
-                                                        className="text-blue-700 hover:text-blue-900 mr-4"
+                                                        className="text-blue-700 hover:text-blue-900"
                                                     >
                                                         Permisos
                                                     </button>
@@ -329,20 +332,21 @@ const AdminUsersPage: React.FC = () => {
                                                 {hasPermission(user, P.USERS_DELETE) && (
                                                     <button onClick={() => handleDeleteUser(userItem.id)} className="text-red-600 hover:text-red-900">Eliminar</button>
                                                 )}
+                                                </div>
                                             </td>
                                         </tr>
                                     ))}
                                 </tbody>
                             </table>
 
-                            {/* ✅ VISTA DE TARJETAS PARA MÓVILES (hasta md) */}
-                            <div className="md:hidden space-y-4">
+                            {/* ✅ VISTA DE TARJETAS (hasta lg) */}
+                            <div className="lg:hidden grid grid-cols-1 md:grid-cols-2 gap-4">
                                 {users.map((userItem) => (
-                                    <div key={userItem.id} className="bg-gray-50 p-4 rounded-lg border">
+                                    <div key={userItem.id} className="bg-gray-50 p-4 rounded-lg border min-w-0">
                                         <div className="flex justify-between items-start">
-                                            <div>
-                                                <p className="font-bold text-gray-800">{userItem.username}</p>
-                                                <p className="text-sm text-gray-600">{userItem.email}</p>
+                                            <div className="min-w-0">
+                                                <p className="font-bold text-gray-800 break-words">{userItem.username}</p>
+                                                <p className="text-sm text-gray-600 break-all">{userItem.email}</p>
                                             </div>
                                             <span className="text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded-full flex-shrink-0 ml-2">{userItem.role}</span>
                                         </div>

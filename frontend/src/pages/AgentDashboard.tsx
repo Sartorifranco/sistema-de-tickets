@@ -9,7 +9,8 @@ import { toast } from 'react-toastify';
 import { formatLocalDate } from '../utils/dateFormatter';
 // ✅ IMPORTAR WIDGET
 import DepositariosWidget from '../components/Dashboard/DepositariosWidget';
-import { clCard, clInput, clModalPanel } from '../utils/cleanLightUi';
+import { clCard, clInput, clModalPanel, priorityPillClass } from '../utils/cleanLightUi';
+import { ticketPriorityTranslations } from '../utils/traslations';
 import { WorldCupDashboardBanner } from '../components/Common/WorldCupArgentinaTheme';
 
 // --- Componente genérico para el Modal de Detalles (DISEÑO MEJORADO) ---
@@ -24,12 +25,12 @@ const DetailsModal: React.FC<{ title: string; items: Partial<TicketData>[]; onCl
                     ) : items.length > 0 ? (
                         <ul className="divide-y divide-gray-200">
                             {items.map((ticket) => (
-                                <li key={ticket.id} className="p-3 flex justify-between items-center hover:bg-gray-50">
-                                    <div>
+                                <li key={ticket.id} className="p-3 flex justify-between items-center gap-3 hover:bg-gray-50">
+                                    <div className="min-w-0 break-words">
                                         <span className="font-semibold">#{ticket.id} - {ticket.title}</span>
                                         <span className="text-gray-500 ml-2">({ticket.client_name})</span>
                                     </div>
-                                    <Link to={`/${role}/tickets/${ticket.id}`} className="text-red-600 hover:underline text-sm font-semibold">Ver</Link>
+                                    <Link to={`/${role}/tickets/${ticket.id}`} className="text-red-600 hover:underline text-sm font-semibold shrink-0">Ver</Link>
                                 </li>
                             ))}
                         </ul>
@@ -51,30 +52,38 @@ const TicketList: React.FC<{ tickets: TicketData[], title: string, onTicketClick
             {tickets.length === 0 ? (
                  <p className="text-gray-600 flex-grow flex items-center justify-center">No hay tickets recientes.</p>
             ) : (
-                <div className="overflow-x-auto flex-grow">
-                    <table className="min-w-full divide-y divide-gray-200 hidden sm:table">
+                <div className="flex-grow min-w-0">
+                    <table className="w-full table-fixed divide-y divide-gray-200 hidden sm:table">
                         <thead className="bg-gray-50">
                             <tr>
-                                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">ID</th>
-                                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Asunto</th>
-                                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Prioridad</th>
+                                <th scope="col" className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase w-16">ID</th>
+                                <th scope="col" className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase">Asunto</th>
+                                <th scope="col" className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase w-28">Prioridad</th>
                             </tr>
                         </thead>
                         <tbody className="bg-white divide-y divide-gray-200">
                             {tickets.map((ticket) => (
                                 <tr key={ticket.id} className="hover:bg-gray-50 cursor-pointer" onClick={() => onTicketClick(ticket.id)}>
-                                    <td className="px-6 py-4 text-sm font-medium text-gray-900">#{ticket.id}</td>
-                                    <td className="px-6 py-4 text-sm text-gray-700">{ticket.title}</td>
-                                    <td className="px-6 py-4 text-sm text-gray-700">{ticket.priority}</td>
+                                    <td className="px-3 py-3 text-sm font-medium text-gray-900 align-top">#{ticket.id}</td>
+                                    <td className="px-3 py-3 text-sm text-gray-700 break-words align-top">{ticket.title}</td>
+                                    <td className="px-3 py-3 text-sm align-top">
+                                        <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold ${priorityPillClass(ticket.priority)}`}>
+                                            {ticketPriorityTranslations[ticket.priority] || ticket.priority}
+                                        </span>
+                                    </td>
                                 </tr>
                             ))}
                         </tbody>
                     </table>
                     <div className="sm:hidden space-y-3">
                         {tickets.map((ticket) => (
-                             <div key={ticket.id} className="bg-gray-50 p-3 rounded-xl border border-gray-100" onClick={() => onTicketClick(ticket.id)}>
-                                 <p className="font-bold text-gray-800">#{ticket.id} - {ticket.title}</p>
-                                 <p className="text-sm text-gray-600 mt-1">Prioridad: {ticket.priority}</p>
+                             <div key={ticket.id} className="bg-gray-50 p-3 rounded-xl border border-gray-100 min-w-0" onClick={() => onTicketClick(ticket.id)}>
+                                 <p className="font-bold text-gray-800 break-words">#{ticket.id} - {ticket.title}</p>
+                                 <p className="text-sm text-gray-600 mt-1 flex items-center gap-2">Prioridad:
+                                    <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold ${priorityPillClass(ticket.priority)}`}>
+                                        {ticketPriorityTranslations[ticket.priority] || ticket.priority}
+                                    </span>
+                                 </p>
                              </div>
                         ))}
                     </div>
@@ -92,10 +101,10 @@ const ActivityLogList: React.FC<{ logs: ActivityLog[], title: string }> = ({ log
             {logs.length === 0 ? (
                 <p className="text-gray-600 flex-grow flex items-center justify-center">No hay actividad reciente.</p>
             ) : (
-                <ul className="space-y-3 text-gray-700 overflow-y-auto flex-grow">
+                <ul className="space-y-3 text-gray-700 overflow-y-auto overflow-x-hidden flex-grow min-w-0">
                     {logs.map((log) => (
-                        <li key={log.id} className="border-b border-gray-100 pb-2 last:border-b-0">
-                            <p className="text-sm font-medium">{log.description}</p>
+                        <li key={log.id} className="border-b border-gray-100 pb-2 last:border-b-0 min-w-0">
+                            <p className="text-sm font-medium break-words">{log.description}</p>
                             <p className="text-xs text-gray-500">{formatLocalDate(log.created_at)} por {log.username}</p>
                         </li>
                     ))}

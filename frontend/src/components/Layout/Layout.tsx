@@ -227,7 +227,8 @@ const Layout: React.FC = () => {
                             <WorldCupAppCornerFlags />
                         </>
                     )}
-                    <div className="relative z-10">
+                    {/* Sin z-index propio: evita crear un stacking context que deje los modales (fixed z-50) debajo del sidebar (z-40). */}
+                    <div className="relative">
                         <Outlet />
                     </div>
                 </main>

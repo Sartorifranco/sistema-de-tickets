@@ -258,7 +258,9 @@ const getTickets = asyncHandler(async (req, res) => {
         priority,
         categoryId,
         departmentId, // <-- CORRECCIÓN 2
-        clientId      // <-- CORRECCIÓN 1
+        clientId,     // <-- CORRECCIÓN 1
+        search,       // Búsqueda libre por título (y #id si es numérico)
+        clientName    // Búsqueda libre por nombre/usuario/email del cliente
     } = req.query;
 
     let query = `
@@ -345,6 +347,32 @@ const getTickets = asyncHandler(async (req, res) => {
     }
 
     if (startDate && endDate) { whereClauses.push('DATE(t.created_at) BETWEEN ? AND ?'); params.push(startDate, endDate); }
+
+    // BÚSQUEDA POR TÍTULO (acepta "#123" o "123" para buscar por ID exacto además del título)
+    const searchTerm = typeof search === 'string' ? search.trim() : '';
+    if (searchTerm) {
+        const like = `%${searchTerm}%`;
+        const numeric = searchTerm.replace(/^#/, '');
+        if (/^\d+$/.test(numeric)) {
+            whereClauses.push('(t.title LIKE ? OR t.id = ?)');
+            params.push(like, parseInt(numeric, 10));
+        } else {
+            whereClauses.push('t.title LIKE ?');
+            params.push(like);
+        }
+    }
+
+    // BÚSQUEDA POR CLIENTE (nombre completo, usuario o email)
+    const clientTerm = typeof clientName === 'string' ? clientName.trim() : '';
+    if (clientTerm) {
+        const like = `%${clientTerm}%`;
+        whereClauses.push(`(
+            CONCAT(COALESCE(u.first_name, ''), ' ', COALESCE(u.last_name, '')) LIKE ?
+            OR u.username LIKE ?
+            OR u.email LIKE ?
+        )`);
+        params.push(like, like, like);
+    }
 
     if (status) {
         if (Array.isArray(status)) {
