@@ -1,4 +1,4 @@
-# Guía de Despliegue - Sistema de Tickets
+﻿# Guía de Despliegue - Sistema de Tickets
 
 ## Arquitectura
 
@@ -81,7 +81,7 @@ La migración RBAC crea `user_permissions`, agrega `users.is_super_admin` y marc
 
 ```bash
 npm install -g pm2
-pm2 start src/app.js --name "sistema-tickets-api"
+pm2 start src/app.js --name "backend"
 pm2 save
 pm2 startup  # Para que inicie al reiniciar el servidor
 ```
@@ -195,7 +195,7 @@ git pull origin main
 cd backend
 npm install --production
 node scripts/run-rbac-migration.js
-pm2 restart sistema-tickets-api
+pm2 restart backend
 
 # Frontend
 cd ../frontend
