@@ -225,26 +225,76 @@ const getAdminDashboardMetrics = asyncHandler(async (req, res) => {
 // @access   Private (Agent)
 const getAgentDashboardMetrics = asyncHandler(async (req, res) => {
     const agentId = req.user.id;
+    // Titular o asignado adicional (misma regla que el listado de tickets del agente)
+    const mine = `(t.assigned_to_user_id = ? OR EXISTS (SELECT 1 FROM ticket_assignees ta WHERE ta.ticket_id = t.id AND ta.user_id = ?))`;
+    const mineParams = [agentId, agentId];
+    const active = `t.status IN ('open', 'in-progress')`;
 
-    // ✅ CORRECCIÓN: Ajuste en la consulta de resolvedByAgentResult
-    // Ahora cuenta los tickets que están en 'resolved' O 'closed'.
-    const [
-        assignedTicketsResult,
-        unassignedTicketsResult,
-        resolvedByAgentResult
-    ] = await Promise.all([
-        pool.execute("SELECT COUNT(*) as count FROM tickets WHERE assigned_to_user_id = ? AND status IN ('open', 'in-progress')", [agentId]),
-        pool.execute("SELECT COUNT(*) as count FROM tickets WHERE assigned_to_user_id IS NULL AND status = 'open'"),
-        pool.execute("SELECT COUNT(*) as count FROM tickets WHERE assigned_to_user_id = ? AND status IN ('resolved', 'closed')", [agentId]), // ✅ CAMBIO AQUÍ
+    const [assignedRes, unassignedRes, resolved30Res, closedTodayRes, highRes, staleRes, priorityRes, recentRes, weekRes] = await Promise.all([
+        pool.execute(`SELECT COUNT(*) AS count FROM tickets t WHERE ${mine} AND ${active}`, mineParams),
+        pool.execute(`SELECT COUNT(*) AS count FROM tickets t WHERE t.assigned_to_user_id IS NULL AND t.status = 'open' AND NOT EXISTS (SELECT 1 FROM ticket_assignees ta0 WHERE ta0.ticket_id = t.id)`),
+        pool.execute(`SELECT COUNT(*) AS count FROM tickets t WHERE ${mine} AND t.status IN ('resolved', 'closed') AND t.closed_at >= DATE_SUB(NOW(), INTERVAL 30 DAY)`, mineParams),
+        pool.execute(`SELECT COUNT(*) AS count FROM tickets t WHERE ${mine} AND t.status IN ('resolved', 'closed') AND t.closed_at >= CURDATE()`, mineParams),
+        pool.execute(`SELECT COUNT(*) AS count FROM tickets t WHERE ${mine} AND ${active} AND t.priority IN ('high', 'urgent')`, mineParams),
+        pool.execute(`SELECT COUNT(*) AS count FROM tickets t WHERE ${mine} AND ${active} AND t.updated_at < DATE_SUB(NOW(), INTERVAL 3 DAY)`, mineParams),
+        pool.execute(`SELECT t.priority, COUNT(*) AS count FROM tickets t WHERE ${mine} AND ${active} GROUP BY t.priority`, mineParams),
+        pool.execute(
+            `SELECT t.id,
+                    CONVERT(t.title USING utf8mb4) AS title,
+                    CONVERT(COALESCE(NULLIF(TRIM(CONCAT(CONVERT(COALESCE(u.first_name, '') USING utf8mb4), ' ', CONVERT(COALESCE(u.last_name, '') USING utf8mb4))), ''), CONVERT(u.username USING utf8mb4)) USING utf8mb4) AS client_name,
+                    t.priority, t.status, t.updated_at
+               FROM tickets t
+               LEFT JOIN users u ON t.user_id = u.id
+              WHERE ${mine} AND ${active}
+              ORDER BY t.updated_at ASC
+              LIMIT 40`,
+            mineParams
+        ),
+        pool.execute(
+            `SELECT DATE_FORMAT(t.closed_at, '%Y-%m-%d') AS day, COUNT(*) AS count
+               FROM tickets t
+              WHERE ${mine} AND t.status IN ('resolved', 'closed')
+                AND t.closed_at >= DATE_SUB(CURDATE(), INTERVAL 6 DAY)
+              GROUP BY DATE_FORMAT(t.closed_at, '%Y-%m-%d')`,
+            mineParams
+        ),
     ]);
 
-    const metrics = {
-        assignedTickets: assignedTicketsResult[0][0].count,
-        unassignedTickets: unassignedTicketsResult[0][0].count,
-        resolvedByMe: resolvedByAgentResult[0][0].count,
-    };
+    const byPriority = { low: 0, medium: 0, high: 0, urgent: 0 };
+    for (const row of priorityRes[0]) {
+        if (Object.prototype.hasOwnProperty.call(byPriority, row.priority)) byPriority[row.priority] = Number(row.count) || 0;
+    }
 
-    res.status(200).json({ success: true, data: metrics });
+    const rank = { urgent: 0, high: 1, medium: 2, low: 3 };
+    const recent = recentRes[0]
+        .slice()
+        .sort((a, b) => (rank[a.priority] ?? 9) - (rank[b.priority] ?? 9) || new Date(a.updated_at) - new Date(b.updated_at))
+        .slice(0, 6);
+
+    const weekMap = new Map(weekRes[0].map((row) => [String(row.day).slice(0, 10), Number(row.count) || 0]));
+    const week = [];
+    for (let i = 6; i >= 0; i--) {
+        const d = new Date();
+        d.setHours(12, 0, 0, 0);
+        d.setDate(d.getDate() - i);
+        const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+        week.push({ date: key, closed: weekMap.get(key) || 0 });
+    }
+
+    res.status(200).json({
+        success: true,
+        data: {
+            assignedTickets: Number(assignedRes[0][0].count) || 0,
+            unassignedTickets: Number(unassignedRes[0][0].count) || 0,
+            resolvedByMe: Number(resolved30Res[0][0].count) || 0,
+            closedToday: Number(closedTodayRes[0][0].count) || 0,
+            highPriorityActive: Number(highRes[0][0].count) || 0,
+            staleActive: Number(staleRes[0][0].count) || 0,
+            byPriority,
+            recent,
+            week,
+        },
+    });
 });
 
 
@@ -252,27 +302,56 @@ const getAgentDashboardMetrics = asyncHandler(async (req, res) => {
 const getClientDashboardMetrics = asyncHandler(async (req, res) => {
     const clientId = req.user.id;
 
-    const [ticketCounts] = await pool.execute(
-        `SELECT status, COUNT(*) as count FROM tickets WHERE user_id = ? GROUP BY status`,
-        [clientId]
-    );
+    const [countsRes, resolved30Res, oldestRes, recentRes] = await Promise.all([
+        pool.execute(`SELECT status, COUNT(*) AS count FROM tickets WHERE user_id = ? GROUP BY status`, [clientId]),
+        pool.execute(
+            `SELECT COUNT(*) AS count FROM tickets WHERE user_id = ? AND status IN ('resolved', 'closed') AND closed_at >= DATE_SUB(NOW(), INTERVAL 30 DAY)`,
+            [clientId]
+        ),
+        pool.execute(
+            `SELECT MIN(created_at) AS oldest FROM tickets WHERE user_id = ? AND status IN ('open', 'in-progress')`,
+            [clientId]
+        ),
+        pool.execute(
+            `SELECT t.id,
+                    CONVERT(t.title USING utf8mb4) AS title,
+                    t.status, t.priority, t.updated_at, t.created_at,
+                    CONVERT(COALESCE(NULLIF(TRIM(CONCAT(CONVERT(COALESCE(a.first_name, '') USING utf8mb4), ' ', CONVERT(COALESCE(a.last_name, '') USING utf8mb4))), ''), CONVERT(a.username USING utf8mb4)) USING utf8mb4) AS agent_name
+               FROM tickets t
+               LEFT JOIN users a ON t.assigned_to_user_id = a.id
+              WHERE t.user_id = ? AND t.status IN ('open', 'in-progress')
+              ORDER BY t.updated_at ASC
+              LIMIT 20`,
+            [clientId]
+        ),
+    ]);
 
-    const metrics = {
-        open: 0,
-        inProgress: 0,
-        resolved: 0,
-        closed: 0,
-    };
+    const metrics = { open: 0, inProgress: 0, resolved: 0, closed: 0 };
+    for (const row of countsRes[0]) {
+        if (row.status === 'in-progress') metrics.inProgress = Number(row.count) || 0;
+        else if (Object.prototype.hasOwnProperty.call(metrics, row.status)) metrics[row.status] = Number(row.count) || 0;
+    }
 
-    ticketCounts.forEach(row => {
-        if (row.status === 'in-progress') {
-            metrics.inProgress = row.count;
-        } else if (metrics.hasOwnProperty(row.status)) {
-            metrics[row.status] = row.count;
-        }
+    let oldestWaitingDays = null;
+    if (oldestRes[0][0]?.oldest) {
+        oldestWaitingDays = Math.max(0, Math.floor((Date.now() - new Date(oldestRes[0][0].oldest).getTime()) / 86400000));
+    }
+
+    const rank = { urgent: 0, high: 1, medium: 2, low: 3 };
+    const recent = recentRes[0]
+        .slice()
+        .sort((a, b) => (rank[a.priority] ?? 9) - (rank[b.priority] ?? 9) || new Date(a.updated_at) - new Date(b.updated_at))
+        .slice(0, 5);
+
+    res.status(200).json({
+        success: true,
+        data: {
+            ...metrics,
+            resolved30d: Number(resolved30Res[0][0].count) || 0,
+            oldestWaitingDays,
+            recent,
+        },
     });
-
-    res.status(200).json({ success: true, data: metrics });
 });
 
 
