@@ -198,7 +198,11 @@ notificaciones en tiempo real no llegan (en la consola del navegador aparece
 
 Después de editar el Caddyfile: `pm2 restart Caddy-HTTPS` (o `caddy reload --config <ruta>`).
 
-### Correo (Gmail)
+### Correo (Gmail) — opcional
+
+El registro público **no envía ningún correo**: la cuenta queda activa y la persona entra
+con el email y la contraseña que eligió. Esta sección solo hace falta si querés que el
+sistema mande avisos por mail (tickets, invitaciones a proveedores).
 
 Si en los logs aparece `Invalid login: 535 ... BadCredentials`, Gmail está rechazando la
 contraseña normal. Hay que usar una **contraseña de aplicación**:

@@ -5,14 +5,6 @@ const asyncHandler = require('express-async-handler');
 const { sendWelcomeEmail } = require('../services/emailService');
 const { buildAuthUserPayload } = require('../services/userPermissionsService');
 
-function sendWelcomeEmailOptional(email, username) {
-    sendWelcomeEmail(email, username).then((result) => {
-        if (!result?.ok) {
-            console.warn('[Auth] Correo de bienvenida no enviado (opcional):', result?.error || 'error desconocido');
-        }
-    });
-}
-
 // ✅ --- registerUser (VERSIÓN MEJORADA) ---
 // Ahora genera el username automáticamente en formato camelCase y asegura que sea único.
 const registerUser = asyncHandler(async (req, res) => {
@@ -59,15 +51,12 @@ const registerUser = asyncHandler(async (req, res) => {
                 code: 'EMAIL_IN_USE',
             });
         }
-        const [userRow] = await pool.execute('SELECT username FROM users WHERE id = ?', [existing.id]);
-        const recoveredUsername = userRow[0]?.username || username;
         await pool.execute(
             `UPDATE users SET password = ?, company_id = ?, department_id = ?, first_name = ?, last_name = ?,
              activation_token = NULL, activation_token_expires = NULL, is_active = 1
              WHERE id = ?`,
             [hashedPassword, company_id, department_id, firstName, lastName, existing.id]
         );
-        sendWelcomeEmailOptional(emailNorm, recoveredUsername);
         return res.status(200).json({
             success: true,
             message: 'Registro completado. Ya podés iniciar sesión con tu email y contraseña.',
@@ -92,7 +81,6 @@ const registerUser = asyncHandler(async (req, res) => {
     ];
 
     await pool.execute(sql, params);
-    sendWelcomeEmailOptional(emailNorm, username);
 
     return res.status(201).json({
         success: true,
