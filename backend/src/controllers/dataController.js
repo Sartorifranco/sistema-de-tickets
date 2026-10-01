@@ -1,5 +1,6 @@
 const asyncHandler = require('express-async-handler');
 const pool = require('../config/db');
+const { getSchemaFeatures } = require('./problemAdminController');
 
 // @desc    Obtener categorías disponibles para una empresa (o Globales)
 // @route   GET /api/problems/categories/:id (El ID es el companyId)
@@ -10,22 +11,28 @@ const getCategoriesForCompany = asyncHandler(async (req, res) => {
         let query;
         let params;
 
+        // Con la migración de personalización se ocultan las categorías inactivas
+        // y se respeta el orden definido por el admin.
+        const features = await getSchemaFeatures();
+        const activeClause = features.categories ? 'AND is_active = 1' : '';
+        const orderClause = features.categories ? 'ORDER BY sort_order ASC, name ASC' : 'ORDER BY name ASC';
+
         // SENIOR FIX: Validación robusta.
         // Si el ID es inválido, 'undefined', 'null' o 0, traemos SOLO las categorías globales.
         // Esto evita que el desplegable aparezca vacío si falla la carga del perfil.
         if (!id || id === 'undefined' || id === 'null' || id === '0') {
             query = `
                 SELECT * FROM ticket_categories 
-                WHERE company_id IS NULL 
-                ORDER BY name ASC
+                WHERE company_id IS NULL ${activeClause}
+                ${orderClause}
             `;
             params = [];
         } else {
             // Si hay un ID válido, traemos Globales + Específicas de esa empresa
             query = `
                 SELECT * FROM ticket_categories 
-                WHERE company_id IS NULL OR company_id = ? 
-                ORDER BY name ASC
+                WHERE (company_id IS NULL OR company_id = ?) ${activeClause}
+                ${orderClause}
             `;
             params = [id];
         }
@@ -71,10 +78,11 @@ const getProblemsByCategory = asyncHandler(async (req, res) => {
     const { categoryId } = req.params;
 
     try {
-        const [rows] = await pool.execute(
-            'SELECT * FROM predefined_problems WHERE category_id = ? ORDER BY title ASC', 
-            [categoryId]
-        );
+        const features = await getSchemaFeatures();
+        const query = features.problems
+            ? 'SELECT * FROM predefined_problems WHERE category_id = ? AND is_active = 1 ORDER BY sort_order ASC, title ASC'
+            : 'SELECT * FROM predefined_problems WHERE category_id = ? ORDER BY title ASC';
+        const [rows] = await pool.execute(query, [categoryId]);
         res.json({ success: true, data: rows });
     } catch (error) {
         console.error(error);

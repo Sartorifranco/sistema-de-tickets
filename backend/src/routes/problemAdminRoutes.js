@@ -11,9 +11,13 @@ const {
     createCategory,
     updateCategory,
     deleteCategory,
+    duplicateCategory,
+    reorderCategories,
     createProblem,
     updateProblem,
     deleteProblem,
+    bulkUpdateProblems,
+    reorderProblems,
     getAllLocationsAdmin,
     createLocation,
     updateLocation,
@@ -27,12 +31,16 @@ router.use(authorizeAccess(['admin'], { adminPermissions: [P.PROBLEMS_MANAGE] })
 // --- RUTAS DE CATEGORÍAS Y PROBLEMAS ---
 router.get('/problems-all', getAllProblemsAdmin);
 
-// Categorías
+// Categorías (las rutas fijas van antes de las que usan :id)
+router.put('/categories/reorder', reorderCategories);
 router.post('/categories', createCategory);
+router.post('/categories/:id/duplicate', duplicateCategory);
 router.put('/categories/:id', updateCategory);
 router.delete('/categories/:id', deleteCategory);
 
 // Problemas
+router.put('/problems/reorder', reorderProblems);
+router.patch('/problems/bulk', bulkUpdateProblems);
 router.post('/problems', createProblem);
 router.put('/problems/:id', updateProblem);
 router.delete('/problems/:id', deleteProblem);

@@ -62,6 +62,8 @@ interface PredefinedProblemLocal {
     title: string;
     description: string;
     department_id?: number;
+    /** Prioridad sugerida configurada en Problemáticas (opcional) */
+    default_priority?: TicketData['priority'] | null;
 }
 
 interface TicketCategoryLocal {
@@ -465,6 +467,7 @@ const TicketFormModal: React.FC<TicketFormModalProps> = ({
                         ? prev.description
                         : `${problem.description}\n\n--- (Por favor, añada más detalles aquí si es necesario) ---\n`,
                     department_id: problem.department_id ?? prev.department_id,
+                    priority: !isOptionOther && problem.default_priority ? problem.default_priority : prev.priority,
                 }));
                 setIsOther(isOptionOther);
             } else {

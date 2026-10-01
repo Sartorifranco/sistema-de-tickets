@@ -70,12 +70,17 @@ node scripts/run-treasury-machines-migration.js
 # Multi-agentes en tickets + ticket automático de mantenimiento depositarios
 node scripts/run-ticket-assignees-migration.js
 
+# Problemáticas: orden, ocultar sin borrar y prioridad sugerida (idempotente)
+node scripts/run-problems-customization-migration.js
+
 # Otras migraciones (si aún no se aplicaron)
 # mysql -u root -p ticket_system < migrations/create_user_fcm_tokens.sql
 # node run-migration-fcm.js
 ```
 
 La migración RBAC crea `user_permissions`, agrega `users.is_super_admin` y marca como **super admin** a todos los admins existentes (no cambia el acceso actual hasta que edites permisos en la UI).
+
+La migración de Problemáticas agrega `is_active`, `sort_order` y `default_priority` a `predefined_problems` y `is_active`, `sort_order` a `ticket_categories`. Sin ella el módulo funciona igual, pero sin ordenar, ocultar ni prioridad sugerida (la pantalla lo avisa). El backend detecta las columnas solo; si corrés la migración con el backend levantado, reinicialo o esperá 5 minutos.
 
 ### 2.4 Iniciar con PM2 (recomendado)
 
@@ -195,6 +200,7 @@ git pull origin main
 cd backend
 npm install --production
 node scripts/run-rbac-migration.js
+node scripts/run-problems-customization-migration.js
 pm2 restart backend
 
 # Frontend
@@ -213,6 +219,7 @@ git pull origin main
 cd backend
 npm install --production
 node scripts\run-rbac-migration.js
+node scripts\run-problems-customization-migration.js
 cd ..\frontend
 set REACT_APP_BACKEND_URL=https://bacarsa.dyndns.org
 npm install
