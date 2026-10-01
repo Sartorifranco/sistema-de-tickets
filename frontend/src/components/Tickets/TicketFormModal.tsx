@@ -64,7 +64,12 @@ interface PredefinedProblemLocal {
     department_id?: number;
     /** Prioridad sugerida configurada en Problemáticas (opcional) */
     default_priority?: TicketData['priority'] | null;
+    /** Es la opción "Otro...": el usuario escribe su propio título */
+    is_other?: boolean;
 }
+
+/** "Otro", "Otros", "Otro..." o "Otro…" cargados como problema predefinido */
+const OTHER_TITLE_RE = /^otros?\s*(\.{3}|…)?$/i;
 
 interface TicketCategoryLocal {
     id: number;
@@ -244,14 +249,21 @@ const TicketFormModal: React.FC<TicketFormModalProps> = ({
 
     /** Problemas predefinidos solo cuando aplica categoría estándar */
     useEffect(() => {
-        const otherOption: PredefinedProblemLocal = { id: -999, title: 'Otro...', description: '', department_id: undefined };
+        const otherOption: PredefinedProblemLocal = { id: -999, title: 'Otro...', description: '', department_id: undefined, is_other: true };
 
         if (formData.category_id && !isCustomCategory) {
             const fetchProblems = async () => {
                 try {
                     const res = await api.get(`/api/problems/predefined/${formData.category_id}`);
-                    const dbProblems = res.data.data || [];
-                    setPredefinedProblems([...dbProblems, otherOption]);
+                    const dbProblems: PredefinedProblemLocal[] = res.data.data || [];
+                    // Si la categoría ya tiene un "Otro" cargado, se usa ese como opción libre
+                    // (conserva su departamento) en vez de mostrar dos "Otro..." en el desplegable.
+                    const regular = dbProblems.filter((p) => !OTHER_TITLE_RE.test(String(p.title || '').trim()));
+                    const dbOther = dbProblems.find((p) => OTHER_TITLE_RE.test(String(p.title || '').trim()));
+                    const other: PredefinedProblemLocal = dbOther
+                        ? { ...dbOther, title: 'Otro...', description: '', is_other: true }
+                        : otherOption;
+                    setPredefinedProblems([...regular, other]);
                 } catch (error) {
                     console.error('Error cargando problemas:', error);
                     setPredefinedProblems([otherOption]);
@@ -458,7 +470,7 @@ const TicketFormModal: React.FC<TicketFormModalProps> = ({
         if (name === 'predefined_problem') {
             const problem = predefinedProblems.find((p) => p.id === numValue);
             if (problem) {
-                const isOptionOther = problem.title === 'Otro...' || problem.id === -999;
+                const isOptionOther = Boolean(problem.is_other) || problem.id === -999;
                 setFormData((prev) => ({
                     ...prev,
                     predefined_problem_id: numValue || undefined,

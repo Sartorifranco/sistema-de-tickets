@@ -165,6 +165,57 @@ server {
 }
 ```
 
+### Caddy (servidor actual, puerto 8001)
+
+El frontend usa el **mismo origen** para la API y para Socket.IO, así que el proxy tiene que
+pasar `/api/*`, `/socket.io/*` y `/uploads/*` al backend. Si falta `/socket.io/*`, las
+notificaciones en tiempo real no llegan (en la consola del navegador aparece
+`WebSocket connection to ws://.../socket.io failed`).
+
+```caddyfile
+:8001 {
+    root * "C:/ST - Bacar/frontend/build"
+    encode gzip
+
+    # API, WebSocket (Caddy negocia el upgrade solo) y archivos subidos
+    handle /api/* {
+        reverse_proxy 127.0.0.1:5040
+    }
+    handle /socket.io/* {
+        reverse_proxy 127.0.0.1:5040
+    }
+    handle /uploads/* {
+        reverse_proxy 127.0.0.1:5040
+    }
+
+    # SPA: cualquier otra ruta devuelve index.html
+    handle {
+        try_files {path} /index.html
+        file_server
+    }
+}
+```
+
+Después de editar el Caddyfile: `pm2 restart Caddy-HTTPS` (o `caddy reload --config <ruta>`).
+
+### Correo (Gmail)
+
+Si en los logs aparece `Invalid login: 535 ... BadCredentials`, Gmail está rechazando la
+contraseña normal. Hay que usar una **contraseña de aplicación**:
+
+1. En la cuenta de Google que envía los mails: Seguridad → Verificación en dos pasos (activarla).
+2. Seguridad → Contraseñas de aplicaciones → crear una para "Correo" / "Otro".
+3. En `backend/.env`:
+
+```env
+EMAIL_HOST=smtp.gmail.com
+EMAIL_PORT=587
+EMAIL_USER=cuenta@gmail.com
+EMAIL_PASS="abcd efgh ijkl mnop"   # la de 16 caracteres, entre comillas si tiene espacios
+```
+
+4. `pm2 restart backend` y probar desde **Mi Perfil → Enviar correo de prueba**.
+
 ---
 
 ## 5. CORS en el backend

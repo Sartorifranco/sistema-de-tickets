@@ -942,8 +942,14 @@ const PreviewModal: React.FC<{
                 ) : (
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                         {visibleCats.map((cat) => {
+                                            // El formulario muestra un único "Otro..." al final: si hay uno cargado lo reutiliza
                                             const probs = sortProblems(
-                                                problems.filter((p) => p.category_id === cat.id && p.is_active)
+                                                problems.filter(
+                                                    (p) =>
+                                                        p.category_id === cat.id &&
+                                                        p.is_active &&
+                                                        !/^otros?\s*(\.{3}|…)?$/i.test(p.title.trim())
+                                                )
                                             );                            return (
                                 <div key={cat.id} className="rounded-xl border border-gray-100 bg-gray-50/60 p-3 min-w-0">
                                     <div className="flex items-center justify-between gap-2 mb-2">
@@ -970,7 +976,7 @@ const PreviewModal: React.FC<{
                                                     )}
                                                 </li>
                                             ))}
-                                            <li className="text-gray-400 italic">Otro… (lo agrega siempre el formulario)</li>
+                                            <li className="text-gray-400 italic">Otro… (título libre)</li>
                                         </ol>
                                     )}
                                 </div>
