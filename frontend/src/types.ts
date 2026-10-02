@@ -43,11 +43,17 @@ export interface User {
     department_id: number | null;
     company_id: number | null;
     company_name?: string;
+    department_name?: string | null;
     created_at?: string;
     updated_at?: string;
     /** RBAC: solo rol admin */
     is_super_admin?: boolean;
     permissions?: string[];
+    /** Datos extra del listado de administración */
+    is_active?: boolean;
+    tickets_created?: number;
+    assigned_active?: number;
+    last_activity_at?: string | null;
 }
 
 // ====================================================================

@@ -140,11 +140,14 @@ const resendUserActivation = asyncHandler(async (req, res) => {
 const VALID_USER_ROLES = ['admin', 'agent', 'client', 'boss', 'purchasing', 'supplier'];
 
 // @desc    Obtener todos los usuarios
-// @query   search, role, companyId, departmentId
+// @query   search, role, companyId, departmentId, status (active|inactive)
 const getAllUsers = asyncHandler(async (req, res) => {
-    const { search, role, companyId, departmentId } = req.query;
+    const { search, role, companyId, departmentId, status } = req.query;
     const conditions = [];
     const params = [];
+
+    if (status === 'active') conditions.push('u.is_active = 1');
+    if (status === 'inactive') conditions.push('u.is_active = 0');
 
     if (search && String(search).trim()) {
         const term = `%${String(search).trim()}%`;
@@ -173,9 +176,19 @@ const getAllUsers = asyncHandler(async (req, res) => {
     const [users] = await pool.execute(
         `SELECT 
             u.id, u.username, u.email, u.role, u.department_id, u.company_id, u.created_at, 
-            u.first_name, u.last_name, 
+            u.first_name, u.last_name, u.is_active, u.is_super_admin,
             c.name AS company_name, 
-            d.name AS department_name 
+            d.name AS department_name,
+            (SELECT COUNT(*) FROM tickets t WHERE t.user_id = u.id) AS tickets_created,
+            (SELECT COUNT(*) FROM tickets t
+              WHERE t.status IN ('open', 'in-progress')
+                AND (t.assigned_to_user_id = u.id
+                     OR EXISTS (SELECT 1 FROM ticket_assignees ta WHERE ta.ticket_id = t.id AND ta.user_id = u.id))) AS assigned_active,
+            GREATEST(
+                COALESCE((SELECT MAX(t.created_at) FROM tickets t WHERE t.user_id = u.id), '1970-01-01'),
+                COALESCE((SELECT MAX(t.updated_at) FROM tickets t WHERE t.assigned_to_user_id = u.id), '1970-01-01'),
+                COALESCE((SELECT MAX(cm.created_at) FROM comments cm WHERE cm.user_id = u.id), '1970-01-01')
+            ) AS last_activity_at
          FROM users u 
          LEFT JOIN companies c ON u.company_id = c.id 
          LEFT JOIN departments d ON u.department_id = d.id 
@@ -183,10 +196,21 @@ const getAllUsers = asyncHandler(async (req, res) => {
          ORDER BY u.first_name, u.last_name ASC`,
         params
     );
+    const data = users.map((u) => ({
+        ...u,
+        is_active: Number(u.is_active) === 1,
+        is_super_admin: Number(u.is_super_admin) === 1,
+        tickets_created: Number(u.tickets_created) || 0,
+        assigned_active: Number(u.assigned_active) || 0,
+        // GREATEST con el centinela 1970 => sin actividad
+        last_activity_at:
+            u.last_activity_at && new Date(u.last_activity_at).getFullYear() > 1970 ? u.last_activity_at : null,
+    }));
+
     res.status(200).json({
         success: true,
-        count: users.length,
-        data: users,
+        count: data.length,
+        data,
     });
 });
 
@@ -209,12 +233,17 @@ const getUserById = asyncHandler(async (req, res) => {
 // @desc    Actualizar usuario
 const updateUser = asyncHandler(async (req, res) => {
     const { id } = req.params;
-    const { username, email, role, department_id, company_id, password, first_name, last_name } = req.body;
+    const { username, email, role, department_id, company_id, password, first_name, last_name, is_active } = req.body;
 
     const [user] = await pool.execute('SELECT * FROM users WHERE id = ?', [id]);
     if (user.length === 0) {
         res.status(404);
         throw new Error('Usuario no encontrado.');
+    }
+
+    if (is_active !== undefined && Number(id) === Number(req.user.id) && !is_active) {
+        res.status(400);
+        throw new Error('No podés desactivar tu propio usuario.');
     }
 
     const usernameTrimmed = username != null && String(username).trim() !== '' ? String(username).trim() : null;
@@ -239,6 +268,15 @@ const updateUser = asyncHandler(async (req, res) => {
     if (company_id) { updateFields.push('company_id = ?'); updateValues.push(company_id); }
     if (first_name) { updateFields.push('first_name = ?'); updateValues.push(first_name); }
     if (last_name) { updateFields.push('last_name = ?'); updateValues.push(last_name); }
+    if (is_active !== undefined) {
+        const active = is_active === true || is_active === 1 || is_active === '1' || is_active === 'true';
+        updateFields.push('is_active = ?');
+        updateValues.push(active ? 1 : 0);
+        if (active) {
+            updateFields.push('activation_token = NULL');
+            updateFields.push('activation_token_expires = NULL');
+        }
+    }
 
     if (password) {
         const salt = await bcrypt.genSalt(10);
@@ -246,7 +284,7 @@ const updateUser = asyncHandler(async (req, res) => {
         updateFields.push('password = ?');
         updateValues.push(hashedPassword);
         // Si un admin restablece la contraseña, activar la cuenta pendiente de email
-        if (!user[0].is_active) {
+        if (!user[0].is_active && is_active === undefined) {
             updateFields.push('is_active = ?');
             updateValues.push(1);
             updateFields.push('activation_token = NULL');

@@ -119,20 +119,13 @@ const loginUser = asyncHandler(async (req, res) => {
         res.status(401);
         throw new Error('Credenciales inválidas.');
     }
+    // El registro ya crea la cuenta activa; "inactivo" significa que un admin la desactivó.
     if (!user.is_active) {
-        if (user.role === 'client') {
-            await pool.execute(
-                'UPDATE users SET is_active = 1, activation_token = NULL, activation_token_expires = NULL WHERE id = ?',
-                [user.id]
-            );
-            user.is_active = 1;
-        } else if (user.role === 'supplier') {
-            res.status(401);
+        res.status(401);
+        if (user.role === 'supplier' && user.supplier_invitation_token) {
             throw new Error('Debe establecer su contraseña usando el link de invitación enviado por email.');
-        } else {
-            res.status(401);
-            throw new Error('Cuenta inactiva.');
         }
+        throw new Error('Tu cuenta está desactivada. Contactá al administrador.');
     }
     // Access token: 7 días (para llamadas a la API)
     const token = jwt.sign(
