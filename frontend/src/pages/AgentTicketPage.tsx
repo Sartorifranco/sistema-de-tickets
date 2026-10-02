@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 import { toast } from 'react-toastify';
 import { Search, UserSearch, BarChart3, X } from 'lucide-react';
 import api from '../config/axiosConfig';
@@ -14,6 +14,7 @@ import { clCard, clInput, clTdCompact as clTd, clThCompact as clTh, clThCompactR
 import { hasAnyPermission } from '../utils/permissions';
 import { PERMISSION_KEYS as P } from '../constants/permissions';
 import { useDebouncedValue } from '../utils/useDebouncedValue';
+import { ticketLinkClickHandler, ticketRowClass, useRestoreTicketRow, useSyncListQuery } from '../utils/ticketListReturn';
 
 const TabButton: React.FC<{
     label: string;
@@ -52,19 +53,35 @@ const AgentTicketsPage: React.FC = () => {
     const [allUsers, setAllUsers] = useState<User[]>([]);
     const [departments, setDepartments] = useState<Department[]>([]);
 
-    const [view, setView] = useState<AgentView>('assigned');
+    const [searchParams] = useSearchParams();
+    const initialTab = searchParams.get('tab');
+    const [view, setView] = useState<AgentView>(
+        initialTab === 'unassigned' || initialTab === 'all' ? initialTab : 'assigned'
+    );
     
     const [filters, setFilters] = useState({
-        status: '',
-        startDate: '',
-        endDate: '',
-        agentId: '',
-        priority: '',
+        status: searchParams.get('status') || '',
+        startDate: searchParams.get('startDate') || '',
+        endDate: searchParams.get('endDate') || '',
+        agentId: searchParams.get('agentId') || '',
+        priority: searchParams.get('priority') || '',
     });
-    const [searchTitle, setSearchTitle] = useState('');
-    const [searchClient, setSearchClient] = useState('');
+    const [searchTitle, setSearchTitle] = useState(searchParams.get('q') || '');
+    const [searchClient, setSearchClient] = useState(searchParams.get('cliente') || '');
     const debouncedTitle = useDebouncedValue(searchTitle.trim(), 400);
     const debouncedClient = useDebouncedValue(searchClient.trim(), 400);
+
+    useSyncListQuery({
+        tab: view === 'assigned' ? '' : view,
+        status: filters.status,
+        startDate: filters.startDate,
+        endDate: filters.endDate,
+        agentId: filters.agentId,
+        priority: filters.priority,
+        q: searchTitle,
+        cliente: searchClient,
+    });
+    const focusId = useRestoreTicketRow('/agent/tickets', !loading && tickets.length > 0);
 
     const handleViewChange = (newView: AgentView) => {
         setView(newView);
@@ -288,7 +305,7 @@ const AgentTicketsPage: React.FC = () => {
 
     return (
         <>
-            <div className="container mx-auto p-4 sm:p-6 lg:p-8 min-w-0">
+            <div className="container mx-auto p-4 sm:p-6 lg:p-8 min-w-0" onClick={ticketLinkClickHandler('/agent/tickets')}>
                 <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
                     <h1 className="text-3xl font-bold text-gray-900 tracking-tight">Panel de Agente</h1>
                     <div className="flex items-center gap-3 flex-wrap">
@@ -421,7 +438,7 @@ const AgentTicketsPage: React.FC = () => {
                                 </thead>
                                 <tbody className="bg-white divide-y divide-gray-100">
                                     {tickets.map(ticket => (
-                                        <tr key={ticket.id} className="hover:bg-gray-50/80 transition-colors">
+                                        <tr key={ticket.id} data-ticket-id={ticket.id} className={ticketRowClass(focusId, ticket.id, 'hover:bg-gray-50/80 transition-colors')}>
                                             <td className={`${clTd} whitespace-nowrap`}>#{ticket.id}</td>
                                             <td className={`${clTd} font-medium text-gray-900`}>
                                                 {ticket.title}
@@ -448,7 +465,7 @@ const AgentTicketsPage: React.FC = () => {
                             {/* Tarjetas (hasta lg) */}
                             <div className="xl:hidden space-y-3">
                                 {tickets.map(ticket => (
-                                    <div key={ticket.id} className="rounded-xl border border-gray-100 bg-gray-50/70 p-4 min-w-0">
+                                    <div key={ticket.id} data-ticket-id={ticket.id} className={ticketRowClass(focusId, ticket.id, 'rounded-xl border border-gray-100 bg-gray-50/70 p-4 min-w-0')}>
                                         <p className="font-bold text-gray-900 break-words">#{ticket.id} · {ticket.title}</p>
                                         <dl className="mt-2 text-sm text-gray-700 space-y-1">
                                             <div className="flex gap-2"><dt className="text-gray-500 shrink-0">Cliente:</dt><dd className="break-words min-w-0">{ticket.client_name}</dd></div>

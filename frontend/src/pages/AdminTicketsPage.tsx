@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 import { toast } from 'react-toastify';
 import { LayoutGrid, List, Search, UserSearch, BarChart3, X } from 'lucide-react';
 import api from '../config/axiosConfig';
@@ -15,6 +15,7 @@ import { ticketRealHoursValid, ticketRequiresRealHoursForClosure } from '../util
 import { clCard, clInput, clTdCompact as clTd, clThCompact as clTh, clThCompactRight as clThRight, priorityPillClass } from '../utils/cleanLightUi';
 import { ticketPriorityTranslations, ticketStatusTranslations } from '../utils/traslations';
 import { useDebouncedValue } from '../utils/useDebouncedValue';
+import { ticketLinkClickHandler, ticketRowClass, useRestoreTicketRow, useSyncListQuery } from '../utils/ticketListReturn';
 
 // Interfaces para los datos de los filtros
 interface FilterData {
@@ -27,9 +28,10 @@ type ViewMode = 'table' | 'kanban';
 const AdminTicketsPage: React.FC = () => {
     const { user } = useAuth();
     const isAdmin = user?.role === 'admin';
+    const [searchParams] = useSearchParams();
     const [tickets, setTickets] = useState<TicketData[]>([]);
     const [loading, setLoading] = useState(true);
-    const [viewMode, setViewMode] = useState<ViewMode>('table');
+    const [viewMode, setViewMode] = useState<ViewMode>(searchParams.get('vista') === 'kanban' ? 'kanban' : 'table');
     
     // Estados para el modal
     const [isModalOpen, setIsModalOpen] = useState(false);
@@ -40,18 +42,31 @@ const AdminTicketsPage: React.FC = () => {
     // Estados para los filtros
     const [filterData, setFilterData] = useState<FilterData>({ companies: [], agents: [] });
     const [filters, setFilters] = useState({
-        companyId: '',
-        agentId: '',
-        status: '',
-        priority: '',
-        startDate: '',
-        endDate: '',
+        companyId: searchParams.get('companyId') || '',
+        agentId: searchParams.get('agentId') || '',
+        status: searchParams.get('status') || '',
+        priority: searchParams.get('priority') || '',
+        startDate: searchParams.get('startDate') || '',
+        endDate: searchParams.get('endDate') || '',
     });
     // Búsquedas de texto (con retardo para no consultar en cada tecla)
-    const [searchTitle, setSearchTitle] = useState('');
-    const [searchClient, setSearchClient] = useState('');
+    const [searchTitle, setSearchTitle] = useState(searchParams.get('q') || '');
+    const [searchClient, setSearchClient] = useState(searchParams.get('cliente') || '');
     const debouncedTitle = useDebouncedValue(searchTitle.trim(), 400);
     const debouncedClient = useDebouncedValue(searchClient.trim(), 400);
+
+    useSyncListQuery({
+        companyId: filters.companyId,
+        agentId: filters.agentId,
+        status: filters.status,
+        priority: filters.priority,
+        startDate: filters.startDate,
+        endDate: filters.endDate,
+        q: searchTitle,
+        cliente: searchClient,
+        vista: viewMode === 'kanban' ? 'kanban' : '',
+    });
+    const focusId = useRestoreTicketRow('/admin/tickets', !loading && tickets.length > 0);
 
     // Carga los datos para los dropdowns de los filtros y el modal
     useEffect(() => {
@@ -218,7 +233,7 @@ const AdminTicketsPage: React.FC = () => {
 
     return (
         <>
-            <div className="container mx-auto p-4 sm:p-6 lg:p-8 min-w-0">
+            <div className="container mx-auto p-4 sm:p-6 lg:p-8 min-w-0" onClick={ticketLinkClickHandler('/admin/tickets')}>
                 <div className="flex flex-col xl:flex-row justify-between items-start xl:items-center gap-4 mb-6">
                     <h1 className="text-3xl font-bold text-gray-900 tracking-tight whitespace-nowrap">Panel de Tickets</h1>
                     <div className="flex items-center gap-3 flex-wrap">
@@ -367,7 +382,7 @@ const AdminTicketsPage: React.FC = () => {
                                 </thead>
                                 <tbody className="bg-white divide-y divide-gray-100">
                                     {tickets.map(ticket => (
-                                        <tr key={ticket.id} className="hover:bg-gray-50/80 transition-colors">
+                                        <tr key={ticket.id} data-ticket-id={ticket.id} className={ticketRowClass(focusId, ticket.id, 'hover:bg-gray-50/80 transition-colors')}>
                                             <td className={`${clTd} text-gray-900 whitespace-nowrap`}>#{ticket.id}</td>
                                             <td className={`${clTd} font-medium text-gray-900 break-words`}>
                                                 <div className="flex flex-wrap items-center gap-2">
@@ -400,7 +415,7 @@ const AdminTicketsPage: React.FC = () => {
                             {/* Tarjetas (móvil) */}
                             <div className="md:hidden space-y-3">
                                 {tickets.map(ticket => (
-                                    <div key={ticket.id} className="rounded-xl border border-gray-100 bg-gray-50/70 p-4 min-w-0">
+                                    <div key={ticket.id} data-ticket-id={ticket.id} className={ticketRowClass(focusId, ticket.id, 'rounded-xl border border-gray-100 bg-gray-50/70 p-4 min-w-0')}>
                                         <div className="flex justify-between items-start gap-2">
                                             <p className="font-bold text-gray-900 break-words min-w-0">#{ticket.id} · {ticket.title}</p>
                                             <div className="shrink-0"><StatusBadge status={ticket.status as TicketStatus} /></div>

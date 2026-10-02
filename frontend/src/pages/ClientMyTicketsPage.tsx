@@ -1,7 +1,7 @@
 // ClientTicketsPage.tsx
 
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 import { toast } from 'react-toastify';
 import { Search, BarChart3, X } from 'lucide-react';
 import api from '../config/axiosConfig';
@@ -14,6 +14,7 @@ import TicketReportModal, { ReportFilterChip } from '../components/Tickets/Ticke
 import { clCard, clInput, clTdCompact as clTd, clThCompact as clTh, clThCompactRight as clThRight, priorityPillClass } from '../utils/cleanLightUi';
 import { formatLocalDate } from '../utils/dateFormatter';
 import { useDebouncedValue } from '../utils/useDebouncedValue';
+import { ticketLinkClickHandler, ticketRowClass, useRestoreTicketRow, useSyncListQuery } from '../utils/ticketListReturn';
 
 const ClientTicketsPage: React.FC = () => {
     const { user } = useAuth();
@@ -24,13 +25,22 @@ const ClientTicketsPage: React.FC = () => {
     const [isReportOpen, setIsReportOpen] = useState(false);
     const [departments, setDepartments] = useState<Department[]>([]);
 
+    const [searchParams] = useSearchParams();
     const [filters, setFilters] = useState({
-        status: '',
-        startDate: '',
-        endDate: '',
+        status: searchParams.get('status') || '',
+        startDate: searchParams.get('startDate') || '',
+        endDate: searchParams.get('endDate') || '',
     });
-    const [searchTitle, setSearchTitle] = useState('');
+    const [searchTitle, setSearchTitle] = useState(searchParams.get('q') || '');
     const debouncedTitle = useDebouncedValue(searchTitle.trim(), 400);
+
+    useSyncListQuery({
+        status: filters.status,
+        startDate: filters.startDate,
+        endDate: filters.endDate,
+        q: searchTitle,
+    });
+    const focusId = useRestoreTicketRow('/client/tickets', !loading && tickets.length > 0);
 
     const fetchPageData = useCallback(async () => {
         if (!user) return;
@@ -100,7 +110,7 @@ const ClientTicketsPage: React.FC = () => {
 
     return (
         <>
-            <div className="container mx-auto p-4 sm:p-6 lg:p-8 min-w-0">
+            <div className="container mx-auto p-4 sm:p-6 lg:p-8 min-w-0" onClick={ticketLinkClickHandler('/client/tickets')}>
                 <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-4 mb-6">
                     <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 tracking-tight">Mis Tickets</h1>
                     <div className="flex items-center gap-3 flex-wrap">
@@ -193,7 +203,7 @@ const ClientTicketsPage: React.FC = () => {
                                 </thead>
                                 <tbody className="bg-white divide-y divide-gray-100">
                                     {tickets.map(ticket => (
-                                        <tr key={ticket.id} className="hover:bg-gray-50/80 transition-colors">
+                                        <tr key={ticket.id} data-ticket-id={ticket.id} className={ticketRowClass(focusId, ticket.id, 'hover:bg-gray-50/80 transition-colors')}>
                                             <td className={clTd}>#{ticket.id}</td>
                                             <td className={`${clTd} font-medium text-gray-900`}>
                                                 {ticket.title}
@@ -218,7 +228,7 @@ const ClientTicketsPage: React.FC = () => {
                             {/* VISTA DE TARJETAS PARA MÓVIL */}
                             <div className="md:hidden space-y-4">
                                 {tickets.map(ticket => (
-                                    <div key={ticket.id} className="rounded-xl border border-gray-100 bg-gray-50/70 p-4 min-w-0">
+                                    <div key={ticket.id} data-ticket-id={ticket.id} className={ticketRowClass(focusId, ticket.id, 'rounded-xl border border-gray-100 bg-gray-50/70 p-4 min-w-0')}>
                                         <div className="flex justify-between items-start gap-2">
                                             <span className="font-bold text-gray-900 break-words min-w-0">#{ticket.id} · {ticket.title}</span>
                                             <div className="flex-shrink-0">

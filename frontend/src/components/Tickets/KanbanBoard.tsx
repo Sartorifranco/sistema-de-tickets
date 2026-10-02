@@ -84,6 +84,7 @@ const KanbanCard: React.FC<{
             style={style}
             {...listeners}
             {...attributes}
+            data-ticket-id={ticket.id}
             className={`bg-white rounded-2xl border border-gray-100 shadow-sm p-4 cursor-grab active:cursor-grabbing hover:shadow-md transition-shadow ${
                 isDragging ? 'opacity-90 shadow-lg ring-2 ring-blue-100 z-50' : ''
             }`}
