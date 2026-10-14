@@ -11,6 +11,12 @@ const {
     enrichTicketsWithAssignees,
 } = require('../utils/ticketAssignees');
 const { notifyBacarnetTicketStatusChangeSafe } = require('../services/bacarnetWebhookService');
+const {
+    parseEquipmentRequest,
+    requestAuthorization,
+    hasAuthorizationTable,
+    AUTHORIZATION_STATUS_SQL,
+} = require('../services/ticketAuthorizationService');
 
 function parseOptionalDecimal(value) {
     if (value === undefined || value === null || value === '') return null;
@@ -85,8 +91,17 @@ const createTicket = asyncHandler(async (req, res) => {
         github_repo,
         assigned_to_user_id: assignedToBody,
         assigned_to_user_ids: assignedToIdsBody,
+        equipment_request: equipmentRequestBody,
     } = req.body;
     const loggedInUser = req.user;
+
+    let equipmentRequest = null;
+    try {
+        equipmentRequest = parseEquipmentRequest(equipmentRequestBody);
+    } catch (err) {
+        res.status(err.statusCode || 400);
+        throw err;
+    }
 
     let finalUserId;
     if ((loggedInUser.role === 'admin' || loggedInUser.role === 'agent') && clientUserId) {
@@ -230,12 +245,30 @@ const createTicket = asyncHandler(async (req, res) => {
         }
     }
 
+    let authorization = null;
+    if (equipmentRequest) {
+        try {
+            authorization = await requestAuthorization(newTicketId, equipmentRequest);
+        } catch (err) {
+            console.error(`[Authorization] Ticket #${newTicketId}:`, err.message);
+            authorization = { sent: 0, total: 0, error: true };
+        }
+    }
+
     const [[createdTicket]] = await pool.execute('SELECT * FROM tickets WHERE id = ?', [newTicketId]);
     const assignees = await getTicketAssignees(newTicketId);
+    let responseMessage = 'Ticket creado exitosamente.';
+    if (authorization) {
+        responseMessage =
+            authorization.sent > 0
+                ? 'Ticket creado. Se envió el pedido de autorización por correo.'
+                : 'Ticket creado. Queda pendiente de autorización: el correo no se pudo enviar todavía, el equipo de sistemas lo va a reenviar.';
+    }
     res.status(201).json({
         success: true,
-        message: 'Ticket creado exitosamente.',
+        message: responseMessage,
         data: { id: newTicketId, ...createdTicket, assignees },
+        authorization,
     });
 });
 
@@ -263,12 +296,17 @@ const getTickets = asyncHandler(async (req, res) => {
         clientName    // Búsqueda libre por nombre/usuario/email del cliente
     } = req.query;
 
+    const authorizationColumn = (await hasAuthorizationTable())
+        ? `${AUTHORIZATION_STATUS_SQL} AS authorization_status`
+        : 'NULL AS authorization_status';
+
     let query = `
         SELECT t.*, u.company_id,
                 COALESCE(CONCAT(u.first_name, ' ', u.last_name), u.username, 'Usuario Eliminado') as client_name,
                 c.name as category_name,
                 d.name as department_name,
-                COALESCE(CONCAT(a.first_name, ' ', a.last_name), a.username, 'No asignado') as agent_name
+                COALESCE(CONCAT(a.first_name, ' ', a.last_name), a.username, 'No asignado') as agent_name,
+                ${authorizationColumn}
         FROM tickets t
         LEFT JOIN users u ON t.user_id = u.id
         LEFT JOIN ticket_categories c ON t.category_id = c.id
@@ -432,7 +470,8 @@ const getTicketById = asyncHandler(async (req, res) => {
     if (['client', 'boss', 'purchasing'].includes(role) && ticket.user_id !== userId) { res.status(403); throw new Error('No tienes permiso para ver este ticket.'); }
     
     let commentsQuery = `
-        SELECT c.*, COALESCE(CONCAT(u.first_name, ' ', u.last_name), u.username, 'Usuario Eliminado') as username
+        SELECT c.*, CASE WHEN c.user_id IS NULL THEN 'Sistema'
+                    ELSE COALESCE(CONCAT(u.first_name, ' ', u.last_name), u.username, 'Usuario Eliminado') END as username
         FROM comments c
         LEFT JOIN users u ON c.user_id = u.id
         WHERE c.ticket_id = ?
@@ -860,7 +899,8 @@ const getTicketComments = asyncHandler(async (req, res) => {
     if (ticket.length === 0) { res.status(404); throw new Error('Ticket no encontrado'); }
     if (['client', 'boss', 'purchasing'].includes(role) && ticket[0].user_id !== userId) { res.status(403); throw new Error('No tienes permiso para ver los comentarios de este ticket.'); }
     
-    let query = `SELECT c.*, COALESCE(CONCAT(u.first_name, ' ', u.last_name), u.username, 'Usuario Eliminado') as username 
+    let query = `SELECT c.*, CASE WHEN c.user_id IS NULL THEN 'Sistema'
+                    ELSE COALESCE(CONCAT(u.first_name, ' ', u.last_name), u.username, 'Usuario Eliminado') END as username 
                   FROM comments c 
                   LEFT JOIN users u ON c.user_id = u.id 
                   WHERE c.ticket_id = ?`;

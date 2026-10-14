@@ -71,6 +71,35 @@ interface PredefinedProblemLocal {
 /** "Otro", "Otros", "Otro..." o "Otro…" cargados como problema predefinido */
 const OTHER_TITLE_RE = /^otros?\s*(\.{3}|…)?$/i;
 
+/** Problemática que dispara el pedido de autorización por correo */
+const EQUIPMENT_TITLE_RE = /solicitud\s+de\s+nuevo\s+equipamiento/i;
+
+const EQUIPMENT_TYPES = ['PC', 'Notebook', 'PC con monitor, teclado y mouse', 'Otro'] as const;
+
+const EMPTY_EQUIPMENT = {
+    equipment_type: '',
+    equipment_type_other: '',
+    purpose: '',
+    software: '',
+    assigned_to: '',
+};
+
+type EquipmentRequest = typeof EMPTY_EQUIPMENT;
+
+function buildEquipmentDescription(eq: EquipmentRequest, extra: string): string {
+    const type = eq.equipment_type === 'Otro' ? eq.equipment_type_other.trim() || 'Otro' : eq.equipment_type;
+    const lines = [
+        'SOLICITUD DE NUEVO EQUIPAMIENTO',
+        `Equipo: ${type}`,
+        `Uso: ${eq.purpose.trim()}`,
+        `Programas específicos: ${eq.software.trim() || 'Ninguno indicado'}`,
+        `Se asigna a: ${eq.assigned_to.trim()}`,
+    ];
+    const notes = extra.trim();
+    if (notes) lines.push('', `Comentarios: ${notes}`);
+    return lines.join('\n');
+}
+
 interface TicketCategoryLocal {
     id: number;
     name: string;
@@ -157,6 +186,7 @@ const TicketFormModal: React.FC<TicketFormModalProps> = ({
     const [locations, setLocations] = useState<Location[]>([]);
     const [depositarios, setDepositarios] = useState<DepositarioOption[]>([]);
     const [isCustomCategory, setIsCustomCategory] = useState(false);
+    const [equipment, setEquipment] = useState<EquipmentRequest>({ ...EMPTY_EQUIPMENT });
 
     const targetCompanyId = useMemo(() => {
         if ((currentUserRole === 'admin' || currentUserRole === 'agent') && formData.user_id) {
@@ -184,6 +214,7 @@ const TicketFormModal: React.FC<TicketFormModalProps> = ({
             setIsCustomCategory(false);
             setIsOther(false);
             setIsAnalyzing(false);
+            setEquipment({ ...EMPTY_EQUIPMENT });
         }
     }, [isOpen]);
 
@@ -324,6 +355,15 @@ const TicketFormModal: React.FC<TicketFormModalProps> = ({
         () => canUseTicketInternalControlBlock(loggedInUser ?? undefined, departments),
         [loggedInUser, departments]
     );
+
+    const isEquipmentRequest = useMemo(() => {
+        if (initialData?.id || isDesarrolloArea || isCustomCategory || !formData.predefined_problem_id) return false;
+        const problem = predefinedProblems.find((p) => p.id === Number(formData.predefined_problem_id));
+        return !!problem && !problem.is_other && EQUIPMENT_TITLE_RE.test(problem.title);
+    }, [initialData?.id, isDesarrolloArea, isCustomCategory, formData.predefined_problem_id, predefinedProblems]);
+
+    const setEquipmentField = (field: keyof EquipmentRequest, value: string) =>
+        setEquipment((prev) => ({ ...prev, [field]: value }));
 
     // IA — solo completa campos vacíos; usa siempre actualizaciones funcionales
     useEffect(() => {
@@ -471,13 +511,16 @@ const TicketFormModal: React.FC<TicketFormModalProps> = ({
             const problem = predefinedProblems.find((p) => p.id === numValue);
             if (problem) {
                 const isOptionOther = Boolean(problem.is_other) || problem.id === -999;
+                const isEquipmentOption = !isOptionOther && EQUIPMENT_TITLE_RE.test(problem.title);
                 setFormData((prev) => ({
                     ...prev,
                     predefined_problem_id: numValue || undefined,
                     title: isOptionOther ? prev.title : problem.title,
                     description: isOptionOther
                         ? prev.description
-                        : `${problem.description}\n\n--- (Por favor, añada más detalles aquí si es necesario) ---\n`,
+                        : isEquipmentOption
+                          ? ''
+                          : `${problem.description}\n\n--- (Por favor, añada más detalles aquí si es necesario) ---\n`,
                     department_id: problem.department_id ?? prev.department_id,
                     priority: !isOptionOther && problem.default_priority ? problem.default_priority : prev.priority,
                 }));
@@ -541,7 +584,30 @@ const TicketFormModal: React.FC<TicketFormModalProps> = ({
             return;
         }
 
-        const requiredFields: unknown[] = [formData.title, formData.description, formData.department_id];
+        if (isEquipmentRequest) {
+            if (!equipment.equipment_type) {
+                toast.warn('Elegí qué tipo de equipo necesitás.');
+                return;
+            }
+            if (equipment.equipment_type === 'Otro' && !equipment.equipment_type_other.trim()) {
+                toast.warn('Indicá qué equipo necesitás.');
+                return;
+            }
+            if (!equipment.purpose.trim()) {
+                toast.warn('Contá para qué se va a usar el equipo.');
+                return;
+            }
+            if (!equipment.assigned_to.trim()) {
+                toast.warn('Indicá a quién o a qué área se le asigna el equipo.');
+                return;
+            }
+        }
+
+        const descriptionToSend = isEquipmentRequest
+            ? buildEquipmentDescription(equipment, formData.description || '')
+            : formData.description;
+
+        const requiredFields: unknown[] = [formData.title, descriptionToSend, formData.department_id];
         if (!isDesarrolloArea) {
             requiredFields.push(formData.category_id);
         }
@@ -555,8 +621,18 @@ const TicketFormModal: React.FC<TicketFormModalProps> = ({
 
         const payload: Partial<TicketData> = {
             ...formData,
+            description: descriptionToSend,
             category_id: resolvedCategoryId ?? formData.category_id ?? null,
         };
+        if (isEquipmentRequest) {
+            (payload as any).equipment_request = JSON.stringify({
+                equipment_type: equipment.equipment_type,
+                equipment_type_other: equipment.equipment_type_other.trim(),
+                purpose: equipment.purpose.trim(),
+                software: equipment.software.trim(),
+                assigned_to: equipment.assigned_to.trim(),
+            });
+        }
 
         if (!isDesarrolloArea) {
             delete payload.subcategoria;
@@ -810,6 +886,101 @@ const TicketFormModal: React.FC<TicketFormModalProps> = ({
                                     </select>
                                 </div>
                             )}
+                            {isEquipmentRequest && (
+                                <div className="rounded-xl border border-amber-200 bg-amber-50/60 p-4 space-y-4">
+                                    <div>
+                                        <p className="font-semibold text-gray-900">Detalle del equipo solicitado</p>
+                                        <p className="text-xs text-amber-800 mt-0.5">
+                                            Este pedido necesita autorización: al crear el ticket se envía un correo al
+                                            responsable con estos datos para que lo autorice o no.
+                                        </p>
+                                    </div>
+
+                                    <div>
+                                        <span className="block text-gray-700 font-medium text-sm mb-1.5">
+                                            ¿Qué equipo necesitás? <span className="text-red-600">*</span>
+                                        </span>
+                                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                                            {EQUIPMENT_TYPES.map((type) => {
+                                                const checked = equipment.equipment_type === type;
+                                                return (
+                                                    <label
+                                                        key={type}
+                                                        className={`flex items-center gap-2 rounded-lg border px-3 py-2 text-sm cursor-pointer transition-colors ${
+                                                            checked
+                                                                ? 'border-red-300 bg-white text-gray-900 ring-2 ring-red-100'
+                                                                : 'border-gray-200 bg-white/70 text-gray-700 hover:bg-white'
+                                                        }`}
+                                                    >
+                                                        <input
+                                                            type="radio"
+                                                            name="equipment_type"
+                                                            value={type}
+                                                            checked={checked}
+                                                            onChange={() => setEquipmentField('equipment_type', type)}
+                                                            className="accent-red-600"
+                                                        />
+                                                        {type}
+                                                    </label>
+                                                );
+                                            })}
+                                        </div>
+                                        {equipment.equipment_type === 'Otro' && (
+                                            <input
+                                                type="text"
+                                                value={equipment.equipment_type_other}
+                                                onChange={(e) => setEquipmentField('equipment_type_other', e.target.value)}
+                                                placeholder="Ej: impresora, tablet, segundo monitor…"
+                                                className={`${clInput} mt-2`}
+                                                maxLength={150}
+                                            />
+                                        )}
+                                    </div>
+
+                                    <div>
+                                        <label className="block text-gray-700 font-medium text-sm">
+                                            ¿Para qué se va a usar? <span className="text-red-600">*</span>
+                                        </label>
+                                        <textarea
+                                            value={equipment.purpose}
+                                            onChange={(e) => setEquipmentField('purpose', e.target.value)}
+                                            placeholder="Ej: puesto nuevo de facturación, reemplazo de una PC que no enciende…"
+                                            rows={3}
+                                            className={`${clInput} mt-1`}
+                                            maxLength={2000}
+                                        />
+                                    </div>
+
+                                    <div>
+                                        <label className="block text-gray-700 font-medium text-sm">
+                                            ¿Necesita algún programa específico?{' '}
+                                            <span className="text-gray-500 font-normal">(opcional)</span>
+                                        </label>
+                                        <input
+                                            type="text"
+                                            value={equipment.software}
+                                            onChange={(e) => setEquipmentField('software', e.target.value)}
+                                            placeholder="Ej: Office, sistema de facturación, AutoCAD…"
+                                            className={`${clInput} mt-1`}
+                                            maxLength={1000}
+                                        />
+                                    </div>
+
+                                    <div>
+                                        <label className="block text-gray-700 font-medium text-sm">
+                                            ¿A quién o a dónde se asigna? <span className="text-red-600">*</span>
+                                        </label>
+                                        <input
+                                            type="text"
+                                            value={equipment.assigned_to}
+                                            onChange={(e) => setEquipmentField('assigned_to', e.target.value)}
+                                            placeholder="Ej: Juan Pérez - Administración / Recepción planta"
+                                            className={`${clInput} mt-1`}
+                                            maxLength={255}
+                                        />
+                                    </div>
+                                </div>
+                            )}
                         </>
                     )}
 
@@ -835,17 +1006,23 @@ const TicketFormModal: React.FC<TicketFormModalProps> = ({
                     {/* 5. Descripción */}
                     <div className="bg-gray-50 p-3 rounded border">
                         <label className="block text-gray-700 font-bold mb-1">
-                            Descripción{' '}
-                            <span className="text-xs font-normal text-gray-500">(la IA puede sugerir prioridad o área)</span>
+                            {isEquipmentRequest ? 'Comentarios adicionales' : 'Descripción'}{' '}
+                            <span className="text-xs font-normal text-gray-500">
+                                {isEquipmentRequest ? '(opcional)' : '(la IA puede sugerir prioridad o área)'}
+                            </span>
                         </label>
                         <textarea
                             name="description"
                             value={formData.description || ''}
                             onChange={handleChange}
-                            placeholder="Detalle del pedido o incidente..."
-                            rows={5}
-                            className={`${clInput} mt-1 min-h-[120px]`}
-                            required
+                            placeholder={
+                                isEquipmentRequest
+                                    ? 'Algo más que el responsable deba saber (urgencia, presupuesto, etc.)'
+                                    : 'Detalle del pedido o incidente...'
+                            }
+                            rows={isEquipmentRequest ? 3 : 5}
+                            className={`${clInput} mt-1 ${isEquipmentRequest ? '' : 'min-h-[120px]'}`}
+                            required={!isEquipmentRequest}
                         />
                     </div>
 

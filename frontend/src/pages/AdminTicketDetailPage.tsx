@@ -14,6 +14,7 @@ import ContactPhoneRow from '../components/Common/ContactPhoneRow';
 import { InternalTaskBadge, isTicketInternalTask } from '../components/Tickets/InternalTaskBadge';
 import TicketWorklogSidebar from '../components/Tickets/TicketWorklogSidebar';
 import TicketGithubActivity from '../components/Tickets/TicketGithubActivity';
+import TicketAuthorizationBanner from '../components/Tickets/TicketAuthorizationBanner';
 import {
     staffAssignableUsers,
     ticketRealHoursValid,
@@ -178,6 +179,7 @@ const AdminTicketDetailPage: React.FC = () => {
                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                     {/* Columna Izquierda: Detalles y Conversación */}
                     <div className="lg:col-span-2 space-y-6">
+                        <TicketAuthorizationBanner ticketId={ticket.id} canResend refreshKey={ticket.updated_at} />
                         <div className={`${clCard} p-6`}>
                             <h2 className="text-xl font-bold text-gray-800 mb-4 border-b border-gray-100 pb-2">Detalles del Ticket</h2>
                             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">

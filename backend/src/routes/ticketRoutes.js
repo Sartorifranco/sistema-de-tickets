@@ -16,6 +16,10 @@ const {
     getCategories,
     getDepartments,
 } = require('../controllers/ticketController');
+const {
+    getTicketAuthorization,
+    resendTicketAuthorization,
+} = require('../controllers/ticketAuthorizationController');
 
 const { authenticateToken, authorize, authorizeAccess } = require('../middleware/authMiddleware');
 const { PERMISSION_KEYS: P } = require('../constants/permissions');
@@ -49,6 +53,17 @@ router
 router
     .route('/:id/status')
     .put(authorize(['admin', 'agent', 'client', 'boss', 'purchasing']), updateTicketStatus);
+
+router.get(
+    '/:id/authorization',
+    authorizeAccess(['admin', 'agent', 'client', 'boss', 'purchasing'], { adminPermissions: [P.TICKETS_VIEW] }),
+    getTicketAuthorization
+);
+router.post(
+    '/:id/authorization/resend',
+    authorizeAccess(['admin', 'agent'], { adminPermissions: [P.TICKETS_EDIT] }),
+    resendTicketAuthorization
+);
 
 router
     .route('/:id/github-commits')

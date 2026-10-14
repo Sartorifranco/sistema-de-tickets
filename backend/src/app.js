@@ -106,6 +106,7 @@ app.use('/api/developer', require('./routes/developerRoutes'));
 app.use('/api/purchases', require('./routes/purchaseRoutes'));
 app.use('/api/suppliers', require('./routes/supplierRoutes'));
 app.use('/api/system-modules', require('./routes/systemModuleRoutes'));
+app.use('/api/authorizations', require('./routes/ticketAuthorizationRoutes'));
 
 // ✅ RUTAS PÚBLICAS (Para registro sin token)
 app.use('/api/integrations/bacarnet', require('./routes/bacarnetIntegrationRoutes'));

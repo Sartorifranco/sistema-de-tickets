@@ -14,6 +14,8 @@ import TicketReportModal, { ReportFilterChip } from '../components/Tickets/Ticke
 import { clCard, clInput, clTdCompact as clTd, clThCompact as clTh, clThCompactRight as clThRight, priorityPillClass } from '../utils/cleanLightUi';
 import { formatLocalDate } from '../utils/dateFormatter';
 import { useDebouncedValue } from '../utils/useDebouncedValue';
+import { toastTicketCreated } from '../utils/ticketCreatedToast';
+import { AuthorizationPill } from '../components/Tickets/TicketAuthorizationBanner';
 import { ticketLinkClickHandler, ticketRowClass, useRestoreTicketRow, useSyncListQuery } from '../utils/ticketListReturn';
 
 const ClientTicketsPage: React.FC = () => {
@@ -99,8 +101,8 @@ const ClientTicketsPage: React.FC = () => {
             });
             attachments.forEach(file => formData.append('attachments', file));
             
-            await api.post('/api/tickets', formData, { headers: { 'Content-Type': 'multipart/form-data' } });
-            toast.success('¡Ticket creado exitosamente!');
+            const res = await api.post('/api/tickets', formData, { headers: { 'Content-Type': 'multipart/form-data' } });
+            toastTicketCreated(res.data);
             setIsModalOpen(false);
             fetchPageData();
         } catch (err: any) {
@@ -207,6 +209,11 @@ const ClientTicketsPage: React.FC = () => {
                                             <td className={clTd}>#{ticket.id}</td>
                                             <td className={`${clTd} font-medium text-gray-900`}>
                                                 {ticket.title}
+                                                {ticket.authorization_status && (
+                                                    <span className="ml-2 align-middle">
+                                                        <AuthorizationPill status={ticket.authorization_status} />
+                                                    </span>
+                                                )}
                                                 <p className="text-xs text-gray-500 mt-1 font-normal lg:hidden">{formatLocalDate(ticket.created_at)}</p>
                                             </td>
                                             <td className={`${clTd} text-gray-600 hidden lg:table-cell`}>{formatLocalDate(ticket.created_at)}</td>
@@ -230,7 +237,14 @@ const ClientTicketsPage: React.FC = () => {
                                 {tickets.map(ticket => (
                                     <div key={ticket.id} data-ticket-id={ticket.id} className={ticketRowClass(focusId, ticket.id, 'rounded-xl border border-gray-100 bg-gray-50/70 p-4 min-w-0')}>
                                         <div className="flex justify-between items-start gap-2">
-                                            <span className="font-bold text-gray-900 break-words min-w-0">#{ticket.id} · {ticket.title}</span>
+                                            <span className="font-bold text-gray-900 break-words min-w-0">
+                                                #{ticket.id} · {ticket.title}
+                                                {ticket.authorization_status && (
+                                                    <span className="ml-2 align-middle">
+                                                        <AuthorizationPill status={ticket.authorization_status} />
+                                                    </span>
+                                                )}
+                                            </span>
                                             <div className="flex-shrink-0">
                                                 <StatusBadge status={ticket.status as TicketStatus} />
                                             </div>

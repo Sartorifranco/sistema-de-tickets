@@ -13,6 +13,7 @@ import { isInternalComment } from '../utils/commentHtml';
 import { postTicketComment, commentErrorMessage } from '../utils/ticketComments';
 import ContactPhoneRow from '../components/Common/ContactPhoneRow';
 import TicketWorklogSidebar from '../components/Tickets/TicketWorklogSidebar';
+import TicketAuthorizationBanner from '../components/Tickets/TicketAuthorizationBanner';
 import { staffAssignableUsers, ticketRequiresRealHoursForClosure } from '../utils/ticketAccess';
 import { clCard, clInput, clModalPanel } from '../utils/cleanLightUi';
 
@@ -142,6 +143,7 @@ const AgentTicketDetailPage: React.FC = () => {
 
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                 <div className="lg:col-span-2 space-y-6">
+                    <TicketAuthorizationBanner ticketId={ticket.id} canResend refreshKey={ticket.updated_at} />
                     {/* Sección de Detalles del Ticket */}
                     <div className={`${clCard} p-6`}>
                         <h2 className="text-xl font-bold text-gray-800 mb-4 border-b border-gray-100 pb-2">Detalles del Ticket</h2>

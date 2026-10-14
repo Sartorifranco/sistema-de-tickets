@@ -15,6 +15,8 @@ import { ticketRealHoursValid, ticketRequiresRealHoursForClosure } from '../util
 import { clCard, clInput, clTdCompact as clTd, clThCompact as clTh, clThCompactRight as clThRight, priorityPillClass } from '../utils/cleanLightUi';
 import { ticketPriorityTranslations, ticketStatusTranslations } from '../utils/traslations';
 import { useDebouncedValue } from '../utils/useDebouncedValue';
+import { toastTicketCreated } from '../utils/ticketCreatedToast';
+import { AuthorizationPill } from '../components/Tickets/TicketAuthorizationBanner';
 import { ticketLinkClickHandler, ticketRowClass, useRestoreTicketRow, useSyncListQuery } from '../utils/ticketListReturn';
 
 // Interfaces para los datos de los filtros
@@ -206,11 +208,11 @@ const AdminTicketsPage: React.FC = () => {
             });
             attachments.forEach(file => formData.append('attachments', file));
     
-            await api.post('/api/tickets', formData, {
+            const res = await api.post('/api/tickets', formData, {
                 headers: { 'Content-Type': 'multipart/form-data' },
             });
-            
-            toast.success('¡Ticket creado exitosamente!');
+
+            toastTicketCreated(res.data);
             setIsModalOpen(false);
             fetchTickets();
         } catch (err: any) {
@@ -388,6 +390,7 @@ const AdminTicketsPage: React.FC = () => {
                                                 <div className="flex flex-wrap items-center gap-2">
                                                     <span>{ticket.title}</span>
                                                     {isTicketInternalTask(ticket) && <InternalTaskBadge />}
+                                                    <AuthorizationPill status={ticket.authorization_status} />
                                                 </div>
                                                 {renderHours(ticket)}
                                                 {/* Datos ocultos en pantallas medianas se muestran debajo del título */}
@@ -425,6 +428,7 @@ const AdminTicketsPage: React.FC = () => {
                                                 {ticketPriorityTranslations[ticket.priority] || ticket.priority}
                                             </span>
                                             {isTicketInternalTask(ticket) && <InternalTaskBadge />}
+                                            <AuthorizationPill status={ticket.authorization_status} />
                                         </div>
                                         <dl className="mt-3 text-sm text-gray-700 space-y-1">
                                             <div className="flex gap-2"><dt className="text-gray-500 shrink-0">Cliente:</dt><dd className="break-words min-w-0">{ticket.client_name}</dd></div>

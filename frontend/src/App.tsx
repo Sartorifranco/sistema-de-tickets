@@ -51,6 +51,7 @@ import PurchaseDetailPage from './pages/PurchaseDetailPage';
 import InvoicesPage from './pages/InvoicesPage';
 import SuccessApprovalPage from './pages/SuccessApprovalPage';
 import MockEmailPage from './pages/MockEmailPage';
+import AuthorizeEquipmentPage from './pages/AuthorizeEquipmentPage';
 
 
 export type SocketInstance = ReturnType<typeof io>;
@@ -102,6 +103,7 @@ const App: React.FC = () => {
                         <Route path="/set-password/:token" element={<SetPasswordPage />} />
                         <Route path="/success-approval" element={<SuccessApprovalPage />} />
                         <Route path="/mock-email" element={<MockEmailPage />} />
+                        <Route path="/autorizar" element={<AuthorizeEquipmentPage />} />
 
                         {/* Rutas privadas que usan el Layout */}
                         <Route element={<Layout />}>

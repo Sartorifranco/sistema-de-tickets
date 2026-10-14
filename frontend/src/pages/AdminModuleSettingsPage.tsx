@@ -3,6 +3,7 @@ import { toast } from 'react-toastify';
 import { clCard } from '../utils/cleanLightUi';
 import { useSystemModules } from '../context/SystemModulesContext';
 import { SystemModuleKey } from '../constants/systemModules';
+import EquipmentAuthorizersSettings from '../components/Admin/EquipmentAuthorizersSettings';
 
 const AdminModuleSettingsPage: React.FC = () => {
     const { modules, loading, saveModules, refreshModules } = useSystemModules();
@@ -96,6 +97,8 @@ const AdminModuleSettingsPage: React.FC = () => {
                     </button>
                 </div>
             </div>
+
+            <EquipmentAuthorizersSettings />
         </div>
     );
 };

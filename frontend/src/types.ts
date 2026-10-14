@@ -90,6 +90,8 @@ export type TicketPriority = 'low' | 'medium' | 'high' | 'urgent';
 export interface TicketData {
     category_name?: ReactNode; // Debería ser string?
     closure_reason?: string; 
+    /** Solo en listados: estado de la autorización de equipamiento */
+    authorization_status?: 'pending' | 'approved' | 'rejected' | null;
     
     user_username?: ReactNode; // Este parece ser un tipo antiguo
     id: number;

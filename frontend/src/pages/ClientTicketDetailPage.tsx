@@ -11,6 +11,7 @@ import CommentBody from '../components/Common/CommentBody';
 import { isInternalComment } from '../utils/commentHtml';
 import { postTicketComment, commentErrorMessage } from '../utils/ticketComments';
 import { clCard } from '../utils/cleanLightUi';
+import TicketAuthorizationBanner from '../components/Tickets/TicketAuthorizationBanner';
 
 const Badge: React.FC<{ color: string; children: React.ReactNode }> = ({ color, children }) => (
     <span className={`px-3 py-1 text-xs font-semibold rounded-full ${color}`}>
@@ -120,6 +121,8 @@ const ClientTicketDetailPage: React.FC = () => {
                     </div>
                 </div>
             )}
+
+            <TicketAuthorizationBanner ticketId={ticket.id} refreshKey={ticket.updated_at} className="mb-6" />
 
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                 <div className={`lg:col-span-2 ${clCard} p-6`}>

@@ -14,6 +14,8 @@ import { clCard, clInput, clTdCompact as clTd, clThCompact as clTh, clThCompactR
 import { hasAnyPermission } from '../utils/permissions';
 import { PERMISSION_KEYS as P } from '../constants/permissions';
 import { useDebouncedValue } from '../utils/useDebouncedValue';
+import { toastTicketCreated } from '../utils/ticketCreatedToast';
+import { AuthorizationPill } from '../components/Tickets/TicketAuthorizationBanner';
 import { ticketLinkClickHandler, ticketRowClass, useRestoreTicketRow, useSyncListQuery } from '../utils/ticketListReturn';
 
 const TabButton: React.FC<{
@@ -163,10 +165,10 @@ const AgentTicketsPage: React.FC = () => {
                 }
             });
             attachments.forEach(file => formData.append('attachments', file));
-            await api.post('/api/tickets', formData, {
+            const res = await api.post('/api/tickets', formData, {
                 headers: { 'Content-Type': 'multipart/form-data' },
             });
-            toast.success('¡Ticket creado exitosamente!');
+            toastTicketCreated(res.data);
             setIsModalOpen(false);
             await fetchPageData();
         } catch (err: any) {
@@ -442,6 +444,11 @@ const AgentTicketsPage: React.FC = () => {
                                             <td className={`${clTd} whitespace-nowrap`}>#{ticket.id}</td>
                                             <td className={`${clTd} font-medium text-gray-900`}>
                                                 {ticket.title}
+                                                {ticket.authorization_status && (
+                                                    <span className="ml-2 align-middle">
+                                                        <AuthorizationPill status={ticket.authorization_status} />
+                                                    </span>
+                                                )}
                                                 <p className="text-xs text-gray-500 mt-1 font-normal 2xl:hidden">{formatLocalDate(ticket.created_at)}</p>
                                                 {view === 'all' && (
                                                     <p className="text-xs text-gray-500 mt-1 font-normal 2xl:hidden">
@@ -467,6 +474,11 @@ const AgentTicketsPage: React.FC = () => {
                                 {tickets.map(ticket => (
                                     <div key={ticket.id} data-ticket-id={ticket.id} className={ticketRowClass(focusId, ticket.id, 'rounded-xl border border-gray-100 bg-gray-50/70 p-4 min-w-0')}>
                                         <p className="font-bold text-gray-900 break-words">#{ticket.id} · {ticket.title}</p>
+                                        {ticket.authorization_status && (
+                                            <div className="mt-1">
+                                                <AuthorizationPill status={ticket.authorization_status} />
+                                            </div>
+                                        )}
                                         <dl className="mt-2 text-sm text-gray-700 space-y-1">
                                             <div className="flex gap-2"><dt className="text-gray-500 shrink-0">Cliente:</dt><dd className="break-words min-w-0">{ticket.client_name}</dd></div>
                                             {view === 'all' && (

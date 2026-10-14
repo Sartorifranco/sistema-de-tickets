@@ -73,6 +73,9 @@ node scripts/run-ticket-assignees-migration.js
 # Problemáticas: orden, ocultar sin borrar y prioridad sugerida (idempotente)
 node scripts/run-problems-customization-migration.js
 
+# Solicitud de nuevo equipamiento con autorización por correo (idempotente)
+node scripts/run-equipment-authorization-migration.js
+
 # Otras migraciones (si aún no se aplicaron)
 # mysql -u root -p ticket_system < migrations/create_user_fcm_tokens.sql
 # node run-migration-fcm.js
@@ -81,6 +84,8 @@ node scripts/run-problems-customization-migration.js
 La migración RBAC crea `user_permissions`, agrega `users.is_super_admin` y marca como **super admin** a todos los admins existentes (no cambia el acceso actual hasta que edites permisos en la UI).
 
 La migración de Problemáticas agrega `is_active`, `sort_order` y `default_priority` a `predefined_problems` y `is_active`, `sort_order` a `ticket_categories`. Sin ella el módulo funciona igual, pero sin ordenar, ocultar ni prioridad sugerida (la pantalla lo avisa). El backend detecta las columnas solo; si corrés la migración con el backend levantado, reinicialo o esperá 5 minutos.
+
+La migración de equipamiento crea `app_settings` y `ticket_authorizations` y agrega la problemática "Solicitud de nuevo equipamiento" en "Hardware y Periféricos". Después hay que cargar quién autoriza en **Configuración → Autorización de nuevo equipamiento**. El correo lleva un enlace a `FRONTEND_URL/autorizar`, así que `FRONTEND_URL` en `backend/.env` tiene que ser la URL pública (`https://bacarsa.dyndns.org`).
 
 ### 2.4 Iniciar con PM2 (recomendado)
 
@@ -256,6 +261,7 @@ cd backend
 npm install --production
 node scripts/run-rbac-migration.js
 node scripts/run-problems-customization-migration.js
+node scripts/run-equipment-authorization-migration.js
 pm2 restart backend
 
 # Frontend
@@ -275,6 +281,7 @@ cd backend
 npm install --production
 node scripts\run-rbac-migration.js
 node scripts\run-problems-customization-migration.js
+node scripts\run-equipment-authorization-migration.js
 cd ..\frontend
 set REACT_APP_BACKEND_URL=https://bacarsa.dyndns.org
 npm install
