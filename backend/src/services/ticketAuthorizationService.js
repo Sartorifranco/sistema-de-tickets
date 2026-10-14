@@ -3,6 +3,8 @@ const pool = require('../config/db');
 const { isEmailConfigured, sendMailWithRetry } = require('../config/mailTransport');
 
 const AUTHORIZERS_KEY = 'equipment_authorizers';
+const DEPARTMENT_AUTHORIZERS_KEY = 'equipment_authorizers_by_department';
+const MAX_PER_LIST = 5;
 const TOKEN_TTL_DAYS = 30;
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -99,23 +101,44 @@ function equipmentLabel(request) {
     return request.equipment_type === 'Otro' ? request.equipment_type_other || 'Otro' : request.equipment_type;
 }
 
-async function getAuthorizers() {
+function readStoredList(list) {
+    return Array.isArray(list)
+        ? list
+              .map((a) => ({ name: clean(a && a.name, 150), email: clean(a && a.email, 255).toLowerCase() }))
+              .filter((a) => EMAIL_RE.test(a.email))
+        : [];
+}
+
+async function readSetting(key) {
     try {
-        const [[row]] = await pool.execute('SELECT setting_value FROM app_settings WHERE setting_key = ?', [AUTHORIZERS_KEY]);
-        if (!row || !row.setting_value) return [];
-        const list = JSON.parse(row.setting_value);
-        return Array.isArray(list)
-            ? list
-                  .map((a) => ({ name: clean(a.name, 150), email: clean(a.email, 255).toLowerCase() }))
-                  .filter((a) => EMAIL_RE.test(a.email))
-            : [];
+        const [[row]] = await pool.execute('SELECT setting_value FROM app_settings WHERE setting_key = ?', [key]);
+        if (!row || !row.setting_value) return null;
+        return JSON.parse(row.setting_value);
     } catch (err) {
-        if (err.code === 'ER_NO_SUCH_TABLE') return [];
+        if (err.code === 'ER_NO_SUCH_TABLE' || err instanceof SyntaxError) return null;
         throw err;
     }
 }
 
-async function saveAuthorizers(list) {
+/** Autorizantes generales: se usan cuando el área del solicitante no tiene autorizantes propios. */
+async function getAuthorizers() {
+    return readStoredList(await readSetting(AUTHORIZERS_KEY));
+}
+
+/** { [departmentId]: [{ name, email }] } */
+async function getDepartmentAuthorizers() {
+    const raw = await readSetting(DEPARTMENT_AUTHORIZERS_KEY);
+    const map = {};
+    if (raw && typeof raw === 'object' && !Array.isArray(raw)) {
+        for (const [deptId, list] of Object.entries(raw)) {
+            const items = readStoredList(list);
+            if (/^\d+$/.test(deptId) && items.length) map[deptId] = items;
+        }
+    }
+    return map;
+}
+
+function validateList(list, context) {
     if (!Array.isArray(list)) {
         const err = new Error('Enviá la lista de autorizantes.');
         err.statusCode = 400;
@@ -128,7 +151,7 @@ async function saveAuthorizers(list) {
         const name = clean(item && item.name, 150);
         if (!email && !name) continue;
         if (!EMAIL_RE.test(email)) {
-            const err = new Error(`El correo "${email || '(vacío)'}" no es válido.`);
+            const err = new Error(`${context}: el correo "${email || '(vacío)'}" no es válido.`);
             err.statusCode = 400;
             throw err;
         }
@@ -136,17 +159,67 @@ async function saveAuthorizers(list) {
         seen.add(email);
         normalized.push({ name, email });
     }
-    if (normalized.length > 5) {
-        const err = new Error('Podés cargar hasta 5 autorizantes.');
+    if (normalized.length > MAX_PER_LIST) {
+        const err = new Error(`${context}: podés cargar hasta ${MAX_PER_LIST} autorizantes.`);
         err.statusCode = 400;
         throw err;
     }
+    return normalized;
+}
+
+async function writeSetting(key, value) {
     await pool.execute(
         `INSERT INTO app_settings (setting_key, setting_value) VALUES (?, ?)
          ON DUPLICATE KEY UPDATE setting_value = VALUES(setting_value)`,
-        [AUTHORIZERS_KEY, JSON.stringify(normalized)]
+        [key, JSON.stringify(value)]
     );
-    return normalized;
+}
+
+/**
+ * Guarda autorizantes generales y por área.
+ * byDepartment: [{ department_id, authorizers: [{ name, email }] }]
+ */
+async function saveAuthorizerSettings({ authorizers, byDepartment }) {
+    const general = validateList(authorizers, 'Autorizantes generales');
+    const map = {};
+    if (byDepartment !== undefined) {
+        if (!Array.isArray(byDepartment)) {
+            const err = new Error('Formato inválido de autorizantes por área.');
+            err.statusCode = 400;
+            throw err;
+        }
+        const ids = byDepartment.map((d) => Number(d && d.department_id)).filter((id) => Number.isInteger(id) && id > 0);
+        const names = {};
+        if (ids.length) {
+            const [rows] = await pool.query('SELECT id, name FROM departments WHERE id IN (?)', [ids]);
+            rows.forEach((r) => {
+                names[r.id] = r.name;
+            });
+        }
+        for (const entry of byDepartment) {
+            const id = Number(entry && entry.department_id);
+            if (!names[id]) {
+                const err = new Error('Hay un área que no existe. Recargá la página y probá de nuevo.');
+                err.statusCode = 400;
+                throw err;
+            }
+            const list = validateList(entry.authorizers, `Área ${names[id]}`);
+            if (list.length) map[id] = list;
+        }
+    }
+    await writeSetting(AUTHORIZERS_KEY, general);
+    if (byDepartment !== undefined) await writeSetting(DEPARTMENT_AUTHORIZERS_KEY, map);
+    return { authorizers: general, byDepartment: byDepartment !== undefined ? map : await getDepartmentAuthorizers() };
+}
+
+/** Elige a quién pedirle autorización según el área del solicitante. */
+async function resolveAuthorizers(departmentId) {
+    if (departmentId) {
+        const byDept = await getDepartmentAuthorizers();
+        const list = byDept[String(departmentId)];
+        if (list && list.length) return { list, source: 'department' };
+    }
+    return { list: await getAuthorizers(), source: 'default' };
 }
 
 async function loadTicketContext(ticketId) {
@@ -154,7 +227,7 @@ async function loadTicketContext(ticketId) {
         `SELECT t.id, t.title, t.description, t.priority, t.created_at, t.user_id, t.telefono_contacto,
                 u.first_name, u.last_name, u.username, u.email,
                 co.name AS company_name, d.name AS department_name, c.name AS category_name,
-                ud.name AS requester_department
+                ud.name AS requester_department, u.department_id AS requester_department_id
          FROM tickets t
          LEFT JOIN users u ON u.id = t.user_id
          LEFT JOIN companies co ON co.id = u.company_id
@@ -253,9 +326,9 @@ async function sendAuthorizationEmail(rowId, token, ticket, request) {
 
 /** Crea los registros pendientes y envía un correo a cada autorizante configurado. */
 async function requestAuthorization(ticketId, request) {
-    const authorizers = await getAuthorizers();
     const ticket = await loadTicketContext(ticketId);
-    if (!ticket) return { sent: 0, total: 0, missingAuthorizers: authorizers.length === 0 };
+    if (!ticket) return { sent: 0, total: 0, missingAuthorizers: false };
+    const { list: authorizers } = await resolveAuthorizers(ticket.requester_department_id);
 
     if (authorizers.length === 0) {
         // Sin autorizante configurado: queda pendiente para que un admin lo cargue y reenvíe.
@@ -515,7 +588,8 @@ module.exports = {
     hasAuthorizationTable,
     parseEquipmentRequest,
     getAuthorizers,
-    saveAuthorizers,
+    getDepartmentAuthorizers,
+    saveAuthorizerSettings,
     requestAuthorization,
     resendAuthorization,
     getTicketAuthorization,

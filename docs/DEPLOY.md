@@ -85,7 +85,7 @@ La migración RBAC crea `user_permissions`, agrega `users.is_super_admin` y marc
 
 La migración de Problemáticas agrega `is_active`, `sort_order` y `default_priority` a `predefined_problems` y `is_active`, `sort_order` a `ticket_categories`. Sin ella el módulo funciona igual, pero sin ordenar, ocultar ni prioridad sugerida (la pantalla lo avisa). El backend detecta las columnas solo; si corrés la migración con el backend levantado, reinicialo o esperá 5 minutos.
 
-La migración de equipamiento crea `app_settings` y `ticket_authorizations` y agrega la problemática "Solicitud de nuevo equipamiento" en "Hardware y Periféricos". Después hay que cargar quién autoriza en **Configuración → Autorización de nuevo equipamiento**. El correo lleva un enlace a `FRONTEND_URL/autorizar`, así que `FRONTEND_URL` en `backend/.env` tiene que ser la URL pública (`https://bacarsa.dyndns.org`).
+La migración de equipamiento crea `app_settings` y `ticket_authorizations` y agrega la problemática "Solicitud de nuevo equipamiento" en "Hardware y Periféricos". Después hay que cargar quién autoriza en **Configuración → Autorización de nuevo equipamiento**: autorizantes por área (se elige según el área del solicitante) y una lista general para las áreas sin autorizante propio. El correo lleva un enlace a `FRONTEND_URL/autorizar`, así que `FRONTEND_URL` en `backend/.env` tiene que ser la URL pública (`https://bacarsa.dyndns.org`).
 
 ### 2.4 Iniciar con PM2 (recomendado)
 

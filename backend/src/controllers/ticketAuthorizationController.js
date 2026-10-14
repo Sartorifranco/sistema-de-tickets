@@ -52,16 +52,42 @@ const resendTicketAuthorization = asyncHandler(async (req, res) => {
 });
 
 // @route GET /api/authorizations/settings
+async function settingsPayload(authorizers, byDepartmentMap) {
+    const [departments] = await pool.execute(
+        `SELECT d.id, d.name, co.name AS company_name,
+                (SELECT COUNT(*) FROM users u WHERE u.department_id = d.id) AS users_count
+         FROM departments d
+         LEFT JOIN companies co ON co.id = d.company_id
+         ORDER BY co.name IS NULL, co.name, d.name`
+    );
+    return {
+        authorizers,
+        by_department: Object.entries(byDepartmentMap).map(([id, list]) => ({
+            department_id: Number(id),
+            authorizers: list,
+        })),
+        departments: departments.map((d) => ({ ...d, users_count: Number(d.users_count) })),
+    };
+}
+
 const getSettings = asyncHandler(async (req, res) => {
-    const authorizers = await service.getAuthorizers();
-    res.status(200).json({ success: true, data: { authorizers } });
+    const [authorizers, byDepartment] = await Promise.all([service.getAuthorizers(), service.getDepartmentAuthorizers()]);
+    res.status(200).json({ success: true, data: await settingsPayload(authorizers, byDepartment) });
 });
 
-// @route PUT /api/authorizations/settings
+// @route PUT /api/authorizations/settings body { authorizers, by_department: [{ department_id, authorizers }] }
 const updateSettings = asyncHandler(async (req, res) => {
     try {
-        const authorizers = await service.saveAuthorizers(req.body && req.body.authorizers);
-        res.status(200).json({ success: true, message: 'Autorizantes guardados.', data: { authorizers } });
+        const body = req.body || {};
+        const saved = await service.saveAuthorizerSettings({
+            authorizers: body.authorizers,
+            byDepartment: body.by_department,
+        });
+        res.status(200).json({
+            success: true,
+            message: 'Autorizantes guardados.',
+            data: await settingsPayload(saved.authorizers, saved.byDepartment),
+        });
     } catch (err) {
         if (err.code === 'ER_NO_SUCH_TABLE') {
             res.status(503);
