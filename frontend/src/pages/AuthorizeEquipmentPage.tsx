@@ -30,6 +30,8 @@ interface ReviewData {
         purpose?: string;
         software?: string;
         assigned_to?: string;
+        assigned_person?: string;
+        assigned_location?: string;
     };
 }
 
@@ -173,8 +175,13 @@ const AuthorizeEquipmentPage: React.FC = () => {
         ['Teléfono', t.phone || '—'],
         ['Equipo', r.equipment_label || '—'],
         ['Para qué se va a usar', r.purpose || '—'],
-        ['Programas', r.software || 'Ninguno indicado'],
-        ['Se asigna a', r.assigned_to || '—'],
+        ['Programas y accesos', r.software || 'Ninguno indicado'],
+        ...((r.assigned_person
+            ? [
+                  ['Se asigna a', r.assigned_person],
+                  ['Lugar / área', r.assigned_location || '—'],
+              ]
+            : [['Se asigna a', r.assigned_to || '—']]) as [string, React.ReactNode][]),
         ['Prioridad', PRIORITY_LABEL[t.priority] || t.priority],
         ['Pedido el', formatDateTime(t.created_at)],
     ];

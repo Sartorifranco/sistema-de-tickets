@@ -76,15 +76,33 @@ const EQUIPMENT_TITLE_RE = /solicitud\s+de\s+nuevo\s+equipamiento/i;
 
 const EQUIPMENT_TYPES = ['PC', 'Notebook', 'PC con monitor, teclado y mouse', 'Otro'] as const;
 
+const SOFTWARE_EMAIL = 'Correo de Bacar';
+const SOFTWARE_OTHER = 'Otro';
+const SOFTWARE_OPTIONS = ['Vientri', 'Salario', 'Sheet y Docs', SOFTWARE_EMAIL, SOFTWARE_OTHER] as const;
+
 const EMPTY_EQUIPMENT = {
     equipment_type: '',
     equipment_type_other: '',
     purpose: '',
-    software: '',
-    assigned_to: '',
+    software_options: [] as string[],
+    email_account: '',
+    software_other: '',
+    assigned_person: '',
+    assigned_location: '',
 };
 
 type EquipmentRequest = typeof EMPTY_EQUIPMENT;
+type EquipmentTextField = Exclude<keyof EquipmentRequest, 'software_options'>;
+
+function softwareSummary(eq: EquipmentRequest): string {
+    return SOFTWARE_OPTIONS.filter((opt) => eq.software_options.includes(opt))
+        .map((opt) => {
+            if (opt === SOFTWARE_EMAIL) return `${opt} (cuenta: ${eq.email_account.trim()})`;
+            if (opt === SOFTWARE_OTHER) return `Otro: ${eq.software_other.trim()}`;
+            return opt;
+        })
+        .join(', ');
+}
 
 function buildEquipmentDescription(eq: EquipmentRequest, extra: string): string {
     const type = eq.equipment_type === 'Otro' ? eq.equipment_type_other.trim() || 'Otro' : eq.equipment_type;
@@ -92,8 +110,9 @@ function buildEquipmentDescription(eq: EquipmentRequest, extra: string): string 
         'SOLICITUD DE NUEVO EQUIPAMIENTO',
         `Equipo: ${type}`,
         `Uso: ${eq.purpose.trim()}`,
-        `Programas específicos: ${eq.software.trim() || 'Ninguno indicado'}`,
-        `Se asigna a: ${eq.assigned_to.trim()}`,
+        `Programas y accesos: ${softwareSummary(eq) || 'Ninguno indicado'}`,
+        `Se asigna a: ${eq.assigned_person.trim()}`,
+        `Lugar / área: ${eq.assigned_location.trim()}`,
     ];
     const notes = extra.trim();
     if (notes) lines.push('', `Comentarios: ${notes}`);
@@ -362,8 +381,16 @@ const TicketFormModal: React.FC<TicketFormModalProps> = ({
         return !!problem && !problem.is_other && EQUIPMENT_TITLE_RE.test(problem.title);
     }, [initialData?.id, isDesarrolloArea, isCustomCategory, formData.predefined_problem_id, predefinedProblems]);
 
-    const setEquipmentField = (field: keyof EquipmentRequest, value: string) =>
+    const setEquipmentField = (field: EquipmentTextField, value: string) =>
         setEquipment((prev) => ({ ...prev, [field]: value }));
+
+    const toggleSoftware = (option: string) =>
+        setEquipment((prev) => ({
+            ...prev,
+            software_options: prev.software_options.includes(option)
+                ? prev.software_options.filter((o) => o !== option)
+                : [...prev.software_options, option],
+        }));
 
     // IA — solo completa campos vacíos; usa siempre actualizaciones funcionales
     useEffect(() => {
@@ -597,8 +624,20 @@ const TicketFormModal: React.FC<TicketFormModalProps> = ({
                 toast.warn('Contá para qué se va a usar el equipo.');
                 return;
             }
-            if (!equipment.assigned_to.trim()) {
-                toast.warn('Indicá a quién o a qué área se le asigna el equipo.');
+            if (equipment.software_options.includes(SOFTWARE_EMAIL) && !equipment.email_account.trim()) {
+                toast.warn('Indicá cómo se va a llamar la cuenta de correo de Bacar.');
+                return;
+            }
+            if (equipment.software_options.includes(SOFTWARE_OTHER) && !equipment.software_other.trim()) {
+                toast.warn('Indicá qué otro programa necesita.');
+                return;
+            }
+            if (!equipment.assigned_person.trim()) {
+                toast.warn('Indicá a quién se le asigna el equipo.');
+                return;
+            }
+            if (!equipment.assigned_location.trim()) {
+                toast.warn('Indicá a dónde se asigna el equipo.');
                 return;
             }
         }
@@ -629,8 +668,11 @@ const TicketFormModal: React.FC<TicketFormModalProps> = ({
                 equipment_type: equipment.equipment_type,
                 equipment_type_other: equipment.equipment_type_other.trim(),
                 purpose: equipment.purpose.trim(),
-                software: equipment.software.trim(),
-                assigned_to: equipment.assigned_to.trim(),
+                software_options: equipment.software_options,
+                email_account: equipment.email_account.trim(),
+                software_other: equipment.software_other.trim(),
+                assigned_person: equipment.assigned_person.trim(),
+                assigned_location: equipment.assigned_location.trim(),
             });
         }
 
@@ -952,32 +994,92 @@ const TicketFormModal: React.FC<TicketFormModalProps> = ({
                                     </div>
 
                                     <div>
-                                        <label className="block text-gray-700 font-medium text-sm">
-                                            ¿Necesita algún programa específico?{' '}
-                                            <span className="text-gray-500 font-normal">(opcional)</span>
-                                        </label>
-                                        <input
-                                            type="text"
-                                            value={equipment.software}
-                                            onChange={(e) => setEquipmentField('software', e.target.value)}
-                                            placeholder="Ej: Office, sistema de facturación, AutoCAD…"
-                                            className={`${clInput} mt-1`}
-                                            maxLength={1000}
-                                        />
+                                        <span className="block text-gray-700 font-medium text-sm mb-1.5">
+                                            ¿Necesita algún programa o acceso?{' '}
+                                            <span className="text-gray-500 font-normal">(marcá los que correspondan)</span>
+                                        </span>
+                                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                                            {SOFTWARE_OPTIONS.map((opt) => {
+                                                const checked = equipment.software_options.includes(opt);
+                                                return (
+                                                    <label
+                                                        key={opt}
+                                                        className={`flex items-center gap-2 rounded-lg border px-3 py-2 text-sm cursor-pointer transition-colors ${
+                                                            checked
+                                                                ? 'border-red-300 bg-white text-gray-900 ring-2 ring-red-100'
+                                                                : 'border-gray-200 bg-white/70 text-gray-700 hover:bg-white'
+                                                        }`}
+                                                    >
+                                                        <input
+                                                            type="checkbox"
+                                                            checked={checked}
+                                                            onChange={() => toggleSoftware(opt)}
+                                                            className="accent-red-600"
+                                                        />
+                                                        {opt}
+                                                    </label>
+                                                );
+                                            })}
+                                        </div>
+                                        {equipment.software_options.includes(SOFTWARE_EMAIL) && (
+                                            <div className="mt-2">
+                                                <label className="block text-gray-700 text-xs font-medium">
+                                                    ¿Cómo se va a llamar la cuenta de correo? <span className="text-red-600">*</span>
+                                                </label>
+                                                <input
+                                                    type="text"
+                                                    value={equipment.email_account}
+                                                    onChange={(e) => setEquipmentField('email_account', e.target.value)}
+                                                    placeholder="Ej: juan.perez@bacarsa.com.ar"
+                                                    className={`${clInput} mt-1`}
+                                                    maxLength={150}
+                                                />
+                                            </div>
+                                        )}
+                                        {equipment.software_options.includes(SOFTWARE_OTHER) && (
+                                            <div className="mt-2">
+                                                <label className="block text-gray-700 text-xs font-medium">
+                                                    ¿Qué otro programa necesita? <span className="text-red-600">*</span>
+                                                </label>
+                                                <input
+                                                    type="text"
+                                                    value={equipment.software_other}
+                                                    onChange={(e) => setEquipmentField('software_other', e.target.value)}
+                                                    placeholder="Ej: AutoCAD, sistema de facturación…"
+                                                    className={`${clInput} mt-1`}
+                                                    maxLength={500}
+                                                />
+                                            </div>
+                                        )}
                                     </div>
 
-                                    <div>
-                                        <label className="block text-gray-700 font-medium text-sm">
-                                            ¿A quién o a dónde se asigna? <span className="text-red-600">*</span>
-                                        </label>
-                                        <input
-                                            type="text"
-                                            value={equipment.assigned_to}
-                                            onChange={(e) => setEquipmentField('assigned_to', e.target.value)}
-                                            placeholder="Ej: Juan Pérez - Administración / Recepción planta"
-                                            className={`${clInput} mt-1`}
-                                            maxLength={255}
-                                        />
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                        <div>
+                                            <label className="block text-gray-700 font-medium text-sm">
+                                                ¿A quién se le asigna? <span className="text-red-600">*</span>
+                                            </label>
+                                            <input
+                                                type="text"
+                                                value={equipment.assigned_person}
+                                                onChange={(e) => setEquipmentField('assigned_person', e.target.value)}
+                                                placeholder="Ej: Juan Pérez"
+                                                className={`${clInput} mt-1`}
+                                                maxLength={150}
+                                            />
+                                        </div>
+                                        <div>
+                                            <label className="block text-gray-700 font-medium text-sm">
+                                                ¿A dónde se asigna? <span className="text-red-600">*</span>
+                                            </label>
+                                            <input
+                                                type="text"
+                                                value={equipment.assigned_location}
+                                                onChange={(e) => setEquipmentField('assigned_location', e.target.value)}
+                                                placeholder="Ej: Administración - Planta Córdoba"
+                                                className={`${clInput} mt-1`}
+                                                maxLength={150}
+                                            />
+                                        </div>
                                     </div>
                                 </div>
                             )}

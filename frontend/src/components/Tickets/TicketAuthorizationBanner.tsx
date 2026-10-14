@@ -24,6 +24,8 @@ interface TicketAuthorization {
         purpose?: string;
         software?: string;
         assigned_to?: string;
+        assigned_person?: string;
+        assigned_location?: string;
     } | null;
     approvers: AuthorizationApprover[];
     email_error?: string | null;
@@ -131,15 +133,23 @@ const TicketAuthorizationBanner: React.FC<{
                             </div>
                             <div className="min-w-0">
                                 <dt className="text-gray-500">Se asigna a</dt>
-                                <dd className="font-medium text-gray-900 break-words">{data.request.assigned_to}</dd>
+                                <dd className="font-medium text-gray-900 break-words">
+                                    {data.request.assigned_person || data.request.assigned_to}
+                                </dd>
                             </div>
+                            {data.request.assigned_location && (
+                                <div className="min-w-0">
+                                    <dt className="text-gray-500">Lugar / área</dt>
+                                    <dd className="font-medium text-gray-900 break-words">{data.request.assigned_location}</dd>
+                                </div>
+                            )}
                             <div className="min-w-0 sm:col-span-2">
                                 <dt className="text-gray-500">Uso</dt>
                                 <dd className="text-gray-900 break-words whitespace-pre-wrap">{data.request.purpose}</dd>
                             </div>
                             {data.request.software && (
                                 <div className="min-w-0 sm:col-span-2">
-                                    <dt className="text-gray-500">Programas</dt>
+                                    <dt className="text-gray-500">Programas y accesos</dt>
                                     <dd className="text-gray-900 break-words">{data.request.software}</dd>
                                 </div>
                             )}

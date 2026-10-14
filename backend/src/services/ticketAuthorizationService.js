@@ -9,6 +9,9 @@ const TOKEN_TTL_DAYS = 30;
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 const EQUIPMENT_TYPES = ['PC', 'Notebook', 'PC con monitor, teclado y mouse', 'Otro'];
+const SOFTWARE_EMAIL = 'Correo de Bacar';
+const SOFTWARE_OTHER = 'Otro';
+const SOFTWARE_OPTIONS = ['Vientri', 'Salario', 'Sheet y Docs', SOFTWARE_EMAIL, SOFTWARE_OTHER];
 
 const STATUS_LABEL = {
     pending: 'Pendiente de autorización',
@@ -75,25 +78,49 @@ function parseEquipmentRequest(raw) {
     }
     if (!data || typeof data !== 'object') return null;
 
+    const options = Array.isArray(data.software_options)
+        ? SOFTWARE_OPTIONS.filter((opt) => data.software_options.includes(opt))
+        : [];
     const request = {
         equipment_type: clean(data.equipment_type, 80),
         equipment_type_other: clean(data.equipment_type_other, 150),
         purpose: clean(data.purpose, 2000),
-        software: clean(data.software, 1000),
-        assigned_to: clean(data.assigned_to, 255),
+        software_options: options,
+        email_account: options.includes(SOFTWARE_EMAIL) ? clean(data.email_account, 150) : '',
+        software_other: options.includes(SOFTWARE_OTHER) ? clean(data.software_other, 500) : '',
+        assigned_person: clean(data.assigned_person, 150),
+        assigned_location: clean(data.assigned_location, 150),
     };
     const missing = [];
     if (!EQUIPMENT_TYPES.includes(request.equipment_type)) missing.push('tipo de equipo');
     if (request.equipment_type === 'Otro' && !request.equipment_type_other) missing.push('detalle del equipo');
     if (!request.purpose) missing.push('para qué se va a usar');
-    if (!request.assigned_to) missing.push('a quién o dónde se asigna');
+    if (options.includes(SOFTWARE_EMAIL) && !request.email_account) missing.push('nombre de la cuenta de correo');
+    if (options.includes(SOFTWARE_OTHER) && !request.software_other) missing.push('qué otro programa necesita');
+    if (!request.assigned_person) missing.push('a quién se asigna');
+    if (!request.assigned_location) missing.push('a dónde se asigna');
     if (missing.length) {
         const err = new Error(`Completá en la solicitud de equipamiento: ${missing.join(', ')}.`);
         err.statusCode = 400;
         throw err;
     }
     if (request.equipment_type !== 'Otro') request.equipment_type_other = '';
+    request.software = softwareLabel(request);
+    request.assigned_to = `${request.assigned_person} - ${request.assigned_location}`;
     return request;
+}
+
+/** Texto legible de programas y accesos pedidos. */
+function softwareLabel(request) {
+    if (!request) return '';
+    if (!Array.isArray(request.software_options)) return request.software || '';
+    return request.software_options
+        .map((opt) => {
+            if (opt === SOFTWARE_EMAIL) return `${opt} (cuenta: ${request.email_account})`;
+            if (opt === SOFTWARE_OTHER) return `Otro: ${request.software_other}`;
+            return opt;
+        })
+        .join(', ');
 }
 
 function equipmentLabel(request) {
@@ -252,8 +279,13 @@ function buildEmail({ ticket, request, approverName, reviewUrl }) {
         ['Teléfono', ticket.telefono_contacto || '—'],
         ['Equipo solicitado', equipmentLabel(request)],
         ['Para qué se va a usar', request.purpose],
-        ['Programas específicos', request.software || 'Ninguno indicado'],
-        ['Se asigna a', request.assigned_to],
+        ['Programas y accesos', softwareLabel(request) || 'Ninguno indicado'],
+        ...(request.assigned_person
+            ? [
+                  ['Se asigna a', request.assigned_person],
+                  ['Lugar / área', request.assigned_location],
+              ]
+            : [['Se asigna a', request.assigned_to]]),
         ['Prioridad', PRIORITY_LABEL[ticket.priority] || ticket.priority || '—'],
     ];
     const rowsHtml = rows
