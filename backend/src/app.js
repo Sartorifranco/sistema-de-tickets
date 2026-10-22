@@ -4,6 +4,7 @@ const express = require('express');
 const dotenv = require('dotenv');
 const cors = require('cors');
 const path = require('path');
+const fs = require('fs');
 const http = require('http');
 const { Server } = require('socket.io');
 const jwt = require('jsonwebtoken');
@@ -159,6 +160,33 @@ app.use((err, req, res, next) => {
 
 // --- 8. SERVIR FRONTEND (PRODUCCIÓN) ---
 // NOTA: app.use('/api/notifications', ...) está ARRIBA para que POST /register-token no caiga aquí
+function toFieldShell(html) {
+  return html
+    .replace(/href="[^"]*manifest\.json"/, 'href="/manifest-recorridos.json"')
+    .replace(/name="theme-color" content="[^"]*"/, 'name="theme-color" content="#0f172a"')
+    .replace(/rel="apple-touch-icon" href="[^"]*"/, 'rel="apple-touch-icon" href="/images/recorridos-192.png"')
+    .replace(/<title>[^<]*<\/title>/, '<title>Recorridos</title>')
+    .replace(/name="viewport" content="[^"]*"/, 'name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"')
+    .replace(
+      '</head>',
+      '<meta name="mobile-web-app-capable" content="yes">' +
+      '<meta name="apple-mobile-web-app-capable" content="yes">' +
+      '<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">' +
+      '<meta name="apple-mobile-web-app-title" content="Recorridos"></head>'
+    );
+}
+
+app.get(/^\/(mobile|depositarios)\/?$/, (req, res) => {
+  const file = path.resolve(__dirname, '../../frontend/build', 'index.html');
+  fs.readFile(file, 'utf8', (err, html) => {
+    if (err) {
+      return res.status(503).type('html').send('La app de recorridos todavía no está publicada.');
+    }
+    res.set('Cache-Control', 'no-store');
+    res.type('html').send(toFieldShell(html));
+  });
+});
+
 app.use(express.static(path.join(__dirname, '../../frontend/build')));
 app.get('*', (req, res) => {
   if (req.url.startsWith('/api')) {

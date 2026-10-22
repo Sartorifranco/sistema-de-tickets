@@ -128,7 +128,7 @@ const MobileRouteSheet: React.FC<MobileProps> = (props) => {
 
     return (
         <div className="fixed inset-0 z-[1050] bg-slate-100 flex flex-col">
-            <header className="bg-slate-900 text-white px-4 pt-4 pb-3 shrink-0">
+            <header className="bg-slate-900 text-white px-4 pt-[max(1rem,env(safe-area-inset-top))] pb-3 shrink-0">
                 <div className="flex items-start justify-between gap-3">
                     <div>
                         <p className="text-xs uppercase tracking-wide text-slate-400">

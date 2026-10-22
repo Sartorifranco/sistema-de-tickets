@@ -106,14 +106,7 @@ const App: React.FC = () => {
                         <Route path="/mock-email" element={<MockEmailPage />} />
                         <Route path="/autorizar" element={<AuthorizeEquipmentPage />} />
                         <Route path="/depositarios" element={<Navigate to="/mobile" replace />} />
-                        <Route
-                            path="/mobile"
-                            element={
-                                <PrivateRoute roles={['admin', 'agent']} permission={P.DEPOSITARIOS_VIEW} module="depositarios">
-                                    <FieldAppPage />
-                                </PrivateRoute>
-                            }
-                        />
+                        <Route path="/mobile" element={<FieldAppPage />} />
 
                         {/* Rutas privadas que usan el Layout */}
                         <Route element={<Layout />}>

@@ -135,6 +135,15 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     
     // Muestra una pantalla de carga solo durante la verificación inicial
     if (loading) {
+        const fieldApp = typeof window !== 'undefined' && /^\/(mobile|depositarios)\/?$/.test(window.location.pathname);
+        if (fieldApp) {
+            return (
+                <div className="min-h-screen bg-slate-900 text-white flex flex-col items-center justify-center gap-3">
+                    <p className="text-3xl font-bold">Recorridos</p>
+                    <p className="text-sm text-slate-300">Abriendo la hoja de ruta…</p>
+                </div>
+            );
+        }
         return (
             <div className="flex items-center justify-center min-h-screen">
                 <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-red-600"></div>

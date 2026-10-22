@@ -16,6 +16,34 @@
       user's mobile device or desktop. See https://developers.google.com/web/fundamentals/web-app-manifest/
     -->
     <link rel="manifest" href="%PUBLIC_URL%/manifest.json" />
+    <script>
+      (function () {
+        var path = location.pathname;
+        if (path !== '/mobile' && path !== '/depositarios' && path !== '/mobile/' && path !== '/depositarios/') return;
+        var manifest = document.querySelector('link[rel="manifest"]');
+        if (manifest) manifest.href = '/manifest-recorridos.json';
+        var theme = document.querySelector('meta[name="theme-color"]');
+        if (theme) theme.setAttribute('content', '#0f172a');
+        var apple = document.querySelector('link[rel="apple-touch-icon"]');
+        if (apple) apple.href = '/images/recorridos-192.png';
+        var viewport = document.querySelector('meta[name="viewport"]');
+        if (viewport) viewport.setAttribute('content', 'width=device-width, initial-scale=1, viewport-fit=cover');
+        document.title = 'Recorridos';
+        function meta(name, content) {
+          var el = document.querySelector('meta[name="' + name + '"]');
+          if (!el) {
+            el = document.createElement('meta');
+            el.setAttribute('name', name);
+            document.head.appendChild(el);
+          }
+          el.setAttribute('content', content);
+        }
+        meta('mobile-web-app-capable', 'yes');
+        meta('apple-mobile-web-app-capable', 'yes');
+        meta('apple-mobile-web-app-status-bar-style', 'black-translucent');
+        meta('apple-mobile-web-app-title', 'Recorridos');
+      })();
+    </script>
     <!--
       Notice the use of %PUBLIC_URL% in the tags above.
       It will be replaced with the URL of the `public` folder during the build.
