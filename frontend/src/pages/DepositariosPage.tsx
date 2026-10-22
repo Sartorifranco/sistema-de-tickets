@@ -449,16 +449,12 @@ const DepositariosPage: React.FC = () => {
         }
     };
 
-    // Función que llama la Hoja de Ruta al tocar "Realizar"
     const handleMaintenanceFromRoute = (dep: Depositario) => {
-        setSelectedDepositario(dep); // Abre el modal de mantenimiento
-        // No cerramos la hoja de ruta para no perder el contexto
+        setSelectedDepositario(dep);
     };
 
-    // Función que se ejecuta al guardar el mantenimiento
     const handleMaintenanceSave = () => {
-        fetchData(); // Recarga los datos (el depositario tendrá fecha HOY)
-        // La Hoja de Ruta detectará el cambio y pondrá el check verde
+        fetchData();
     };
 
     // --- HELPER PARA RENDERIZAR TAREAS DEL CHECKLIST ---

@@ -292,6 +292,7 @@ export interface Depositario {
     lat?: number | string | null;
     lng?: number | string | null;
     maintenance_freq?: number | string;
+    open_tickets_count?: number;
 }
 
 export interface MaintenanceTask {
