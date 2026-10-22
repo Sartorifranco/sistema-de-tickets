@@ -3,6 +3,16 @@ import { Depositario } from '../../types';
 import { RouteSheet, WEEKDAYS, formatDuration, weekdayLabel } from './routePlanner';
 import RouteMap from './RouteMap';
 
+export interface AddableUnit {
+    id: number;
+    alias: string;
+    companyName: string;
+    address: string;
+    daysLabel: string;
+    minutes: number | null;
+    hasGps: boolean;
+}
+
 export interface WeekPlanProps {
     today: number;
     focusDay: number;
@@ -105,8 +115,12 @@ interface MobileProps extends WeekPlanProps {
     query: string;
     onQuery: (value: string) => void;
     onSearchEnter: () => void;
-    matches: Depositario[];
+    matches: AddableUnit[];
     onAddMatch: (id: number) => void;
+    serviceMin: number;
+    startTime: string;
+    onServiceMin: (minutes: number) => void;
+    onStartTime: (value: string) => void;
     sheet: RouteSheet;
     mapPoints: [number, number][];
     selectedIds: number[];
@@ -122,9 +136,17 @@ interface MobileProps extends WeekPlanProps {
     closeLabel?: string;
 }
 
+const SERVICE_CHOICES = [10, 15, 20, 30];
+
+function legText(travelMin: number, km: number, index: number): string {
+    if (travelMin < 1 && index > 0) return 'Mismo lugar';
+    return `${formatDuration(travelMin)} de viaje · ${km.toFixed(1)} km${index === 0 ? ' desde central' : ''}`;
+}
+
 const MobileRouteSheet: React.FC<MobileProps> = (props) => {
     const [tab, setTab] = useState<'ruta' | 'programar' | 'mapa'>('ruta');
     const dayName = weekdayLabel(props.focusDay);
+    const driveOut = Math.max(0, props.sheet.driveMin - props.sheet.returnMin);
 
     return (
         <div className="fixed inset-0 z-[1050] bg-slate-100 flex flex-col">
@@ -147,8 +169,11 @@ const MobileRouteSheet: React.FC<MobileProps> = (props) => {
                 <div className={`text-4xl font-bold mt-2 ${props.overBudget ? 'text-red-400' : 'text-emerald-400'}`}>
                     {props.totalLabel}
                 </div>
-                <p className="text-xs text-slate-300 mt-1">
-                    {props.distanceLabel} · de vuelta {props.backAtBase}
+                <p className="text-xs text-slate-200 mt-1">
+                    {formatDuration(driveOut)} de viaje · {formatDuration(props.sheet.serviceMin)} en equipos · {formatDuration(props.sheet.returnMin)} de regreso
+                </p>
+                <p className="text-xs text-slate-400 mt-1">
+                    Salida {props.sheet.startLabel} · de vuelta {props.backAtBase} · {props.distanceLabel}
                     {' · '}
                     {props.roadPending ? 'ajustando por calles…' : props.timeSource}
                 </p>
@@ -173,42 +198,76 @@ const MobileRouteSheet: React.FC<MobileProps> = (props) => {
                 {tab === 'ruta' && (
                     <div className="p-4 space-y-3 pb-28">
                         <div className="bg-white border rounded-xl p-3">
-                            <WeekPlanControls {...props} />
+                            <p className="text-sm font-semibold text-slate-900">Sumar un depositario</p>
+                            <p className="text-xs text-slate-500 mt-0.5 mb-2">Cualquiera del parque, esté o no en la sugerencia. Entra en el lugar del recorrido que menos alarga la hoja.</p>
+                            <input
+                                type="text"
+                                value={props.query}
+                                onChange={(event) => props.onQuery(event.target.value)}
+                                onKeyDown={(event) => {
+                                    if (event.key === 'Enter') props.onSearchEnter();
+                                }}
+                                placeholder="Alias, empresa, dirección o serie"
+                                className="w-full min-h-12 px-3 border rounded-xl text-base"
+                            />
+                            {props.matches.length > 0 && (
+                                <div className="mt-2 border rounded-xl overflow-hidden">
+                                    {props.matches.map((dep) => (
+                                        <button
+                                            key={dep.id}
+                                            type="button"
+                                            onClick={() => props.onAddMatch(dep.id)}
+                                            className="w-full text-left px-3 py-3 border-b last:border-b-0 min-h-12"
+                                        >
+                                            <span className="font-semibold">{dep.alias}</span>
+                                            <span className="text-slate-500 text-sm"> · {dep.companyName}</span>
+                                            <span className="block text-xs text-slate-500 mt-0.5">
+                                                {dep.address || 'Sin dirección'} · {dep.daysLabel}
+                                                {dep.minutes !== null ? ` · suma ${formatDuration(dep.minutes)}` : ''}
+                                                {!dep.hasGps ? ' · sin GPS' : ''}
+                                            </span>
+                                        </button>
+                                    ))}
+                                </div>
+                            )}
                         </div>
-                        <input
-                            type="text"
-                            value={props.query}
-                            onChange={(event) => props.onQuery(event.target.value)}
-                            onKeyDown={(event) => {
-                                if (event.key === 'Enter') props.onSearchEnter();
-                            }}
-                            placeholder="Sumar un equipo"
-                            className="w-full min-h-12 px-3 border rounded-xl text-base"
-                        />
-                        {props.matches.length > 0 && (
-                            <div className="bg-white border rounded-xl overflow-hidden">
-                                {props.matches.map((dep) => (
-                                    <button
-                                        key={dep.id}
-                                        type="button"
-                                        onClick={() => props.onAddMatch(dep.id)}
-                                        className="w-full text-left px-3 py-3 border-b last:border-b-0 min-h-12"
-                                    >
-                                        <span className="font-semibold">{dep.alias}</span>
-                                        <span className="text-slate-500 text-sm"> · {dep.company_name || 'Sin empresa'}</span>
-                                    </button>
-                                ))}
-                            </div>
-                        )}
+                        <div className="flex gap-2">
+                            <label className="flex-1 bg-white border rounded-xl px-3 py-2 text-xs text-slate-600">
+                                Salida
+                                <input
+                                    type="time"
+                                    value={props.startTime}
+                                    onChange={(event) => props.onStartTime(event.target.value)}
+                                    className="mt-1 w-full min-h-11 text-base text-slate-900"
+                                />
+                            </label>
+                            <label className="flex-1 bg-white border rounded-xl px-3 py-2 text-xs text-slate-600">
+                                Min por equipo
+                                <select
+                                    value={props.serviceMin}
+                                    onChange={(event) => props.onServiceMin(Number(event.target.value))}
+                                    className="mt-1 w-full min-h-11 text-base text-slate-900 bg-white"
+                                >
+                                    {SERVICE_CHOICES.map((minutes) => (
+                                        <option key={minutes} value={minutes}>{minutes} min</option>
+                                    ))}
+                                </select>
+                            </label>
+                        </div>
                         {props.sheet.stops.length === 0 ? (
                             <p className="text-sm text-slate-500">No hay equipos en este día. Sumá una empresa en Programar o usá la hoja automática.</p>
                         ) : (
                             props.sheet.stops.map((stop, stopIndex) => (
                                 <article key={stop.key} className="bg-white border rounded-xl p-3 shadow-sm">
-                                    <div className="flex justify-between gap-2 mb-2">
+                                    <div className="flex justify-between gap-2 mb-1">
                                         <h2 className="font-bold text-slate-900">{stopIndex + 1}. {stop.companyName}</h2>
-                                        <p className="text-xs text-slate-500 text-right">Llega {stop.arrivalLabel}</p>
+                                        <p className="text-xs text-slate-500 text-right">Llega {stop.arrivalLabel}<br />Sale {stop.departureLabel}</p>
                                     </div>
+                                    <p className="text-xs text-slate-500 mb-2">
+                                        {legText(stop.travelMin, stop.distanceFromPrevKm, stopIndex)}
+                                        {' · '}
+                                        {stop.serviceMin} min en el lugar
+                                    </p>
                                     {stop.items.map((item) => {
                                         const index = props.selectedIds.indexOf(item.id);
                                         return (

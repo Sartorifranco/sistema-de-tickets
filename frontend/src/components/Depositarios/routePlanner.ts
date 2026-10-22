@@ -25,8 +25,8 @@ export function weekdayLabel(id: number): string {
 }
 
 const AVG_SPEED_KMH = 35;
-/** Por debajo de esto dos equipos se consideran la misma parada. */
-const SAME_SITE_KM = 0.05;
+/** Menos de 150 m en línea recta: mismo predio, un solo viaje. */
+const SAME_SITE_STRAIGHT_KM = 0.15;
 const AGE_CAP = 120;
 const NEVER_SORT = 100000;
 
@@ -98,6 +98,7 @@ export interface RouteSheet {
     returnMin: number;
     serviceMin: number;
     totalMin: number;
+    startLabel: string;
     backAtBase: string;
     source: 'estimado' | 'calles';
     routeKey: string;
@@ -122,14 +123,33 @@ export function hasCoords(dep: Depositario): boolean {
     return true;
 }
 
-/** Distancia aproximada por calle (haversine × 1.4), en km. */
-export function getDistance(lat1: number, lon1: number, lat2: number, lon2: number): number {
+/** Distancia en línea recta, en km. */
+export function straightKm(lat1: number, lon1: number, lat2: number, lon2: number): number {
     const earth = 6371;
     const dLat = ((lat2 - lat1) * Math.PI) / 180;
     const dLon = ((lon2 - lon1) * Math.PI) / 180;
     const a = Math.sin(dLat / 2) ** 2
         + Math.cos((lat1 * Math.PI) / 180) * Math.cos((lat2 * Math.PI) / 180) * Math.sin(dLon / 2) ** 2;
-    return earth * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a)) * 1.4;
+    return earth * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+}
+
+function sameSite(lat1: number, lon1: number, lat2: number, lon2: number): boolean {
+    return straightKm(lat1, lon1, lat2, lon2) < SAME_SITE_STRAIGHT_KM;
+}
+
+/** Distancia aproximada por calle (recta × 1.4), en km. Solo se usa si el ruteo no responde. */
+export function getDistance(lat1: number, lon1: number, lat2: number, lon2: number): number {
+    return straightKm(lat1, lon1, lat2, lon2) * 1.4;
+}
+
+/**
+ * Si el ruteo se dispara respecto de la recta, el GPS quedó mal enganchado a la calle.
+ * En ese caso se queda el estimado. Un desvío real de hasta ~2 veces se respeta.
+ */
+function plausible(road: number, estimate: number, extra: number): number {
+    if (!Number.isFinite(road) || road < 0) return estimate;
+    const cap = Math.max(estimate * 2.2, estimate + extra);
+    return road > cap ? estimate : road;
 }
 
 export function formatDuration(minutes: number): string {
@@ -347,7 +367,10 @@ export function optimizeOrder(ids: number[], deps: Depositario[]): number[] {
     return ordered;
 }
 
-/** Inserta el equipo. Si ya hay otro en el mismo predio, lo deja al lado. */
+/**
+ * Inserta el equipo donde menos alarga la hoja.
+ * Si ya hay otro en el mismo predio, lo deja al lado y no suma otro viaje.
+ */
 export function insertStop(ids: number[], id: number, deps: Depositario[]): number[] {
     if (ids.includes(id)) return ids;
     const byId = indexById(deps);
@@ -356,23 +379,35 @@ export function insertStop(ids: number[], id: number, deps: Depositario[]): numb
 
     const lat = Number(dep.lat);
     const lng = Number(dep.lng);
-    let insertAt = ids.length;
     for (let i = 0; i < ids.length; i += 1) {
         const other = byId.get(ids[i]);
         if (!other || !hasCoords(other)) continue;
-        if (getDistance(lat, lng, Number(other.lat), Number(other.lng)) >= SAME_SITE_KM) continue;
-        insertAt = i + 1;
+        if (!sameSite(lat, lng, Number(other.lat), Number(other.lng))) continue;
+        let insertAt = i + 1;
         while (insertAt < ids.length) {
             const neighbor = byId.get(ids[insertAt]);
             if (!neighbor || !hasCoords(neighbor)) break;
-            if (getDistance(lat, lng, Number(neighbor.lat), Number(neighbor.lng)) >= SAME_SITE_KM) break;
+            if (!sameSite(lat, lng, Number(neighbor.lat), Number(neighbor.lng))) break;
             insertAt += 1;
         }
-        break;
+        const beside = [...ids];
+        beside.splice(insertAt, 0, id);
+        return beside;
     }
 
+    let bestAt = ids.length;
+    let bestMin = Infinity;
+    for (let i = 0; i <= ids.length; i += 1) {
+        const candidate = [...ids];
+        candidate.splice(i, 0, id);
+        const minutes = estimateRouteMinutes(candidate, deps, 0);
+        if (minutes < bestMin) {
+            bestMin = minutes;
+            bestAt = i;
+        }
+    }
     const next = [...ids];
-    next.splice(insertAt, 0, id);
+    next.splice(bestAt, 0, id);
     return next;
 }
 
@@ -415,8 +450,8 @@ export function buildRouteSheet(
         const nextLng = Number(dep.lng);
         const distKm = getDistance(lat, lng, nextLat, nextLng);
         const previous = groups[groups.length - 1];
-        const sameSite = previous && getDistance(previous.lat, previous.lng, nextLat, nextLng) < SAME_SITE_KM;
-        if (sameSite && previous) {
+        const sharesSite = previous && sameSite(previous.lat, previous.lng, nextLat, nextLng);
+        if (sharesSite && previous) {
             previous.deps.push(dep);
         } else {
             groups.push({
@@ -443,11 +478,13 @@ export function buildRouteSheet(
         ].join(';')
         : '';
 
+    const estimateTravel = groups.map((group) => group.travelMin);
+    const estimateKm = groups.map((group) => group.distKm);
     const useRoad = !!road && road.key === routeKey && road.legMinutes.length === groups.length + 1;
     if (useRoad && road) {
         groups.forEach((group, index) => {
-            group.travelMin = road.legMinutes[index];
-            group.distKm = road.legKm[index];
+            group.travelMin = plausible(road.legMinutes[index], estimateTravel[index], 12);
+            group.distKm = plausible(road.legKm[index], estimateKm[index], 8);
         });
     }
 
@@ -496,7 +533,8 @@ export function buildRouteSheet(
         };
     });
 
-    const returnMin = useRoad && road ? road.legMinutes[groups.length] : returnEstimate;
+    const returnMin = useRoad && road ? plausible(road.legMinutes[groups.length], returnEstimate, 12) : returnEstimate;
+    const returnKmFinal = useRoad && road ? plausible(road.legKm[groups.length], returnKm, 8) : returnKm;
     const back = new Date(cursor.getTime() + returnMin * 60000);
     const driveMin = groups.reduce((sum, group) => sum + group.travelMin, 0) + returnMin;
     const serviceMin = ordered.length * servicePerUnit;
@@ -508,11 +546,12 @@ export function buildRouteSheet(
 
     return {
         stops,
-        distanceKm: Number(((useRoad && road ? road.distanceKm : groups.reduce((sum, group) => sum + group.distKm, 0) + returnKm)).toFixed(1)),
+        distanceKm: Number((groups.reduce((sum, group) => sum + group.distKm, 0) + returnKmFinal).toFixed(1)),
         driveMin,
         returnMin,
         serviceMin,
         totalMin: driveMin + serviceMin,
+        startLabel: formatClock(parseStart(startTime)),
         backAtBase: ordered.length ? formatClock(back) : formatClock(parseStart(startTime)),
         source: useRoad ? 'calles' : 'estimado',
         routeKey,

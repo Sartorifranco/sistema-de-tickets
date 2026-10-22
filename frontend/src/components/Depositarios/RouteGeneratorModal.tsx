@@ -244,10 +244,18 @@ const RouteGeneratorModal: React.FC<Props> = ({ depositarios, onClose, onMainten
         if (text.length < 1) return [];
         return catalog
             .filter((dep) => !selectedSet.has(dep.id))
-            .filter((dep) => companyId === null || Number(dep.company_id) === companyId)
             .filter((dep) => `${dep.alias} ${dep.company_name || ''} ${dep.address || ''} ${dep.serial_number || ''}`.toLowerCase().includes(text))
-            .slice(0, 8);
-    }, [catalog, companyId, query, selectedSet]);
+            .slice(0, 12)
+            .map((dep) => {
+                const profile = maintenanceProfile(dep);
+                const cost = insertionCost(selectedIds, dep, catalog, serviceMin);
+                return {
+                    dep,
+                    profile,
+                    minutes: cost ? applyRoadFactor(cost, factor, serviceMin) : null,
+                };
+            });
+    }, [catalog, factor, query, selectedIds, selectedSet, serviceMin]);
 
     const ranked = useMemo(() => {
         const rows: RankedStop[] = [];
@@ -411,10 +419,17 @@ const RouteGeneratorModal: React.FC<Props> = ({ depositarios, onClose, onMainten
             toast.warn(`${dep.alias} no tiene coordenadas. Cargá la ubicación para sumarlo a la ruta.`);
             return;
         }
+        const next = insertStop(selectedIds, id, catalog);
+        const after = buildRouteSheet(next, catalog, drafts, startTime, serviceMin, null);
+        const place = after.stops.findIndex((stop) => stop.items.some((item) => item.id === id)) + 1;
+        const delta = Math.max(0, Math.round(after.totalMin - sheet.totalMin));
         markEdited();
         setSource('programado');
-        setSelectedIds((prev) => insertStop(prev, id, catalog));
+        setSelectedIds(next);
         setQuery('');
+        toast.success(delta < 1
+            ? `Sumé ${dep.alias} en la parada ${place}. No agrega viaje.`
+            : `Sumé ${dep.alias} en la parada ${place}. Suma ${formatDuration(delta)}.`);
     };
 
     const removeDepositary = (id: number) => {
@@ -541,7 +556,7 @@ const RouteGeneratorModal: React.FC<Props> = ({ depositarios, onClose, onMainten
 
         autoTable(doc, {
             startY: 48,
-            head: [['#', 'Llegada', 'Ubicación', 'Equipos', 'Servicio']],
+            head: [['#', 'Llegada', 'Ubicación', 'Equipos', 'Tiempo']],
             body: sheet.stops.map((stop, index) => [
                 index + 1,
                 stop.arrivalLabel,
@@ -552,7 +567,7 @@ const RouteGeneratorModal: React.FC<Props> = ({ depositarios, onClose, onMainten
                     const done = item.done ? ' · HECHO' : '';
                     return `• ${item.alias} (${item.daysLabel}, ${delay}${fail}${done})`;
                 }).join('\n'),
-                `${stop.serviceMin} min`,
+                `${Math.round(stop.travelMin)} min viaje + ${stop.serviceMin} min trabajo`,
             ]),
             theme: 'striped',
             styles: { fontSize: 9, cellPadding: 2 },
@@ -593,8 +608,20 @@ const RouteGeneratorModal: React.FC<Props> = ({ depositarios, onClose, onMainten
                 timeSource={roadPending ? 'ajustando por calles…' : sheet.source === 'calles' ? 'tiempo por calles' : 'tiempo estimado'}
                 query={query}
                 onQuery={setQuery}
-                onSearchEnter={() => { if (matches[0]) addDepositary(matches[0].id); }}
-                matches={matches}
+                onSearchEnter={() => { if (matches[0]) addDepositary(matches[0].dep.id); }}
+                matches={matches.map((row) => ({
+                    id: row.dep.id,
+                    alias: row.dep.alias,
+                    companyName: row.dep.company_name || 'Sin empresa',
+                    address: row.dep.address || '',
+                    daysLabel: row.profile.daysLabel,
+                    minutes: row.minutes,
+                    hasGps: hasCoords(row.dep),
+                }))}
+                serviceMin={serviceMin}
+                startTime={startTime}
+                onServiceMin={setServiceMin}
+                onStartTime={setStartTime}
                 onAddMatch={addDepositary}
                 sheet={sheet}
                 mapPoints={mapPoints}
@@ -629,7 +656,7 @@ const RouteGeneratorModal: React.FC<Props> = ({ depositarios, onClose, onMainten
                                 {formatDuration(sheet.totalMin)}
                             </div>
                             <div className="text-xs text-slate-300">
-                                {sheet.distanceKm.toFixed(1)} km · viaje {formatDuration(Math.max(0, sheet.driveMin - sheet.returnMin))} · servicio {formatDuration(sheet.serviceMin)} · regreso {formatDuration(sheet.returnMin)}
+                                {sheet.distanceKm.toFixed(1)} km · viaje {formatDuration(Math.max(0, sheet.driveMin - sheet.returnMin))} · en equipos {formatDuration(sheet.serviceMin)} · regreso {formatDuration(sheet.returnMin)}
                             </div>
                             <div className="text-[11px] text-slate-400 mt-0.5">
                                 {sheet.stops.length === 0
@@ -667,32 +694,30 @@ const RouteGeneratorModal: React.FC<Props> = ({ depositarios, onClose, onMainten
                                     onKeyDown={(event) => {
                                         if (event.key === 'Enter' && matches[0]) {
                                             event.preventDefault();
-                                            addDepositary(matches[0].id);
+                                            addDepositary(matches[0].dep.id);
                                         }
                                     }}
-                                    placeholder="Agregar equipo por alias, serie o dirección"
+                                    placeholder="Sumar un depositario: alias, empresa, dirección o serie"
                                     className="w-full p-2 border rounded text-sm outline-none focus:ring-2 focus:ring-blue-500"
                                 />
                                 {matches.length > 0 && (
                                     <div className="absolute z-20 left-0 right-0 mt-1 bg-white border rounded shadow-lg max-h-56 overflow-y-auto">
-                                        {matches.map((dep) => {
-                                            const profile = maintenanceProfile(dep);
-                                            return (
+                                        {matches.map((row) => (
                                                 <button
-                                                    key={dep.id}
+                                                    key={row.dep.id}
                                                     type="button"
                                                     onMouseDown={(event) => {
                                                         event.preventDefault();
-                                                        addDepositary(dep.id);
+                                                        addDepositary(row.dep.id);
                                                     }}
                                                     className="w-full text-left px-3 py-2 text-sm hover:bg-slate-50 border-b last:border-b-0"
                                                 >
-                                                    <span className="font-medium">{dep.alias}</span>
-                                                    <span className="text-gray-500"> · {dep.company_name || 'Sin empresa'} · {profile.daysLabel}</span>
-                                                    {!hasCoords(dep) && <span className="text-red-600"> · sin GPS</span>}
+                                                    <span className="font-medium">{row.dep.alias}</span>
+                                                    <span className="text-gray-500"> · {row.dep.company_name || 'Sin empresa'} · {row.profile.daysLabel}</span>
+                                                    {row.minutes !== null && <span className="text-slate-700"> · +{formatDuration(row.minutes)}</span>}
+                                                    {!hasCoords(row.dep) && <span className="text-red-600"> · sin GPS</span>}
                                                 </button>
-                                            );
-                                        })}
+                                            ))}
                                     </div>
                                 )}
                             </div>
@@ -772,7 +797,7 @@ const RouteGeneratorModal: React.FC<Props> = ({ depositarios, onClose, onMainten
                                 </div>
                             </div>
                             <p className="text-[11px] text-gray-500 mb-2">
-                                {ranked.failures.length + ranked.rest.length} fuera de la ruta. El +min es lo que agregaría cada uno, con ida, servicio y el cambio de regreso.
+                                {ranked.failures.length + ranked.rest.length} fuera de la ruta. El +min es el viaje extra, el trabajo en ese equipo y el cambio del regreso, poniéndolo donde mejor encaja.
                             </p>
                             {!catalogReady && <p className="text-xs text-gray-500">Cargando el parque completo…</p>}
                             <RecommendationList title="Con falla abierta" rows={ranked.failures} budgetMin={budgetMin} totalMin={sheet.totalMin} onAdd={addDepositary} />
@@ -809,8 +834,11 @@ const RouteGeneratorModal: React.FC<Props> = ({ depositarios, onClose, onMainten
                                                 <div>
                                                     <h3 className="font-bold text-gray-800 text-sm">{stop.companyName}</h3>
                                                     <p className="text-[11px] text-gray-500">
-                                                        {Math.round(stop.travelMin)} min · {stop.distanceFromPrevKm.toFixed(1)} km
-                                                        {stopIndex === 0 ? ' desde central' : ' desde la anterior'}
+                                                        {stop.travelMin < 1 && stopIndex > 0
+                                                            ? 'Mismo lugar'
+                                                            : `${formatDuration(stop.travelMin)} de viaje · ${stop.distanceFromPrevKm.toFixed(1)} km${stopIndex === 0 ? ' desde central' : ''}`}
+                                                        {' · '}
+                                                        {stop.serviceMin} min en el lugar ({stop.items.length} {stop.items.length === 1 ? 'equipo' : 'equipos'})
                                                         {stop.longLeg ? ' · viaje largo' : ''}
                                                     </p>
                                                 </div>
