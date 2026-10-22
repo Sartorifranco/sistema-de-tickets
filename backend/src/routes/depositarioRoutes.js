@@ -13,6 +13,8 @@ const {
     getMapData,
     saveRoute,
     getRouteHistory,
+    getRoutePlans,
+    saveRoutePlan,
     getDepositaryReports,
     getDepositaryAnalysis,
     finalizeRoute,
@@ -48,6 +50,14 @@ router
     .get(authorizeAccess(['admin', 'agent'], depView), getRouteHistory);
 
 router.post('/route/finalize', authorizeAccess(['admin', 'agent'], depManage), finalizeRoute);
+
+const depPlan = {
+    adminPermissions: [P.DEPOSITARIOS_VIEW, P.DEPOSITARIOS_MANAGE],
+    agentPermissions: [P.DEPOSITARIOS_VIEW, P.TICKETS_VIEW],
+    permissionMode: 'any',
+};
+router.get('/route-plans', authorizeAccess(['admin', 'agent'], depPlan), getRoutePlans);
+router.put('/route-plans/:weekday', authorizeAccess(['admin', 'agent'], depPlan), saveRoutePlan);
 
 router
     .route('/:id')

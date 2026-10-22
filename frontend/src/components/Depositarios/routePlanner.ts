@@ -3,6 +3,27 @@ import { Depositario } from '../../types';
 /** Central BACAR, Córdoba. */
 export const BASE_COORDS: [number, number] = [-31.4166, -64.1835];
 
+/** 1 = lunes … 7 = domingo. */
+export const WEEKDAYS: { id: number; short: string; label: string }[] = [
+    { id: 1, short: 'Lun', label: 'lunes' },
+    { id: 2, short: 'Mar', label: 'martes' },
+    { id: 3, short: 'Mié', label: 'miércoles' },
+    { id: 4, short: 'Jue', label: 'jueves' },
+    { id: 5, short: 'Vie', label: 'viernes' },
+    { id: 6, short: 'Sáb', label: 'sábado' },
+    { id: 7, short: 'Dom', label: 'domingo' },
+];
+
+export function isoWeekday(date: Date): number {
+    const day = date.getDay();
+    return day === 0 ? 7 : day;
+}
+
+export function weekdayLabel(id: number): string {
+    const found = WEEKDAYS.find((day) => day.id === id);
+    return found ? found.label : 'día';
+}
+
 const AVG_SPEED_KMH = 35;
 /** Por debajo de esto dos equipos se consideran la misma parada. */
 const SAME_SITE_KM = 0.05;

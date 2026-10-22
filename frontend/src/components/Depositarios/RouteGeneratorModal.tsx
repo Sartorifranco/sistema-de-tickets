@@ -1,13 +1,10 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { MapContainer, Marker, Polyline, Popup, TileLayer, useMap } from 'react-leaflet';
-import L from 'leaflet';
 import { Depositario } from '../../types';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import api from '../../config/axiosConfig';
 import { toast } from 'react-toastify';
 import {
-    BASE_COORDS,
     MaintenanceProfile,
     MarginalCost,
     RoadRoute,
@@ -19,22 +16,19 @@ import {
     hasCoords,
     insertStop,
     insertionCost,
+    isoWeekday,
     maintenanceProfile,
     moveStop,
     optimizeOrder,
     planRoute,
     roadFactorOf,
+    weekdayLabel,
 } from './routePlanner';
+import RouteMap from './RouteMap';
+import MobileRouteSheet, { WeekPlanControls } from './MobileRouteSheet';
 
 const BUDGET_HOURS = [4, 6, 8];
 const SERVICE_CHOICES = [10, 15, 20, 30];
-
-const baseIcon = L.divIcon({
-    className: 'custom-base-icon',
-    html: '<div class="bg-blue-800 text-white w-8 h-8 rounded-full flex items-center justify-center border-2 border-white shadow-lg text-lg">🏢</div>',
-    iconSize: [32, 32],
-    iconAnchor: [16, 16],
-});
 
 const toneClass: Record<string, string> = {
     green: 'bg-green-600',
@@ -50,24 +44,18 @@ function stopTone(stop: RouteSheetStop): keyof typeof toneClass {
     return 'blue';
 }
 
-function numberIcon(n: number, tone: keyof typeof toneClass) {
-    return L.divIcon({
-        className: 'custom-number-icon',
-        html: `<div class="${toneClass[tone]} text-white w-7 h-7 rounded-full flex items-center justify-center border-2 border-white shadow-md font-bold text-sm">${n}</div>`,
-        iconSize: [28, 28],
-        iconAnchor: [14, 14],
-    });
-}
-
-const MapBounds = ({ points }: { points: [number, number][] }) => {
-    const map = useMap();
+function useCompactLayout() {
+    const query = '(max-width: 1279px)';
+    const [compact, setCompact] = useState(() => window.matchMedia(query).matches);
     useEffect(() => {
-        const timer = window.setTimeout(() => map.invalidateSize(), 200);
-        if (points.length > 1) map.fitBounds(L.latLngBounds(points), { padding: [50, 50] });
-        return () => window.clearTimeout(timer);
-    }, [points, map]);
-    return null;
-};
+        const media = window.matchMedia(query);
+        const apply = () => setCompact(media.matches);
+        apply();
+        media.addEventListener('change', apply);
+        return () => media.removeEventListener('change', apply);
+    }, []);
+    return compact;
+}
 
 interface Props {
     depositarios: Depositario[];
@@ -111,9 +99,17 @@ const RouteGeneratorModal: React.FC<Props> = ({ depositarios, onClose, onMainten
     const [roadPending, setRoadPending] = useState(false);
     const [routeId, setRouteId] = useState<number | null>(null);
     const [isSending, setIsSending] = useState(false);
+    const [plans, setPlans] = useState<Record<number, number[]>>({});
+    const [plansReady, setPlansReady] = useState(false);
+    const [focusDay, setFocusDay] = useState(() => isoWeekday(new Date()));
+    const [source, setSource] = useState<'programado' | 'automatico'>('automatico');
+    const [savingPlan, setSavingPlan] = useState(false);
+    const todayWeekday = useMemo(() => isoWeekday(new Date()), []);
+    const compact = useCompactLayout();
 
     const manual = useRef(false);
     const lastPlanKey = useRef<string | null>(null);
+    const bootstrapped = useRef(false);
 
     const budgetMin = budgetHours * 60;
     const companyId = companyFilter === '' ? null : companyFilter;
@@ -138,7 +134,47 @@ const RouteGeneratorModal: React.FC<Props> = ({ depositarios, onClose, onMainten
     const planKey = `${budgetMin}|${serviceMin}`;
 
     useEffect(() => {
-        if (!catalogReady || manual.current) return;
+        let cancelled = false;
+        api.get('/api/depositarios/route-plans')
+            .then((res) => {
+                if (cancelled) return;
+                const next: Record<number, number[]> = {};
+                (res.data.data || []).forEach((row: { weekday: number; depositario_ids: number[] }) => {
+                    next[Number(row.weekday)] = (row.depositario_ids || []).map(Number).filter((id) => Number.isInteger(id));
+                });
+                setPlans(next);
+            })
+            .catch(() => {
+                /* Sin programación guardada se usa la hoja automática. */
+            })
+            .finally(() => {
+                if (!cancelled) setPlansReady(true);
+            });
+        return () => {
+            cancelled = true;
+        };
+    }, []);
+
+    const validPlanIds = (day: number) => (plans[day] || []).filter((id) => catalog.some((dep) => dep.id === id && hasCoords(dep)));
+
+    useEffect(() => {
+        if (!catalogReady || !plansReady || bootstrapped.current) return;
+        bootstrapped.current = true;
+        const saved = validPlanIds(todayWeekday);
+        if (saved.length > 0) {
+            manual.current = true;
+            setEdited(true);
+            setSource('programado');
+            lastPlanKey.current = planKey;
+            setSelectedIds(saved);
+        } else {
+            setSource('automatico');
+        }
+    }, [catalogReady, plansReady, plans, catalog, todayWeekday, planKey]);
+
+    useEffect(() => {
+        if (!catalogReady || !plansReady || manual.current || bootstrapped.current === false) return;
+        if (validPlanIds(todayWeekday).length > 0 && source === 'programado') return;
         if (lastPlanKey.current === planKey) return;
         lastPlanKey.current = planKey;
         if (!catalog.some(hasCoords)) {
@@ -146,7 +182,7 @@ const RouteGeneratorModal: React.FC<Props> = ({ depositarios, onClose, onMainten
             return;
         }
         setSelectedIds(planRoute(catalog, { budgetMin, serviceMin }));
-    }, [catalogReady, catalog, planKey, budgetMin, serviceMin]);
+    }, [catalogReady, plansReady, catalog, planKey, budgetMin, serviceMin, todayWeekday, source, plans]);
 
     const sheet = useMemo(
         () => buildRouteSheet(selectedIds, catalog, drafts, startTime, serviceMin, road),
@@ -283,6 +319,102 @@ const RouteGeneratorModal: React.FC<Props> = ({ depositarios, onClose, onMainten
         setEdited(true);
     };
 
+    const savedIds = plans[focusDay] || [];
+    const planDirty = savedIds.join(',') !== selectedIds.join(',');
+    const dayName = weekdayLabel(focusDay);
+    const hasSavedDay = savedIds.length > 0;
+    const planBanner = source === 'automatico'
+        ? hasSavedDay
+            ? `Estás en la hoja automática. El ${dayName} también tiene un recorrido guardado.`
+            : `Sin recorrido fijo para el ${dayName}. Estás viendo la hoja automática.`
+        : !hasSavedDay && selectedIds.length === 0
+            ? `El ${dayName} no tiene empresas. Sumá una y guardala para repetirla todas las semanas.`
+            : planDirty
+                ? `Hay cambios sin guardar en el ${dayName}.`
+                : `Recorrido programado para el ${dayName}. Podés quitar o sumar un equipo.`;
+
+    const selectWeekday = (day: number) => {
+        if (day === focusDay) return;
+        if (source === 'programado' && planDirty && !window.confirm('Hay cambios sin guardar en este día. ¿Cambiar de día igual?')) return;
+        setFocusDay(day);
+        const saved = validPlanIds(day);
+        if (saved.length > 0) {
+            markEdited();
+            setSource('programado');
+            setSelectedIds(saved);
+            return;
+        }
+        if (day === todayWeekday) {
+            markEdited();
+            setSource('automatico');
+            setSelectedIds(planRoute(catalog, { budgetMin, serviceMin }));
+            return;
+        }
+        markEdited();
+        setSource('programado');
+        setSelectedIds([]);
+    };
+
+    const addCompany = (companyToAdd: number) => {
+        const ids = catalog
+            .filter((dep) => Number(dep.company_id) === companyToAdd && hasCoords(dep) && !selectedSet.has(dep.id))
+            .map((dep) => dep.id);
+        if (ids.length === 0) {
+            toast.info('Esa empresa ya está en el recorrido, o sus equipos no tienen GPS.');
+            return;
+        }
+        markEdited();
+        setSource('programado');
+        setSelectedIds((prev) => {
+            let next = prev;
+            ids.forEach((id) => {
+                next = insertStop(next, id, catalog);
+            });
+            return next;
+        });
+        toast.success(`Sumé ${ids.length} equipo${ids.length === 1 ? '' : 's'}.`);
+    };
+
+    const saveWeekPlan = async () => {
+        setSavingPlan(true);
+        try {
+            await api.put(`/api/depositarios/route-plans/${focusDay}`, { depositario_ids: selectedIds });
+            setPlans((prev) => {
+                const next = { ...prev };
+                if (selectedIds.length === 0) delete next[focusDay];
+                else next[focusDay] = [...selectedIds];
+                return next;
+            });
+            setSource(selectedIds.length === 0 ? 'automatico' : 'programado');
+            toast.success(selectedIds.length === 0
+                ? `Se borró la programación del ${dayName}. Ese día vuelve la hoja automática.`
+                : `El ${dayName} quedó programado con ${selectedIds.length} equipos.`);
+        } catch (error) {
+            console.error(error);
+            toast.error('No se pudo guardar la programación.');
+        } finally {
+            setSavingPlan(false);
+        }
+    };
+
+    const useAutomatic = () => {
+        if (source !== 'automatico' && selectedIds.length > 0 && !window.confirm('Se reemplaza este recorrido por la hoja automática del día. ¿Continuar?')) return;
+        markEdited();
+        setSource('automatico');
+        setSelectedIds(planRoute(catalog, { budgetMin, serviceMin, companyId }));
+    };
+
+    const useProgrammed = () => {
+        const saved = validPlanIds(focusDay);
+        if (saved.length === 0) {
+            toast.info(`El ${dayName} no tiene un recorrido guardado.`);
+            return;
+        }
+        markEdited();
+        setSource('programado');
+        setSelectedIds(saved);
+    };
+
     const addDepositary = (id: number) => {
         const dep = catalog.find((item) => item.id === id);
         if (!dep) return;
@@ -292,12 +424,14 @@ const RouteGeneratorModal: React.FC<Props> = ({ depositarios, onClose, onMainten
             return;
         }
         markEdited();
+        setSource('programado');
         setSelectedIds((prev) => insertStop(prev, id, catalog));
         setQuery('');
     };
 
     const removeDepositary = (id: number) => {
         markEdited();
+        setSource('programado');
         setSelectedIds((prev) => prev.filter((item) => item !== id));
     };
 
@@ -325,6 +459,7 @@ const RouteGeneratorModal: React.FC<Props> = ({ depositarios, onClose, onMainten
         }
         const next = planRoute(catalog, { budgetMin, serviceMin, companyId });
         markEdited();
+        setSource('automatico');
         lastPlanKey.current = planKey;
         setSelectedIds(next);
         if (next.length === 0) toast.info('Ningún atrasado entra en esa jornada. Podés sumar uno igual para ver cuánto tardaría.');
@@ -344,6 +479,7 @@ const RouteGeneratorModal: React.FC<Props> = ({ depositarios, onClose, onMainten
         if (selectedIds.length === 0) return;
         if (!window.confirm('¿Vaciar la hoja de ruta?')) return;
         markEdited();
+        setSource('programado');
         setSelectedIds([]);
     };
 
@@ -437,6 +573,56 @@ const RouteGeneratorModal: React.FC<Props> = ({ depositarios, onClose, onMainten
         doc.save(`Ruta_BACAR_${today.replace(/\//g, '-')}.pdf`);
     };
 
+    const weekPlan = {
+        today: todayWeekday,
+        focusDay,
+        plans,
+        companies,
+        source,
+        saving: savingPlan,
+        planDirty,
+        banner: planBanner,
+        onSelectDay: selectWeekday,
+        onAddCompany: addCompany,
+        onSave: saveWeekPlan,
+        onUseAutomatic: useAutomatic,
+        onUseProgrammed: useProgrammed,
+    };
+
+    if (compact) {
+        return (
+            <MobileRouteSheet
+                {...weekPlan}
+                onClose={onClose}
+                unitCount={unitCount}
+                stopCount={sheet.stops.length}
+                totalLabel={formatDuration(sheet.totalMin)}
+                distanceLabel={`${sheet.distanceKm.toFixed(1)} km`}
+                backAtBase={sheet.backAtBase}
+                overBudget={overMin > 0}
+                roadPending={roadPending}
+                timeSource={roadPending ? 'ajustando por calles…' : sheet.source === 'calles' ? 'tiempo por calles' : 'tiempo estimado'}
+                query={query}
+                onQuery={setQuery}
+                onSearchEnter={() => { if (matches[0]) addDepositary(matches[0].id); }}
+                matches={matches}
+                onAddMatch={addDepositary}
+                sheet={sheet}
+                mapPoints={mapPoints}
+                selectedIds={selectedIds}
+                onRemove={removeDepositary}
+                onShift={shiftDepositary}
+                onRegister={onMaintenanceOpen}
+                onDraft={updateDraft}
+                onSaveRoute={saveRoute}
+                onPdf={downloadPDF}
+                onFinalize={handleFinalizeRoute}
+                sending={isSending}
+                routeId={routeId}
+            />
+        );
+    }
+
     return (
         <div className="fixed inset-0 bg-black bg-opacity-70 flex justify-center items-center z-[1050] p-4 backdrop-blur-sm">
             <div className="bg-white rounded-xl shadow-2xl w-full max-w-7xl h-[92vh] flex flex-col overflow-hidden">
@@ -445,7 +631,7 @@ const RouteGeneratorModal: React.FC<Props> = ({ depositarios, onClose, onMainten
                         <div>
                             <h2 className="text-xl font-bold">Hoja de ruta</h2>
                             <p className="text-xs text-slate-300 mt-1">
-                                {unitCount} equipos · {sheet.stops.length} paradas
+                                {weekdayLabel(focusDay)} · {source === 'programado' ? 'programado' : 'automática'} · {unitCount} equipos · {sheet.stops.length} paradas
                                 {routeId ? ` · ruta #${routeId}` : ''}
                             </p>
                         </div>
@@ -483,6 +669,7 @@ const RouteGeneratorModal: React.FC<Props> = ({ depositarios, onClose, onMainten
                 <div className="flex-1 min-h-0 overflow-y-auto lg:overflow-hidden flex flex-col lg:flex-row">
                     <div className="w-full lg:w-[46%] lg:h-full lg:overflow-y-auto border-b lg:border-b-0 lg:border-r border-gray-200 bg-gray-50">
                         <div className="p-4 space-y-3 border-b border-gray-200 bg-white">
+                            <WeekPlanControls {...weekPlan} />
                             <div className="relative">
                                 <input
                                     type="text"
@@ -712,33 +899,7 @@ const RouteGeneratorModal: React.FC<Props> = ({ depositarios, onClose, onMainten
                     </div>
 
                     <div className="h-80 lg:h-full lg:flex-1 relative">
-                        <MapContainer center={BASE_COORDS} zoom={11} style={{ height: '100%', width: '100%' }}>
-                            <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" attribution="© OpenStreetMap" />
-                            <MapBounds points={sheet.stops.length > 0 ? mapPoints : [BASE_COORDS]} />
-                            {sheet.stops.length > 0 && (
-                                <Polyline positions={mapPoints} color={overMin > 0 ? '#dc2626' : '#2563eb'} weight={5} opacity={0.75} />
-                            )}
-                            <Marker position={BASE_COORDS} icon={baseIcon} />
-                            {sheet.stops.map((stop, index) => (
-                                <Marker key={stop.key} position={[stop.lat, stop.lng]} icon={numberIcon(index + 1, stopTone(stop))}>
-                                    <Popup>
-                                        <div className="text-sm">
-                                            <div className="font-bold">{stop.companyName}</div>
-                                            <div>Llega {stop.arrivalLabel}</div>
-                                            {stop.items.map((item) => (
-                                                <div key={item.id}>{item.alias} · {item.daysLabel}</div>
-                                            ))}
-                                        </div>
-                                    </Popup>
-                                </Marker>
-                            ))}
-                        </MapContainer>
-                        <div className="absolute bottom-3 left-3 z-[400] bg-white/95 rounded shadow px-3 py-2 text-[11px] text-gray-700 space-y-0.5">
-                            <div><span className="inline-block w-2 h-2 rounded-full bg-red-600 mr-1" />Falla abierta</div>
-                            <div><span className="inline-block w-2 h-2 rounded-full bg-amber-500 mr-1" />Atrasado</div>
-                            <div><span className="inline-block w-2 h-2 rounded-full bg-blue-600 mr-1" />En plazo</div>
-                            <div><span className="inline-block w-2 h-2 rounded-full bg-green-600 mr-1" />Hecho hoy</div>
-                        </div>
+                        <RouteMap sheet={sheet} mapPoints={mapPoints} overBudget={overMin > 0} />
                     </div>
                 </div>
 
