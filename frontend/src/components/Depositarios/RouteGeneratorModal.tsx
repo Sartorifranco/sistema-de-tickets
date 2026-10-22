@@ -44,23 +44,12 @@ function stopTone(stop: RouteSheetStop): keyof typeof toneClass {
     return 'blue';
 }
 
-function useCompactLayout() {
-    const query = '(max-width: 1279px)';
-    const [compact, setCompact] = useState(() => window.matchMedia(query).matches);
-    useEffect(() => {
-        const media = window.matchMedia(query);
-        const apply = () => setCompact(media.matches);
-        apply();
-        media.addEventListener('change', apply);
-        return () => media.removeEventListener('change', apply);
-    }, []);
-    return compact;
-}
-
 interface Props {
     depositarios: Depositario[];
     onClose: () => void;
     onMaintenanceOpen: (dep: Depositario) => void;
+    /** Pantalla de la app instalable. No depende del tamaño de la ventana. */
+    appMode?: boolean;
 }
 
 interface RankedStop {
@@ -83,7 +72,7 @@ interface OsrmResponse {
     }[];
 }
 
-const RouteGeneratorModal: React.FC<Props> = ({ depositarios, onClose, onMaintenanceOpen }) => {
+const RouteGeneratorModal: React.FC<Props> = ({ depositarios, onClose, onMaintenanceOpen, appMode = false }) => {
     const [catalog, setCatalog] = useState<Depositario[]>(depositarios);
     const [catalogReady, setCatalogReady] = useState(false);
     const [selectedIds, setSelectedIds] = useState<number[]>([]);
@@ -105,7 +94,6 @@ const RouteGeneratorModal: React.FC<Props> = ({ depositarios, onClose, onMainten
     const [source, setSource] = useState<'programado' | 'automatico'>('automatico');
     const [savingPlan, setSavingPlan] = useState(false);
     const todayWeekday = useMemo(() => isoWeekday(new Date()), []);
-    const compact = useCompactLayout();
 
     const manual = useRef(false);
     const lastPlanKey = useRef<string | null>(null);
@@ -589,10 +577,11 @@ const RouteGeneratorModal: React.FC<Props> = ({ depositarios, onClose, onMainten
         onUseProgrammed: useProgrammed,
     };
 
-    if (compact) {
+    if (appMode) {
         return (
             <MobileRouteSheet
                 {...weekPlan}
+                closeLabel="Salir"
                 onClose={onClose}
                 unitCount={unitCount}
                 stopCount={sheet.stops.length}

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useNotification } from '../context/NotificationContext';
 import { toast } from 'react-toastify';
@@ -34,13 +34,16 @@ const LoginPage: React.FC = () => {
     const { login, user } = useAuth();
     const { addNotification } = useNotification();
     const navigate = useNavigate();
+    const location = useLocation();
     const worldCup = isWorldCupThemeActive();
+    const requestedPath = (location.state as { from?: { pathname?: string } } | null)?.from?.pathname;
 
     useEffect(() => {
         if (user) {
-            navigate(getDefaultPathForUser(user), { replace: true });
+            const backToFieldApp = requestedPath === '/mobile' || requestedPath === '/depositarios';
+            navigate(backToFieldApp ? '/mobile' : getDefaultPathForUser(user), { replace: true });
         }
-    }, [user, navigate]);
+    }, [user, navigate, requestedPath]);
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();

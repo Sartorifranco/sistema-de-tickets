@@ -52,6 +52,7 @@ import InvoicesPage from './pages/InvoicesPage';
 import SuccessApprovalPage from './pages/SuccessApprovalPage';
 import MockEmailPage from './pages/MockEmailPage';
 import AuthorizeEquipmentPage from './pages/AuthorizeEquipmentPage';
+import FieldAppPage from './pages/FieldAppPage';
 
 
 export type SocketInstance = ReturnType<typeof io>;
@@ -104,6 +105,15 @@ const App: React.FC = () => {
                         <Route path="/success-approval" element={<SuccessApprovalPage />} />
                         <Route path="/mock-email" element={<MockEmailPage />} />
                         <Route path="/autorizar" element={<AuthorizeEquipmentPage />} />
+                        <Route path="/depositarios" element={<Navigate to="/mobile" replace />} />
+                        <Route
+                            path="/mobile"
+                            element={
+                                <PrivateRoute roles={['admin', 'agent']} permission={P.DEPOSITARIOS_VIEW} module="depositarios">
+                                    <FieldAppPage />
+                                </PrivateRoute>
+                            }
+                        />
 
                         {/* Rutas privadas que usan el Layout */}
                         <Route element={<Layout />}>

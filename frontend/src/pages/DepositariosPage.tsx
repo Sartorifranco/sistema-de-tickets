@@ -202,7 +202,7 @@ const DepositarioModal: React.FC<{
 };
 
 // --- MODAL: REGISTRAR MANTENIMIENTO ---
-const MaintenanceModal: React.FC<{ 
+export const MaintenanceModal: React.FC<{ 
     depositario: Depositario; 
     onClose: () => void; 
     onSave: () => void 

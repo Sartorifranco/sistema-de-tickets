@@ -27,6 +27,11 @@ self.addEventListener('push', function(event) {
   event.waitUntil(self.registration.showNotification(title, options));
 });
 
+self.addEventListener('fetch', function(event) {
+  if (event.request.mode !== 'navigate') return;
+  event.respondWith(fetch(event.request));
+});
+
 self.addEventListener('notificationclick', function(event) {
   event.notification.close();
   const url = event.notification.data && event.notification.data.url ? event.notification.data.url : '/';

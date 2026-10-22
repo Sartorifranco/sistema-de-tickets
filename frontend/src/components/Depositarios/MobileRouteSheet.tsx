@@ -119,6 +119,7 @@ interface MobileProps extends WeekPlanProps {
     onFinalize: () => void;
     sending: boolean;
     routeId: number | null;
+    closeLabel?: string;
 }
 
 const MobileRouteSheet: React.FC<MobileProps> = (props) => {
@@ -139,8 +140,8 @@ const MobileRouteSheet: React.FC<MobileProps> = (props) => {
                             {props.routeId ? ` · #${props.routeId}` : ''}
                         </p>
                     </div>
-                    <button type="button" onClick={props.onClose} className="min-h-11 min-w-11 text-sm font-semibold text-slate-200">
-                        Cerrar
+                    <button type="button" onClick={props.onClose} className="min-h-11 px-2 text-sm font-semibold text-slate-200">
+                        {props.closeLabel || 'Cerrar'}
                     </button>
                 </div>
                 <div className={`text-4xl font-bold mt-2 ${props.overBudget ? 'text-red-400' : 'text-emerald-400'}`}>
