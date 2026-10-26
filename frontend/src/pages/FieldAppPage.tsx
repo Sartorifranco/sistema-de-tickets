@@ -4,7 +4,6 @@ import { useAuth } from '../context/AuthContext';
 import { Depositario } from '../types';
 import { toast } from 'react-toastify';
 import RouteGeneratorModal from '../components/Depositarios/RouteGeneratorModal';
-import { MaintenanceModal } from './DepositariosPage';
 import { PERMISSION_KEYS } from '../constants/permissions';
 import { hasPermission } from '../utils/permissions';
 import { useModuleEnabled } from '../context/SystemModulesContext';
@@ -91,7 +90,6 @@ const FieldAppPage: React.FC = () => {
     const moduleEnabled = useModuleEnabled('depositarios');
     const [depositarios, setDepositarios] = useState<Depositario[]>([]);
     const [loading, setLoading] = useState(true);
-    const [selected, setSelected] = useState<Depositario | null>(null);
     const [installEvent, setInstallEvent] = useState<BeforeInstallPromptEvent | null>(null);
     const [hideInstall, setHideInstall] = useState(isInstalledApp);
 
@@ -230,15 +228,7 @@ const FieldAppPage: React.FC = () => {
                     appMode
                     depositarios={depositarios}
                     onClose={logout}
-                    onMaintenanceOpen={setSelected}
-                />
-            )}
-
-            {selected && (
-                <MaintenanceModal
-                    depositario={selected}
-                    onClose={() => setSelected(null)}
-                    onSave={fetchData}
+                    onMaintenanceSaved={fetchData}
                 />
             )}
         </div>

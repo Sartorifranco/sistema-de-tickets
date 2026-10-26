@@ -1,6 +1,8 @@
 import React, { useState } from 'react';
-import { Depositario } from '../../types';
-import { RouteSheet, WEEKDAYS, formatDuration, weekdayLabel } from './routePlanner';
+import { MaintenanceTask } from '../../types';
+import { RouteSheet, formatDuration, weekdayLabel } from './routePlanner';
+import RouteCalendar from './RouteCalendar';
+import StopWorkFields, { CompanionOption, RouteCrewBar } from './StopWorkFields';
 import RouteMap from './RouteMap';
 
 export interface AddableUnit {
@@ -22,7 +24,7 @@ export interface WeekPlanProps {
     saving: boolean;
     planDirty: boolean;
     banner: string;
-    onSelectDay: (day: number) => void;
+    onSelectDay: (day: number) => boolean | void;
     onAddCompany: (companyId: number) => void;
     onSave: () => void;
     onUseAutomatic: () => void;
@@ -30,7 +32,6 @@ export interface WeekPlanProps {
 }
 
 export const WeekPlanControls: React.FC<WeekPlanProps & { dense?: boolean }> = ({
-    today,
     focusDay,
     plans,
     companies,
@@ -38,7 +39,6 @@ export const WeekPlanControls: React.FC<WeekPlanProps & { dense?: boolean }> = (
     saving,
     planDirty,
     banner,
-    onSelectDay,
     onAddCompany,
     onSave,
     onUseAutomatic,
@@ -49,25 +49,6 @@ export const WeekPlanControls: React.FC<WeekPlanProps & { dense?: boolean }> = (
     return (
         <div className={dense ? 'space-y-3' : 'space-y-2'}>
             <p className={`${dense ? 'text-sm' : 'text-xs'} text-slate-700`}>{banner}</p>
-            <div className="grid grid-cols-7 gap-1">
-                {WEEKDAYS.map((day) => {
-                    const active = focusDay === day.id;
-                    const hasPlan = (plans[day.id] || []).length > 0;
-                    return (
-                        <button
-                            key={day.id}
-                            type="button"
-                            onClick={() => onSelectDay(day.id)}
-                            className={`min-h-11 rounded-lg border text-xs font-semibold ${active ? 'bg-slate-800 text-white border-slate-800' : 'bg-white text-slate-700'}`}
-                        >
-                            {day.short}
-                            <span className={`block text-[10px] font-normal ${active ? 'text-slate-300' : 'text-slate-400'}`}>
-                                {day.id === today ? 'hoy' : hasPlan ? 'listo' : '—'}
-                            </span>
-                        </button>
-                    );
-                })}
-            </div>
             <div className="flex gap-2 overflow-x-auto pb-1">
                 {companies.map(([id, name]) => (
                     <button
@@ -87,7 +68,7 @@ export const WeekPlanControls: React.FC<WeekPlanProps & { dense?: boolean }> = (
                     disabled={saving || !planDirty}
                     className="min-h-11 px-3 rounded-lg bg-purple-600 text-white text-sm font-semibold disabled:opacity-40"
                 >
-                    {saving ? 'Guardando…' : `Dejar programado el ${weekdayLabel(focusDay)}`}
+                    {saving ? 'Guardando…' : `Guardar hoja fija del ${weekdayLabel(focusDay)}`}
                 </button>
                 <button type="button" onClick={onUseAutomatic} className="min-h-11 px-3 rounded-lg border bg-white text-sm font-semibold">
                     Hoja automática
@@ -126,8 +107,20 @@ interface MobileProps extends WeekPlanProps {
     selectedIds: number[];
     onRemove: (id: number) => void;
     onShift: (id: number, direction: -1 | 1) => void;
-    onRegister: (dep: Depositario) => void;
     onDraft: (id: number, field: 'bill_counter' | 'observations', value: string) => void;
+    onTasks: (id: number, tasks: MaintenanceTask[]) => void;
+    tasksFor: (id: number) => MaintenanceTask[];
+    onFinishStop: (id: number) => void;
+    finishingId: number | null;
+    ticketByStop: Record<number, number>;
+    planLabels: Record<number, string>;
+    pickedLabel: string;
+    onPickDate: (date: Date) => boolean | void;
+    performedBy: 'bacar' | 'permaquim';
+    companionUserId: string;
+    agents: CompanionOption[];
+    onPerformedBy: (value: 'bacar' | 'permaquim') => void;
+    onCompanion: (id: string) => void;
     onSaveRoute: () => void;
     onPdf: () => void;
     onFinalize: () => void;
@@ -144,21 +137,57 @@ function legText(travelMin: number, km: number, index: number): string {
 }
 
 const MobileRouteSheet: React.FC<MobileProps> = (props) => {
-    const [tab, setTab] = useState<'ruta' | 'programar' | 'mapa'>('ruta');
+    const [tab, setTab] = useState<'ruta' | 'mapa'>('ruta');
+    const [detailOpen, setDetailOpen] = useState(false);
     const dayName = weekdayLabel(props.focusDay);
     const driveOut = Math.max(0, props.sheet.driveMin - props.sheet.returnMin);
+
+    const openDay = (date: Date) => {
+        const accepted = props.onPickDate(date);
+        if (accepted === false) return;
+        setTab('ruta');
+        setDetailOpen(true);
+    };
+
+    if (!detailOpen) {
+        return (
+            <div className="fixed inset-0 z-[1050] bg-slate-100 flex flex-col">
+                <header className="bg-slate-900 text-white px-4 pt-[max(1rem,env(safe-area-inset-top))] pb-4 shrink-0">
+                    <div className="flex items-start justify-between gap-3">
+                        <div>
+                            <p className="text-xs uppercase tracking-wide text-slate-400">Recorridos</p>
+                            <h1 className="text-2xl font-bold">Hojas fijas</h1>
+                            <p className="text-sm text-slate-300 mt-1">Cada día muestra la hoja de esa semana. Tocá uno para verla o cambiarla.</p>
+                        </div>
+                        <button type="button" onClick={props.onClose} className="min-h-11 px-2 text-sm font-semibold text-slate-200">
+                            {props.closeLabel || 'Cerrar'}
+                        </button>
+                    </div>
+                </header>
+                <div className="flex-1 overflow-y-auto p-4 pb-[max(1rem,env(safe-area-inset-bottom))]">
+                    <RouteCalendar
+                        plans={props.plans}
+                        labels={props.planLabels}
+                        focusDay={props.focusDay}
+                        onPick={openDay}
+                    />
+                </div>
+            </div>
+        );
+    }
 
     return (
         <div className="fixed inset-0 z-[1050] bg-slate-100 flex flex-col">
             <header className="bg-slate-900 text-white px-4 pt-[max(1rem,env(safe-area-inset-top))] pb-3 shrink-0">
                 <div className="flex items-start justify-between gap-3">
                     <div>
-                        <p className="text-xs uppercase tracking-wide text-slate-400">
-                            {props.focusDay === props.today ? 'Hoy' : 'Día'} · {dayName}
-                        </p>
-                        <h1 className="text-lg font-bold">Recorrido</h1>
+                        <button type="button" onClick={() => setDetailOpen(false)} className="text-xs font-semibold text-slate-300 mb-1">
+                            ‹ Calendario
+                        </button>
+                        <p className="text-xs uppercase tracking-wide text-slate-400 capitalize">{props.pickedLabel}</p>
+                        <h1 className="text-lg font-bold">Hoja del {dayName}</h1>
                         <p className="text-xs text-slate-300 mt-0.5">
-                            {props.unitCount} equipos · {props.stopCount} paradas
+                            Se repite cada {dayName} · {props.unitCount} equipos · {props.stopCount} paradas
                             {props.routeId ? ` · #${props.routeId}` : ''}
                         </p>
                     </div>
@@ -180,15 +209,6 @@ const MobileRouteSheet: React.FC<MobileProps> = (props) => {
             </header>
 
             <div className="flex-1 min-h-0 overflow-y-auto">
-                {tab === 'programar' && (
-                    <div className="p-4">
-                        <WeekPlanControls {...props} dense />
-                        <p className="text-xs text-slate-500 mt-4">
-                            Sumá una empresa para meter todos sus equipos. Después podés quitar uno solo desde Recorrido. Si el día queda vacío y lo guardás, ese día vuelve a usar la hoja automática.
-                        </p>
-                    </div>
-                )}
-
                 {tab === 'mapa' && (
                     <div className="h-full min-h-[70vh]">
                         <RouteMap sheet={props.sheet} mapPoints={props.mapPoints} overBudget={props.overBudget} />
@@ -197,6 +217,14 @@ const MobileRouteSheet: React.FC<MobileProps> = (props) => {
 
                 {tab === 'ruta' && (
                     <div className="p-4 space-y-3 pb-28">
+                        <RouteCrewBar
+                            performedBy={props.performedBy}
+                            companionUserId={props.companionUserId}
+                            agents={props.agents}
+                            onPerformedBy={props.onPerformedBy}
+                            onCompanion={props.onCompanion}
+                        />
+                        <WeekPlanControls {...props} dense />
                         <div className="bg-white border rounded-xl p-3">
                             <p className="text-sm font-semibold text-slate-900">Sumar un depositario</p>
                             <p className="text-xs text-slate-500 mt-0.5 mb-2">Cualquiera del parque, esté o no en la sugerencia. Entra en el lugar del recorrido que menos alarga la hoja.</p>
@@ -255,7 +283,7 @@ const MobileRouteSheet: React.FC<MobileProps> = (props) => {
                             </label>
                         </div>
                         {props.sheet.stops.length === 0 ? (
-                            <p className="text-sm text-slate-500">No hay equipos en este día. Sumá una empresa en Programar o usá la hoja automática.</p>
+                            <p className="text-sm text-slate-500">Este día no tiene equipos. Sumá una empresa acá arriba y guardá la hoja fija.</p>
                         ) : (
                             props.sheet.stops.map((stop, stopIndex) => (
                                 <article key={stop.key} className="bg-white border rounded-xl p-3 shadow-sm">
@@ -286,33 +314,21 @@ const MobileRouteSheet: React.FC<MobileProps> = (props) => {
                                                         <button type="button" disabled={index < 0 || index >= props.selectedIds.length - 1} onClick={() => props.onShift(item.id, 1)} className="min-h-11 min-w-11 border rounded-lg disabled:opacity-30">↓</button>
                                                     </div>
                                                 </div>
-                                                <div className="flex gap-2 mt-2">
-                                                    <input
-                                                        type="number"
-                                                        inputMode="numeric"
-                                                        placeholder="Contador"
-                                                        value={item.bill_counter}
-                                                        onChange={(event) => props.onDraft(item.id, 'bill_counter', event.target.value)}
-                                                        className="w-28 min-h-11 border rounded-lg px-2"
-                                                    />
-                                                    <input
-                                                        type="text"
-                                                        placeholder="Observación"
-                                                        value={item.observations}
-                                                        onChange={(event) => props.onDraft(item.id, 'observations', event.target.value)}
-                                                        className="flex-1 min-h-11 border rounded-lg px-2"
-                                                    />
-                                                </div>
-                                                <div className="flex gap-2 mt-2">
-                                                    {!item.done && (
-                                                        <button type="button" onClick={() => props.onRegister(item.raw)} className="flex-1 min-h-11 rounded-lg bg-blue-600 text-white font-semibold">
-                                                            Registrar
-                                                        </button>
-                                                    )}
-                                                    <button type="button" onClick={() => props.onRemove(item.id)} className="flex-1 min-h-11 rounded-lg border border-red-200 text-red-700 font-semibold">
-                                                        Quitar
-                                                    </button>
-                                                </div>
+                                                <StopWorkFields
+                                                    counter={item.bill_counter}
+                                                    observations={item.observations}
+                                                    tasks={props.tasksFor(item.id)}
+                                                    done={item.done}
+                                                    ticketId={props.ticketByStop[item.id]}
+                                                    finishing={props.finishingId === item.id}
+                                                    onCounter={(value) => props.onDraft(item.id, 'bill_counter', value)}
+                                                    onObservations={(value) => props.onDraft(item.id, 'observations', value)}
+                                                    onTasks={(tasks) => props.onTasks(item.id, tasks)}
+                                                    onFinish={() => props.onFinishStop(item.id)}
+                                                />
+                                                <button type="button" onClick={() => props.onRemove(item.id)} className="mt-2 w-full min-h-11 rounded-lg border border-red-200 text-red-700 font-semibold">
+                                                    Quitar de la hoja
+                                                </button>
                                             </div>
                                         );
                                     })}
@@ -340,10 +356,9 @@ const MobileRouteSheet: React.FC<MobileProps> = (props) => {
                 </div>
             )}
 
-            <nav className="shrink-0 grid grid-cols-3 bg-white border-t pb-[env(safe-area-inset-bottom)]">
+            <nav className="shrink-0 grid grid-cols-2 bg-white border-t pb-[env(safe-area-inset-bottom)]">
                 {([
                     ['ruta', 'Recorrido'],
-                    ['programar', 'Programar'],
                     ['mapa', 'Mapa'],
                 ] as const).map(([id, label]) => (
                     <button

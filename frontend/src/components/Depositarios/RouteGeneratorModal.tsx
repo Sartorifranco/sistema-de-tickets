@@ -1,12 +1,11 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { Depositario } from '../../types';
+import { useAuth } from '../../context/AuthContext';
+import { Depositario, MaintenanceTask, User } from '../../types';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import api from '../../config/axiosConfig';
 import { toast } from 'react-toastify';
 import {
-    MaintenanceProfile,
-    MarginalCost,
     RoadRoute,
     RouteSheetStop,
     applyRoadFactor,
@@ -26,6 +25,8 @@ import {
 } from './routePlanner';
 import RouteMap from './RouteMap';
 import MobileRouteSheet, { WeekPlanControls } from './MobileRouteSheet';
+import RouteCalendar from './RouteCalendar';
+import StopWorkFields, { CompanionOption, emptyTasks, RouteCrewBar } from './StopWorkFields';
 
 const BUDGET_HOURS = [4, 6, 8];
 const SERVICE_CHOICES = [10, 15, 20, 30];
@@ -47,16 +48,10 @@ function stopTone(stop: RouteSheetStop): keyof typeof toneClass {
 interface Props {
     depositarios: Depositario[];
     onClose: () => void;
-    onMaintenanceOpen: (dep: Depositario) => void;
+    /** Recarga la gestión de depositarios después de cerrar una parada. */
+    onMaintenanceSaved?: () => void;
     /** Pantalla de la app instalable. No depende del tamaño de la ventana. */
     appMode?: boolean;
-}
-
-interface RankedStop {
-    dep: Depositario;
-    profile: MaintenanceProfile;
-    cost: MarginalCost | null;
-    minutes: number | null;
 }
 
 interface OsrmLeg {
@@ -72,17 +67,23 @@ interface OsrmResponse {
     }[];
 }
 
-const RouteGeneratorModal: React.FC<Props> = ({ depositarios, onClose, onMaintenanceOpen, appMode = false }) => {
+const RouteGeneratorModal: React.FC<Props> = ({ depositarios, onClose, onMaintenanceSaved, appMode = false }) => {
+    const { user } = useAuth();
     const [catalog, setCatalog] = useState<Depositario[]>(depositarios);
     const [catalogReady, setCatalogReady] = useState(false);
     const [selectedIds, setSelectedIds] = useState<number[]>([]);
-    const [drafts, setDrafts] = useState<Record<number, { bill_counter?: string; observations?: string }>>({});
+    const [drafts, setDrafts] = useState<Record<number, { bill_counter?: string; observations?: string; tasks?: MaintenanceTask[] }>>({});
+    const [performedBy, setPerformedBy] = useState<'bacar' | 'permaquim'>('bacar');
+    const [companionUserId, setCompanionUserId] = useState('');
+    const [agents, setAgents] = useState<CompanionOption[]>([]);
+    const [finishingId, setFinishingId] = useState<number | null>(null);
+    const [ticketByStop, setTicketByStop] = useState<Record<number, number>>({});
+    const [pickedDate, setPickedDate] = useState(() => new Date());
     const [budgetHours, setBudgetHours] = useState(6);
     const [serviceMin, setServiceMin] = useState(15);
     const [startTime, setStartTime] = useState('09:00');
     const [companyFilter, setCompanyFilter] = useState<number | ''>('');
     const [query, setQuery] = useState('');
-    const [recMode, setRecMode] = useState<'age' | 'near'>('age');
     const [edited, setEdited] = useState(false);
     const [road, setRoad] = useState<RoadRoute | null>(null);
     const [roadPending, setRoadPending] = useState(false);
@@ -142,6 +143,27 @@ const RouteGeneratorModal: React.FC<Props> = ({ depositarios, onClose, onMainten
             cancelled = true;
         };
     }, []);
+
+    useEffect(() => {
+        let cancelled = false;
+        api.get('/api/users/agents')
+            .then((res) => {
+                if (cancelled) return;
+                const list: CompanionOption[] = (res.data?.data || [])
+                    .filter((agent: User) => (agent.role === 'agent' || agent.role === 'admin') && agent.id !== user?.id)
+                    .map((agent: User) => ({
+                        id: agent.id,
+                        name: agent.first_name && agent.last_name ? `${agent.first_name} ${agent.last_name}` : agent.username,
+                    }));
+                setAgents(list);
+            })
+            .catch(() => {
+                if (!cancelled) setAgents([]);
+            });
+        return () => {
+            cancelled = true;
+        };
+    }, [user?.id]);
 
     const validPlanIds = (day: number) => (plans[day] || []).filter((id) => catalog.some((dep) => dep.id === id && hasCoords(dep)));
 
@@ -257,54 +279,6 @@ const RouteGeneratorModal: React.FC<Props> = ({ depositarios, onClose, onMainten
             });
     }, [catalog, factor, query, selectedIds, selectedSet, serviceMin]);
 
-    const ranked = useMemo(() => {
-        const rows: RankedStop[] = [];
-        catalog.forEach((dep) => {
-            if (selectedSet.has(dep.id)) return;
-            if (companyId !== null && Number(dep.company_id) !== companyId) return;
-            const profile = maintenanceProfile(dep);
-            const soon = !profile.due
-                && !profile.never
-                && profile.days !== null
-                && profile.days > 0
-                && profile.days < profile.freq
-                && profile.days >= profile.freq - 7;
-            if (!profile.due && !soon) return;
-            const cost = insertionCost(selectedIds, dep, catalog, serviceMin);
-            rows.push({
-                dep,
-                profile,
-                cost,
-                minutes: cost ? applyRoadFactor(cost, factor, serviceMin) : null,
-            });
-        });
-
-        const failures = rows
-            .filter((row) => row.profile.due && row.profile.tickets > 0)
-            .sort((a, b) => b.profile.daysSort - a.profile.daysSort || b.profile.tickets - a.profile.tickets);
-        const rest = rows.filter((row) => row.profile.due && row.profile.tickets === 0);
-        rest.sort((a, b) => {
-            if (recMode === 'near') {
-                const aKm = a.cost?.km ?? 9999;
-                const bKm = b.cost?.km ?? 9999;
-                return aKm - bKm || b.profile.daysSort - a.profile.daysSort;
-            }
-            return b.profile.daysSort - a.profile.daysSort;
-        });
-        const soon = rows
-            .filter((row) => !row.profile.due)
-            .sort((a, b) => b.profile.daysSort - a.profile.daysSort)
-            .slice(0, 5);
-        return { failures, rest, soon };
-    }, [catalog, companyId, factor, recMode, selectedIds, selectedSet, serviceMin]);
-
-    const missingGps = useMemo(() => {
-        return catalog
-            .filter((dep) => !selectedSet.has(dep.id) && !hasCoords(dep))
-            .filter((dep) => companyId === null || Number(dep.company_id) === companyId)
-            .filter((dep) => maintenanceProfile(dep).due);
-    }, [catalog, companyId, selectedSet]);
-
     const overMin = Math.round(sheet.totalMin - budgetMin);
     const remainingMin = Math.round(budgetMin - sheet.totalMin);
     const pct = budgetMin > 0 ? Math.round((sheet.totalMin / budgetMin) * 100) : 0;
@@ -324,31 +298,53 @@ const RouteGeneratorModal: React.FC<Props> = ({ depositarios, onClose, onMainten
             ? `Estás en la hoja automática. El ${dayName} también tiene un recorrido guardado.`
             : `Sin recorrido fijo para el ${dayName}. Estás viendo la hoja automática.`
         : !hasSavedDay && selectedIds.length === 0
-            ? `El ${dayName} no tiene empresas. Sumá una y guardala para repetirla todas las semanas.`
+            ? `El ${dayName} no tiene hoja fija. Sumá empresas o equipos y guardala: va a verse cada ${dayName} en el calendario.`
             : planDirty
                 ? `Hay cambios sin guardar en el ${dayName}.`
-                : `Recorrido programado para el ${dayName}. Podés quitar o sumar un equipo.`;
+                : `Hoja fija de cada ${dayName}. Podés quitar, sumar o terminar cada parada.`;
 
-    const selectWeekday = (day: number) => {
-        if (day === focusDay) return;
-        if (source === 'programado' && planDirty && !window.confirm('Hay cambios sin guardar en este día. ¿Cambiar de día igual?')) return;
+    const planLabels = useMemo(() => {
+        const labels: Record<number, string> = {};
+        Object.keys(plans).forEach((key) => {
+            const weekday = Number(key);
+            const names = (plans[weekday] || [])
+                .map((id) => catalog.find((dep) => dep.id === id)?.alias)
+                .filter((name): name is string => !!name);
+            if (names.length === 0) return;
+            labels[weekday] = names.length <= 2 ? names.join(' · ') : `${names.slice(0, 2).join(' · ')} +${names.length - 2}`;
+        });
+        return labels;
+    }, [catalog, plans]);
+
+    const pickedLabel = pickedDate.toLocaleDateString('es-AR', { weekday: 'long', day: 'numeric', month: 'long' });
+
+    const selectWeekday = (day: number): boolean => {
+        if (day === focusDay) return true;
+        if (source === 'programado' && planDirty && !window.confirm('Hay cambios sin guardar en este día. ¿Cambiar de día igual?')) return false;
         setFocusDay(day);
         const saved = validPlanIds(day);
         if (saved.length > 0) {
             markEdited();
             setSource('programado');
             setSelectedIds(saved);
-            return;
+            return true;
         }
         if (day === todayWeekday) {
             markEdited();
             setSource('automatico');
             setSelectedIds(planRoute(catalog, { budgetMin, serviceMin }));
-            return;
+            return true;
         }
         markEdited();
         setSource('programado');
         setSelectedIds([]);
+        return true;
+    };
+
+    const pickDate = (date: Date): boolean => {
+        const accepted = selectWeekday(isoWeekday(date));
+        if (accepted) setPickedDate(date);
+        return accepted;
     };
 
     const addCompany = (companyToAdd: number) => {
@@ -384,7 +380,7 @@ const RouteGeneratorModal: React.FC<Props> = ({ depositarios, onClose, onMainten
             setSource(selectedIds.length === 0 ? 'automatico' : 'programado');
             toast.success(selectedIds.length === 0
                 ? `Se borró la programación del ${dayName}. Ese día vuelve la hoja automática.`
-                : `El ${dayName} quedó programado con ${selectedIds.length} equipos.`);
+                : `El ${dayName} quedó fijo con ${selectedIds.length} equipos. El calendario lo muestra todas las semanas.`);
         } catch (error) {
             console.error(error);
             toast.error('No se pudo guardar la programación.');
@@ -488,6 +484,51 @@ const RouteGeneratorModal: React.FC<Props> = ({ depositarios, onClose, onMainten
 
     const updateDraft = (id: number, field: 'bill_counter' | 'observations', value: string) => {
         setDrafts((prev) => ({ ...prev, [id]: { ...prev[id], [field]: value } }));
+    };
+
+    const tasksFor = (id: number): MaintenanceTask[] => drafts[id]?.tasks || emptyTasks();
+
+    const updateTasks = (id: number, tasks: MaintenanceTask[]) => {
+        setDrafts((prev) => ({ ...prev, [id]: { ...prev[id], tasks } }));
+    };
+
+    const finishStop = async (id: number) => {
+        const dep = catalog.find((item) => item.id === id);
+        if (!dep || finishingId !== null) return;
+        const draft = drafts[id] || {};
+        const counter = (draft.bill_counter || '').trim();
+        if (!counter) {
+            toast.warn(`Cargá el contador de ${dep.alias} antes de terminar la parada.`);
+            return;
+        }
+        setFinishingId(id);
+        try {
+            const now = new Date();
+            now.setMinutes(now.getMinutes() - now.getTimezoneOffset());
+            const res = await api.post(`/api/depositarios/${id}/maintenance`, {
+                performed_by: performedBy,
+                date: now.toISOString().slice(0, 16),
+                observations: draft.observations || '',
+                tasks: draft.tasks?.length ? draft.tasks : emptyTasks(),
+                bill_counter: counter,
+                ...(companionUserId ? { companion_user_id: Number(companionUserId) } : {}),
+            });
+            const ticketId = res.data?.ticketId as number | undefined;
+            if (ticketId) setTicketByStop((prev) => ({ ...prev, [id]: ticketId }));
+            const list = await api.get('/api/depositarios');
+            setCatalog(list.data.data || []);
+            onMaintenanceSaved?.();
+            toast.success(
+                ticketId
+                    ? `${dep.alias} quedó en Gestión de depositarios. Ticket #${ticketId} creado y cerrado.`
+                    : `${dep.alias} quedó en Gestión de depositarios.`
+            );
+        } catch (error) {
+            const message = (error as { response?: { data?: { message?: string } } })?.response?.data?.message;
+            toast.error(message || 'No se pudo cargar el mantenimiento.');
+        } finally {
+            setFinishingId(null);
+        }
     };
 
     const saveRoute = async () => {
@@ -628,8 +669,20 @@ const RouteGeneratorModal: React.FC<Props> = ({ depositarios, onClose, onMainten
                 selectedIds={selectedIds}
                 onRemove={removeDepositary}
                 onShift={shiftDepositary}
-                onRegister={onMaintenanceOpen}
                 onDraft={updateDraft}
+                onTasks={updateTasks}
+                tasksFor={tasksFor}
+                onFinishStop={finishStop}
+                finishingId={finishingId}
+                ticketByStop={ticketByStop}
+                planLabels={planLabels}
+                pickedLabel={pickedLabel}
+                onPickDate={pickDate}
+                performedBy={performedBy}
+                companionUserId={companionUserId}
+                agents={agents}
+                onPerformedBy={setPerformedBy}
+                onCompanion={setCompanionUserId}
                 onSaveRoute={saveRoute}
                 onPdf={downloadPDF}
                 onFinalize={handleFinalizeRoute}
@@ -685,6 +738,15 @@ const RouteGeneratorModal: React.FC<Props> = ({ depositarios, onClose, onMainten
                 <div className="flex-1 min-h-0 overflow-y-auto lg:overflow-hidden flex flex-col lg:flex-row">
                     <div className="w-full lg:w-[46%] lg:h-full lg:overflow-y-auto border-b lg:border-b-0 lg:border-r border-gray-200 bg-gray-50">
                         <div className="p-4 space-y-3 border-b border-gray-200 bg-white">
+                            <RouteCalendar plans={plans} labels={planLabels} focusDay={focusDay} onPick={pickDate} />
+                            <p className="text-sm font-semibold capitalize text-slate-800">{pickedLabel}</p>
+                            <RouteCrewBar
+                                performedBy={performedBy}
+                                companionUserId={companionUserId}
+                                agents={agents}
+                                onPerformedBy={setPerformedBy}
+                                onCompanion={setCompanionUserId}
+                            />
                             <WeekPlanControls {...weekPlan} />
                             <div className="relative">
                                 <input
@@ -788,35 +850,6 @@ const RouteGeneratorModal: React.FC<Props> = ({ depositarios, onClose, onMainten
                             </p>
                         </div>
 
-                        <div className="p-4 border-b border-gray-200">
-                            <div className="flex items-center justify-between gap-2 mb-2">
-                                <h3 className="text-sm font-bold text-gray-800">Recomendados</h3>
-                                <div className="flex text-[11px] bg-gray-200 rounded p-0.5">
-                                    <button type="button" onClick={() => setRecMode('age')} className={`px-2 py-1 rounded ${recMode === 'age' ? 'bg-white shadow font-semibold' : ''}`}>Más atrasados</button>
-                                    <button type="button" onClick={() => setRecMode('near')} className={`px-2 py-1 rounded ${recMode === 'near' ? 'bg-white shadow font-semibold' : ''}`}>Más cercanos</button>
-                                </div>
-                            </div>
-                            <p className="text-[11px] text-gray-500 mb-2">
-                                {ranked.failures.length + ranked.rest.length} fuera de la ruta. El +min es el viaje extra, el trabajo en ese equipo y el cambio del regreso, poniéndolo donde mejor encaja.
-                            </p>
-                            {!catalogReady && <p className="text-xs text-gray-500">Cargando el parque completo…</p>}
-                            <RecommendationList title="Con falla abierta" rows={ranked.failures} budgetMin={budgetMin} totalMin={sheet.totalMin} onAdd={addDepositary} />
-                            <RecommendationList title={recMode === 'age' ? 'Más tiempo sin mantenimiento' : 'Atrasados cerca del final de la ruta'} rows={ranked.rest.slice(0, 12)} budgetMin={budgetMin} totalMin={sheet.totalMin} onAdd={addDepositary} />
-                            <RecommendationList title="Vencen en los próximos 7 días" rows={ranked.soon} budgetMin={budgetMin} totalMin={sheet.totalMin} onAdd={addDepositary} />
-                            {ranked.rest.length > 12 && (
-                                <p className="text-[11px] text-gray-500 mt-1">Y {ranked.rest.length - 12} atrasados más. Buscalos por alias para sumarlos.</p>
-                            )}
-                            {ranked.failures.length + ranked.rest.length === 0 && catalogReady && (
-                                <p className="text-sm text-gray-500">No hay equipos vencidos fuera de esta ruta.</p>
-                            )}
-                            {missingGps.length > 0 && (
-                                <p className="text-[11px] text-amber-800 bg-amber-50 border border-amber-200 rounded p-2 mt-2">
-                                    Sin GPS, no se pueden rutear: {missingGps.slice(0, 4).map((dep) => dep.alias).join(', ')}
-                                    {missingGps.length > 4 ? ` y ${missingGps.length - 4} más` : ''}.
-                                </p>
-                            )}
-                        </div>
-
                         <div className="p-4 space-y-3">
                             <div className="text-sm text-gray-500">Salida: <strong>Central BACAR</strong> ({startTime})</div>
                             {!catalogReady && selectedIds.length === 0 ? (
@@ -868,33 +901,20 @@ const RouteGeneratorModal: React.FC<Props> = ({ depositarios, onClose, onMainten
                                                                     {item.done && <span className="bg-green-100 text-green-700 text-[10px] px-1 rounded font-bold">HECHO HOY</span>}
                                                                 </div>
                                                                 <p className="text-[11px] text-gray-500">{item.daysLabel} · cada {item.freq} días · {delay}</p>
-                                                                <div className="flex gap-2 mt-1">
-                                                                    <input
-                                                                        type="number"
-                                                                        placeholder="Contador"
-                                                                        className="w-24 p-1 text-xs border rounded bg-gray-50"
-                                                                        value={item.bill_counter}
-                                                                        onChange={(event) => updateDraft(item.id, 'bill_counter', event.target.value)}
-                                                                    />
-                                                                    <input
-                                                                        type="text"
-                                                                        placeholder="Observación breve"
-                                                                        className="flex-1 p-1 text-xs border rounded bg-gray-50"
-                                                                        value={item.observations}
-                                                                        onChange={(event) => updateDraft(item.id, 'observations', event.target.value)}
-                                                                    />
-                                                                </div>
+                                                                <StopWorkFields
+                                                                    counter={item.bill_counter}
+                                                                    observations={item.observations}
+                                                                    tasks={tasksFor(item.id)}
+                                                                    done={item.done}
+                                                                    ticketId={ticketByStop[item.id]}
+                                                                    finishing={finishingId === item.id}
+                                                                    onCounter={(value) => updateDraft(item.id, 'bill_counter', value)}
+                                                                    onObservations={(value) => updateDraft(item.id, 'observations', value)}
+                                                                    onTasks={(tasks) => updateTasks(item.id, tasks)}
+                                                                    onFinish={() => finishStop(item.id)}
+                                                                />
                                                             </div>
                                                             <div className="flex flex-col gap-1">
-                                                                {!item.done && (
-                                                                    <button
-                                                                        type="button"
-                                                                        onClick={() => onMaintenanceOpen(item.raw)}
-                                                                        className="text-[11px] px-2 py-1 rounded border bg-blue-50 text-blue-700 border-blue-200"
-                                                                    >
-                                                                        Registrar
-                                                                    </button>
-                                                                )}
                                                                 <button type="button" onClick={() => removeDepositary(item.id)} className="text-[11px] px-2 py-1 rounded border text-red-700 border-red-200">
                                                                     Quitar
                                                                 </button>
@@ -947,62 +967,5 @@ const RouteGeneratorModal: React.FC<Props> = ({ depositarios, onClose, onMainten
         </div>
     );
 };
-
-function RecommendationList({
-    title,
-    rows,
-    budgetMin,
-    totalMin,
-    onAdd,
-}: {
-    title: string;
-    rows: RankedStop[];
-    budgetMin: number;
-    totalMin: number;
-    onAdd: (id: number) => void;
-}) {
-    if (rows.length === 0) return null;
-    return (
-        <div className="mb-3">
-            <p className="text-[11px] font-bold uppercase tracking-wide text-gray-500 mb-1">{title}</p>
-            <div className="space-y-1">
-                {rows.map((row) => {
-                    const exceeds = row.minutes !== null && totalMin + row.minutes > budgetMin;
-                    const detail = row.profile.never
-                        ? 'Nunca tuvo mantenimiento'
-                        : row.profile.overdue > 0
-                            ? `${row.profile.overdue} días de atraso`
-                            : row.profile.tickets > 0
-                                ? 'Con falla abierta'
-                                : row.profile.days !== null && row.profile.days < row.profile.freq
-                                    ? `Faltan ${row.profile.freq - row.profile.days} días para vencer`
-                                    : 'Llegó a la frecuencia';
-                    return (
-                        <button
-                            key={row.dep.id}
-                            type="button"
-                            onClick={() => onAdd(row.dep.id)}
-                            disabled={!hasCoords(row.dep)}
-                            className="w-full text-left bg-white border rounded px-2 py-1.5 hover:border-purple-400 disabled:opacity-60"
-                        >
-                            <div className="flex justify-between gap-2 text-sm">
-                                <span className="font-semibold truncate">{row.dep.alias}</span>
-                                <span className={exceeds ? 'text-red-600 font-semibold shrink-0' : 'text-emerald-700 font-semibold shrink-0'}>
-                                    {row.minutes === null ? 'Sin GPS' : `+${formatDuration(row.minutes)}`}
-                                </span>
-                            </div>
-                            <div className="text-[11px] text-gray-500 truncate">
-                                {row.dep.company_name || 'Sin empresa'} · {row.profile.daysLabel} · {detail}
-                                {row.cost ? (row.cost.km < 0.08 ? ' · mismo predio' : ` · a ${row.cost.km.toFixed(1)} km`) : ''}
-                                {row.profile.tickets > 0 ? ` · ${row.profile.tickets} ticket${row.profile.tickets === 1 ? '' : 's'}` : ''}
-                                {exceeds ? ' · se pasa de la jornada' : ''}
-                            </div>
-                        </button>
-                    );
-                })}
-            </div>
-        </div>
-    );
-}
 
 export default RouteGeneratorModal;

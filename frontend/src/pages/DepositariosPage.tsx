@@ -449,10 +449,6 @@ const DepositariosPage: React.FC = () => {
         }
     };
 
-    const handleMaintenanceFromRoute = (dep: Depositario) => {
-        setSelectedDepositario(dep);
-    };
-
     const handleMaintenanceSave = () => {
         fetchData();
     };
@@ -646,8 +642,8 @@ const DepositariosPage: React.FC = () => {
             {isRouteModalOpen && (
                 <RouteGeneratorModal 
                     depositarios={depositarios} 
-                    onClose={() => setIsRouteModalOpen(false)} 
-                    onMaintenanceOpen={handleMaintenanceFromRoute}
+                    onClose={() => setIsRouteModalOpen(false)}
+                    onMaintenanceSaved={fetchData}
                 />
             )}
 
