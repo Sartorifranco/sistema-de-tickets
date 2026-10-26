@@ -187,11 +187,25 @@ function daysSince(value?: string | null): number | null {
     return Math.max(0, Math.round(diff / 86400000));
 }
 
-export function maintainedToday(dep: Depositario): boolean {
+export function dateKey(date: Date): string {
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    return `${date.getFullYear()}-${month}-${day}`;
+}
+
+export function addDays(date: Date, days: number): Date {
+    return new Date(date.getFullYear(), date.getMonth(), date.getDate() + days);
+}
+
+export function maintainedOn(dep: Depositario, day: Date): boolean {
     if (!dep.last_maintenance) return false;
     const last = new Date(dep.last_maintenance);
     if (Number.isNaN(last.getTime())) return false;
-    return argentinaDayStart(last) === argentinaDayStart(new Date());
+    return argentinaDayStart(last) === argentinaDayStart(day);
+}
+
+export function maintainedToday(dep: Depositario): boolean {
+    return maintainedOn(dep, new Date());
 }
 
 export function maintenanceProfile(dep: Depositario): MaintenanceProfile {

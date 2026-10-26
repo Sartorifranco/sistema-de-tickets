@@ -1,10 +1,12 @@
 import React, { useMemo, useState } from 'react';
-import { WEEKDAYS, isoWeekday } from './routePlanner';
+import { WEEKDAYS, dateKey, isoWeekday } from './routePlanner';
 
 interface Props {
     plans: Record<number, number[]>;
     labels: Record<number, string>;
     focusDay: number;
+    /** Equipos que pasan de ayer, por fecha YYYY-MM-DD. */
+    pendingCounts?: Record<string, number>;
     onPick: (date: Date) => void;
 }
 
@@ -24,7 +26,7 @@ function sameDay(a: Date, b: Date): boolean {
     return a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate();
 }
 
-const RouteCalendar: React.FC<Props> = ({ plans, labels, focusDay, onPick }) => {
+const RouteCalendar: React.FC<Props> = ({ plans, labels, focusDay, pendingCounts = {}, onPick }) => {
     const today = useMemo(() => new Date(), []);
     const [cursor, setCursor] = useState(() => new Date(today.getFullYear(), today.getMonth(), 1));
     const cells = monthCells(cursor.getFullYear(), cursor.getMonth());
@@ -55,22 +57,23 @@ const RouteCalendar: React.FC<Props> = ({ plans, labels, focusDay, onPick }) => 
                     const weekday = isoWeekday(date);
                     const count = (plans[weekday] || []).length;
                     const hasPlan = count > 0;
+                    const pending = pendingCounts[dateKey(date)] || 0;
                     const isToday = sameDay(date, today);
                     const selected = weekday === focusDay;
                     return (
                         <button
-                            key={date.toISOString()}
+                            key={dateKey(date)}
                             type="button"
                             onClick={() => onPick(date)}
                             className={`min-h-[4.5rem] rounded-xl border px-1 py-1 text-left flex flex-col ${
-                                selected ? 'border-slate-900 ring-2 ring-slate-900' : hasPlan ? 'border-emerald-300 bg-emerald-50' : 'border-slate-200 bg-slate-50'
+                                selected ? 'border-slate-900 ring-2 ring-slate-900' : pending > 0 ? 'border-amber-400 bg-amber-50' : hasPlan ? 'border-emerald-300 bg-emerald-50' : 'border-slate-200 bg-slate-50'
                             }`}
                         >
                             <span className={`text-xs font-bold w-6 h-6 flex items-center justify-center rounded-full ${isToday ? 'bg-slate-900 text-white' : 'text-slate-800'}`}>
                                 {date.getDate()}
                             </span>
-                            <span className={`mt-1 text-[10px] leading-tight line-clamp-3 ${hasPlan ? 'text-emerald-900 font-medium' : 'text-slate-400'}`}>
-                                {hasPlan ? (labels[weekday] || `${count} equipos`) : 'Sin hoja'}
+                            <span className={`mt-1 text-[10px] leading-tight line-clamp-3 ${pending > 0 ? 'text-amber-900 font-semibold' : hasPlan ? 'text-emerald-900 font-medium' : 'text-slate-400'}`}>
+                                {pending > 0 ? `${pending} de ayer` : hasPlan ? (labels[weekday] || `${count} equipos`) : 'Sin hoja'}
                             </span>
                         </button>
                     );

@@ -404,6 +404,56 @@ const saveRoutePlan = asyncHandler(async (req, res) => {
     res.status(200).json({ success: true, data: { weekday, depositario_ids: ids } });
 });
 
+function sqlDateOnly(value) {
+    if (value instanceof Date && !Number.isNaN(value.getTime())) {
+        const month = String(value.getMonth() + 1).padStart(2, '0');
+        const day = String(value.getDate()).padStart(2, '0');
+        return `${value.getFullYear()}-${month}-${day}`;
+    }
+    const text = String(value || '').slice(0, 10);
+    return /^\d{4}-\d{2}-\d{2}$/.test(text) ? text : null;
+}
+
+const getRouteDaySheets = asyncHandler(async (req, res) => {
+    const [rows] = await pool.execute(
+        `SELECT DATE_FORMAT(route_date, '%Y-%m-%d') AS route_date, depositario_ids
+         FROM technician_route_day_sheets
+         WHERE user_id = ? AND route_date >= DATE_SUB(CURDATE(), INTERVAL 21 DAY)
+         ORDER BY route_date`,
+        [req.user.id]
+    );
+    res.status(200).json({
+        success: true,
+        data: rows.map((row) => ({
+            route_date: row.route_date,
+            depositario_ids: normalizePlanIds(row.depositario_ids),
+        })),
+    });
+});
+
+const saveRouteDaySheet = asyncHandler(async (req, res) => {
+    const routeDate = sqlDateOnly(req.body && req.body.route_date);
+    if (!routeDate) {
+        res.status(400);
+        throw new Error('Fecha inválida');
+    }
+    const ids = normalizePlanIds(req.body && req.body.depositario_ids);
+    if (ids.length === 0) {
+        await pool.execute(
+            'DELETE FROM technician_route_day_sheets WHERE user_id = ? AND route_date = ?',
+            [req.user.id, routeDate]
+        );
+    } else {
+        await pool.execute(
+            `INSERT INTO technician_route_day_sheets (user_id, route_date, depositario_ids)
+             VALUES (?, ?, ?)
+             ON DUPLICATE KEY UPDATE depositario_ids = VALUES(depositario_ids)`,
+            [req.user.id, routeDate, JSON.stringify(ids)]
+        );
+    }
+    res.status(200).json({ success: true, data: { route_date: routeDate, depositario_ids: ids } });
+});
+
 const createDepositario = asyncHandler(async (req, res) => {
     const { alias, company_id, ...rest } = req.body;
     if (!alias || !company_id) { res.status(400); throw new Error('Datos incompletos'); }
@@ -630,7 +680,9 @@ module.exports = {
     saveRoute, 
     getRouteHistory,
     getRoutePlans,
-    saveRoutePlan, 
+    saveRoutePlan,
+    getRouteDaySheets,
+    saveRouteDaySheet, 
     getDepositaryReports, 
     getDepositaryAnalysis,
     finalizeRoute 

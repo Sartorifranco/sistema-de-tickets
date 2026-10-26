@@ -9,13 +9,16 @@ import {
     RoadRoute,
     RouteSheetStop,
     applyRoadFactor,
+    addDays,
     buildRouteSheet,
+    dateKey,
     estimateRouteMinutes,
     formatDuration,
     hasCoords,
     insertStop,
     insertionCost,
     isoWeekday,
+    maintainedOn,
     maintenanceProfile,
     moveStop,
     optimizeOrder,
@@ -90,6 +93,8 @@ const RouteGeneratorModal: React.FC<Props> = ({ depositarios, onClose, onMainten
     const [routeId, setRouteId] = useState<number | null>(null);
     const [isSending, setIsSending] = useState(false);
     const [plans, setPlans] = useState<Record<number, number[]>>({});
+    const [daySheets, setDaySheets] = useState<Record<string, number[]>>({});
+    const [dismissedCarry, setDismissedCarry] = useState<number[]>([]);
     const [plansReady, setPlansReady] = useState(false);
     const [focusDay, setFocusDay] = useState(() => isoWeekday(new Date()));
     const [source, setSource] = useState<'programado' | 'automatico'>('automatico');
@@ -124,14 +129,22 @@ const RouteGeneratorModal: React.FC<Props> = ({ depositarios, onClose, onMainten
 
     useEffect(() => {
         let cancelled = false;
-        api.get('/api/depositarios/route-plans')
-            .then((res) => {
+        Promise.all([
+            api.get('/api/depositarios/route-plans'),
+            api.get('/api/depositarios/route-day-sheets').catch(() => ({ data: { data: [] } })),
+        ])
+            .then(([planRes, dayRes]) => {
                 if (cancelled) return;
                 const next: Record<number, number[]> = {};
-                (res.data.data || []).forEach((row: { weekday: number; depositario_ids: number[] }) => {
+                (planRes.data.data || []).forEach((row: { weekday: number; depositario_ids: number[] }) => {
                     next[Number(row.weekday)] = (row.depositario_ids || []).map(Number).filter((id) => Number.isInteger(id));
                 });
+                const sheets: Record<string, number[]> = {};
+                (dayRes.data.data || []).forEach((row: { route_date: string; depositario_ids: number[] }) => {
+                    sheets[String(row.route_date).slice(0, 10)] = (row.depositario_ids || []).map(Number).filter((id) => Number.isInteger(id));
+                });
                 setPlans(next);
+                setDaySheets(sheets);
             })
             .catch(() => {
                 /* Sin programación guardada se usa la hoja automática. */
@@ -194,9 +207,70 @@ const RouteGeneratorModal: React.FC<Props> = ({ depositarios, onClose, onMainten
         setSelectedIds(planRoute(catalog, { budgetMin, serviceMin }));
     }, [catalogReady, plansReady, catalog, planKey, budgetMin, serviceMin, todayWeekday, source, plans]);
 
+    const carryoverIds = useMemo(() => {
+        const previous = addDays(pickedDate, -1);
+        const key = dateKey(previous);
+        const hasSheet = Object.prototype.hasOwnProperty.call(daySheets, key);
+        const source = hasSheet ? daySheets[key] : (plans[isoWeekday(previous)] || []);
+        return source.filter((id) => {
+            if (dismissedCarry.includes(id)) return false;
+            const dep = catalog.find((item) => item.id === id);
+            if (!dep || !hasCoords(dep)) return false;
+            return !maintainedOn(dep, previous) && !maintainedOn(dep, pickedDate);
+        });
+    }, [catalog, daySheets, dismissedCarry, pickedDate, plans]);
+
+    const routeIds = useMemo(() => {
+        const ids: number[] = [];
+        const seen = new Set<number>();
+        carryoverIds.forEach((id) => {
+            if (!seen.has(id)) {
+                seen.add(id);
+                ids.push(id);
+            }
+        });
+        selectedIds.forEach((id) => {
+            if (!seen.has(id)) {
+                seen.add(id);
+                ids.push(id);
+            }
+        });
+        return ids;
+    }, [carryoverIds, selectedIds]);
+
+    const carryover = useMemo(() => carryoverIds.map((id) => {
+        const dep = catalog.find((item) => item.id === id);
+        return {
+            id,
+            alias: dep?.alias || `Equipo ${id}`,
+            companyName: dep?.company_name || 'Sin cliente',
+        };
+    }), [carryoverIds, catalog]);
+
+    const carryoverFromLabel = addDays(pickedDate, -1).toLocaleDateString('es-AR', { weekday: 'long', day: 'numeric', month: 'long' });
+
+    const pendingCounts = useMemo(() => {
+        const counts: Record<string, number> = {};
+        const cursor = new Date(pickedDate.getFullYear(), pickedDate.getMonth(), 1);
+        cursor.setDate(cursor.getDate() - 7);
+        for (let i = 0; i < 70; i += 1) {
+            const day = addDays(cursor, i);
+            const previous = addDays(day, -1);
+            const key = dateKey(previous);
+            const hasSheet = Object.prototype.hasOwnProperty.call(daySheets, key);
+            const source = hasSheet ? daySheets[key] : (plans[isoWeekday(previous)] || []);
+            const pending = source.filter((id) => {
+                const dep = catalog.find((item) => item.id === id);
+                return !!dep && hasCoords(dep) && !maintainedOn(dep, previous) && !maintainedOn(dep, day);
+            });
+            if (pending.length > 0) counts[dateKey(day)] = pending.length;
+        }
+        return counts;
+    }, [catalog, daySheets, pickedDate, plans]);
+
     const sheet = useMemo(
-        () => buildRouteSheet(selectedIds, catalog, drafts, startTime, serviceMin, road),
-        [selectedIds, catalog, drafts, startTime, serviceMin, road],
+        () => buildRouteSheet(routeIds, catalog, drafts, startTime, serviceMin, road),
+        [routeIds, catalog, drafts, startTime, serviceMin, road],
     );
 
     useEffect(() => {
@@ -241,6 +315,24 @@ const RouteGeneratorModal: React.FC<Props> = ({ depositarios, onClose, onMainten
             window.clearTimeout(timer);
         };
     }, [sheet.routeKey, sheet.osrmPath, sheet.stops.length]);
+
+    useEffect(() => {
+        if (!catalogReady || !plansReady || !bootstrapped.current) return;
+        const key = dateKey(pickedDate);
+        const ids = routeIds;
+        const timer = window.setTimeout(() => {
+            api.put('/api/depositarios/route-day-sheets', { route_date: key, depositario_ids: ids })
+                .then(() => {
+                    setDaySheets((prev) => {
+                        const current = prev[key] || [];
+                        if (current.length === ids.length && current.every((id, index) => id === ids[index])) return prev;
+                        return { ...prev, [key]: ids };
+                    });
+                })
+                .catch(() => undefined);
+        }, 800);
+        return () => window.clearTimeout(timer);
+    }, [catalogReady, plansReady, pickedDate, routeIds]);
 
     const factor = roadFactorOf(sheet.driveMin, sheet.estimateDriveMin, sheet.source);
     // La línea del mapa solo cambia con el recorrido o cuando llega el trazado por calles.
@@ -343,28 +435,33 @@ const RouteGeneratorModal: React.FC<Props> = ({ depositarios, onClose, onMainten
 
     const pickDate = (date: Date): boolean => {
         const accepted = selectWeekday(isoWeekday(date));
-        if (accepted) setPickedDate(date);
-        return accepted;
+        if (!accepted) return false;
+        setDismissedCarry([]);
+        setPickedDate(date);
+        return true;
     };
 
-    const addCompany = (companyToAdd: number) => {
-        const ids = catalog
-            .filter((dep) => Number(dep.company_id) === companyToAdd && hasCoords(dep) && !selectedSet.has(dep.id))
-            .map((dep) => dep.id);
-        if (ids.length === 0) {
-            toast.info('Esa empresa ya está en el recorrido, o sus equipos no tienen GPS.');
+    const toggleUnit = (id: number) => {
+        const dep = catalog.find((item) => item.id === id);
+        if (!dep) return;
+        const onSheet = selectedSet.has(id) || carryoverIds.includes(id);
+        if (onSheet) {
+            markEdited();
+            setSource('programado');
+            setSelectedIds((prev) => prev.filter((item) => item !== id));
+            if (carryoverIds.includes(id)) {
+                setDismissedCarry((prev) => (prev.includes(id) ? prev : [...prev, id]));
+            }
+            return;
+        }
+        if (!hasCoords(dep)) {
+            toast.warn(`${dep.alias} no tiene coordenadas. Cargá la ubicación para sumarlo a la ruta.`);
             return;
         }
         markEdited();
         setSource('programado');
-        setSelectedIds((prev) => {
-            let next = prev;
-            ids.forEach((id) => {
-                next = insertStop(next, id, catalog);
-            });
-            return next;
-        });
-        toast.success(`Sumé ${ids.length} equipo${ids.length === 1 ? '' : 's'}.`);
+        setDismissedCarry((prev) => prev.filter((item) => item !== id));
+        setSelectedIds((prev) => insertStop(prev, id, catalog));
     };
 
     const saveWeekPlan = async () => {
@@ -432,6 +529,9 @@ const RouteGeneratorModal: React.FC<Props> = ({ depositarios, onClose, onMainten
         markEdited();
         setSource('programado');
         setSelectedIds((prev) => prev.filter((item) => item !== id));
+        if (carryoverIds.includes(id)) {
+            setDismissedCarry((prev) => (prev.includes(id) ? prev : [...prev, id]));
+        }
     };
 
     const shiftDepositary = (id: number, direction: -1 | 1) => {
@@ -617,17 +717,26 @@ const RouteGeneratorModal: React.FC<Props> = ({ depositarios, onClose, onMainten
         doc.save(`Ruta_BACAR_${today.replace(/\//g, '-')}.pdf`);
     };
 
+    const pickerUnits = useMemo(() => catalog.map((dep) => ({
+        id: dep.id,
+        alias: dep.alias,
+        companyName: dep.company_name || 'Sin cliente',
+        hasGps: hasCoords(dep),
+    })), [catalog]);
+
     const weekPlan = {
         today: todayWeekday,
         focusDay,
         plans,
         companies,
+        units: pickerUnits,
+        checkedIds: routeIds,
         source,
         saving: savingPlan,
         planDirty,
         banner: planBanner,
         onSelectDay: selectWeekday,
-        onAddCompany: addCompany,
+        onToggleUnit: toggleUnit,
         onSave: saveWeekPlan,
         onUseAutomatic: useAutomatic,
         onUseProgrammed: useProgrammed,
@@ -676,6 +785,9 @@ const RouteGeneratorModal: React.FC<Props> = ({ depositarios, onClose, onMainten
                 finishingId={finishingId}
                 ticketByStop={ticketByStop}
                 planLabels={planLabels}
+                pendingCounts={pendingCounts}
+                carryover={carryover}
+                carryoverFromLabel={carryoverFromLabel}
                 pickedLabel={pickedLabel}
                 onPickDate={pickDate}
                 performedBy={performedBy}
@@ -738,8 +850,26 @@ const RouteGeneratorModal: React.FC<Props> = ({ depositarios, onClose, onMainten
                 <div className="flex-1 min-h-0 overflow-y-auto lg:overflow-hidden flex flex-col lg:flex-row">
                     <div className="w-full lg:w-[46%] lg:h-full lg:overflow-y-auto border-b lg:border-b-0 lg:border-r border-gray-200 bg-gray-50">
                         <div className="p-4 space-y-3 border-b border-gray-200 bg-white">
-                            <RouteCalendar plans={plans} labels={planLabels} focusDay={focusDay} onPick={pickDate} />
+                            <RouteCalendar plans={plans} labels={planLabels} focusDay={focusDay} pendingCounts={pendingCounts} onPick={pickDate} />
                             <p className="text-sm font-semibold capitalize text-slate-800">{pickedLabel}</p>
+                            {carryover.length > 0 && (
+                                <div className="rounded-xl border border-amber-300 bg-amber-50 p-3">
+                                    <p className="text-sm font-bold text-amber-950">Quedaron sin hacer {carryoverFromLabel}</p>
+                                    <p className="text-sm text-amber-900 mt-1">
+                                        {carryover.length === 1
+                                            ? '1 depositario pasa a este día. Hacelo primero.'
+                                            : `${carryover.length} depositarios pasan a este día. Hacelos primero.`}
+                                    </p>
+                                    <ul className="mt-2 space-y-1">
+                                        {carryover.map((item) => (
+                                            <li key={item.id} className="text-sm text-amber-950">
+                                                <span className="font-semibold">{item.alias}</span>
+                                                <span className="text-amber-800"> · {item.companyName}</span>
+                                            </li>
+                                        ))}
+                                    </ul>
+                                </div>
+                            )}
                             <RouteCrewBar
                                 performedBy={performedBy}
                                 companionUserId={companionUserId}

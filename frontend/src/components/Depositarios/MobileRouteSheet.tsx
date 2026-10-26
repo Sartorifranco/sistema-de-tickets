@@ -15,17 +15,26 @@ export interface AddableUnit {
     hasGps: boolean;
 }
 
+export interface PickerUnit {
+    id: number;
+    alias: string;
+    companyName: string;
+    hasGps: boolean;
+}
+
 export interface WeekPlanProps {
     today: number;
     focusDay: number;
     plans: Record<number, number[]>;
     companies: [number, string][];
+    units: PickerUnit[];
+    checkedIds: number[];
     source: 'programado' | 'automatico';
     saving: boolean;
     planDirty: boolean;
     banner: string;
     onSelectDay: (day: number) => boolean | void;
-    onAddCompany: (companyId: number) => void;
+    onToggleUnit: (id: number) => void;
     onSave: () => void;
     onUseAutomatic: () => void;
     onUseProgrammed: () => void;
@@ -34,31 +43,56 @@ export interface WeekPlanProps {
 export const WeekPlanControls: React.FC<WeekPlanProps & { dense?: boolean }> = ({
     focusDay,
     plans,
-    companies,
+    units,
+    checkedIds,
     source,
     saving,
     planDirty,
     banner,
-    onAddCompany,
+    onToggleUnit,
     onSave,
     onUseAutomatic,
     onUseProgrammed,
     dense,
 }) => {
     const saved = (plans[focusDay] || []).length > 0;
+    const chosen = new Set(checkedIds);
+    const groups: { name: string; units: PickerUnit[] }[] = [];
+    units.forEach((unit) => {
+        const name = unit.companyName || 'Sin cliente';
+        let group = groups.find((item) => item.name === name);
+        if (!group) {
+            group = { name, units: [] };
+            groups.push(group);
+        }
+        group.units.push(unit);
+    });
+    groups.sort((a, b) => a.name.localeCompare(b.name, 'es'));
+    groups.forEach((group) => group.units.sort((a, b) => a.alias.localeCompare(b.alias, 'es')));
+
     return (
         <div className={dense ? 'space-y-3' : 'space-y-2'}>
             <p className={`${dense ? 'text-sm' : 'text-xs'} text-slate-700`}>{banner}</p>
-            <div className="flex gap-2 overflow-x-auto pb-1">
-                {companies.map(([id, name]) => (
-                    <button
-                        key={id}
-                        type="button"
-                        onClick={() => onAddCompany(id)}
-                        className="shrink-0 min-h-11 px-3 rounded-full bg-white border border-purple-200 text-sm font-medium text-purple-900"
-                    >
-                        + {name}
-                    </button>
+            <div className="border rounded-xl bg-white max-h-80 overflow-y-auto">
+                <p className="px-3 pt-3 text-sm font-semibold text-slate-900">Elegí los depositarios</p>
+                <p className="px-3 pb-2 text-xs text-slate-500">{chosen.size} elegidos. Están agrupados por cliente.</p>
+                {groups.map((group) => (
+                    <div key={group.name}>
+                        <p className="sticky top-0 bg-slate-100 px-3 py-2 text-xs font-bold uppercase tracking-wide text-slate-600">{group.name}</p>
+                        {group.units.map((unit) => (
+                            <label key={unit.id} className={`flex items-center gap-3 px-3 min-h-11 border-t text-sm ${unit.hasGps ? 'text-slate-900' : 'text-slate-400'}`}>
+                                <input
+                                    type="checkbox"
+                                    className="w-5 h-5"
+                                    checked={chosen.has(unit.id)}
+                                    disabled={!unit.hasGps}
+                                    onChange={() => onToggleUnit(unit.id)}
+                                />
+                                <span className="font-medium">{unit.alias}</span>
+                                {!unit.hasGps && <span className="text-xs text-red-600">sin GPS</span>}
+                            </label>
+                        ))}
+                    </div>
                 ))}
             </div>
             <div className="flex flex-wrap gap-2">
@@ -114,6 +148,9 @@ interface MobileProps extends WeekPlanProps {
     finishingId: number | null;
     ticketByStop: Record<number, number>;
     planLabels: Record<number, string>;
+    pendingCounts: Record<string, number>;
+    carryover: { id: number; alias: string; companyName: string }[];
+    carryoverFromLabel: string;
     pickedLabel: string;
     onPickDate: (date: Date) => boolean | void;
     performedBy: 'bacar' | 'permaquim';
@@ -169,6 +206,7 @@ const MobileRouteSheet: React.FC<MobileProps> = (props) => {
                         plans={props.plans}
                         labels={props.planLabels}
                         focusDay={props.focusDay}
+                        pendingCounts={props.pendingCounts}
                         onPick={openDay}
                     />
                 </div>
@@ -217,6 +255,24 @@ const MobileRouteSheet: React.FC<MobileProps> = (props) => {
 
                 {tab === 'ruta' && (
                     <div className="p-4 space-y-3 pb-28">
+                        {props.carryover.length > 0 && (
+                            <div className="rounded-xl border border-amber-300 bg-amber-50 p-3">
+                                <p className="text-sm font-bold text-amber-950">Quedaron sin hacer {props.carryoverFromLabel}</p>
+                                <p className="text-sm text-amber-900 mt-1">
+                                    {props.carryover.length === 1
+                                        ? '1 depositario pasa a este día. Hacelo primero.'
+                                        : `${props.carryover.length} depositarios pasan a este día. Hacelos primero.`}
+                                </p>
+                                <ul className="mt-2 space-y-1">
+                                    {props.carryover.map((item) => (
+                                        <li key={item.id} className="text-sm text-amber-950">
+                                            <span className="font-semibold">{item.alias}</span>
+                                            <span className="text-amber-800"> · {item.companyName}</span>
+                                        </li>
+                                    ))}
+                                </ul>
+                            </div>
+                        )}
                         <RouteCrewBar
                             performedBy={props.performedBy}
                             companionUserId={props.companionUserId}
@@ -283,7 +339,7 @@ const MobileRouteSheet: React.FC<MobileProps> = (props) => {
                             </label>
                         </div>
                         {props.sheet.stops.length === 0 ? (
-                            <p className="text-sm text-slate-500">Este día no tiene equipos. Sumá una empresa acá arriba y guardá la hoja fija.</p>
+                            <p className="text-sm text-slate-500">Este día no tiene equipos. Marcalos en la lista de arriba y guardá la hoja fija.</p>
                         ) : (
                             props.sheet.stops.map((stop, stopIndex) => (
                                 <article key={stop.key} className="bg-white border rounded-xl p-3 shadow-sm">

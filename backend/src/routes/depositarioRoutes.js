@@ -15,6 +15,8 @@ const {
     getRouteHistory,
     getRoutePlans,
     saveRoutePlan,
+    getRouteDaySheets,
+    saveRouteDaySheet,
     getDepositaryReports,
     getDepositaryAnalysis,
     finalizeRoute,
@@ -58,6 +60,8 @@ const depPlan = {
 };
 router.get('/route-plans', authorizeAccess(['admin', 'agent'], depPlan), getRoutePlans);
 router.put('/route-plans/:weekday', authorizeAccess(['admin', 'agent'], depPlan), saveRoutePlan);
+router.get('/route-day-sheets', authorizeAccess(['admin', 'agent'], depPlan), getRouteDaySheets);
+router.put('/route-day-sheets', authorizeAccess(['admin', 'agent'], depPlan), saveRouteDaySheet);
 
 router
     .route('/:id')
