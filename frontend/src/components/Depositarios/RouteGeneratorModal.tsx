@@ -9,7 +9,6 @@ import {
     RoadRoute,
     RouteSheetStop,
     applyRoadFactor,
-    addDays,
     buildRouteSheet,
     dateKey,
     estimateRouteMinutes,
@@ -17,17 +16,16 @@ import {
     hasCoords,
     insertStop,
     insertionCost,
-    isoWeekday,
-    maintainedOn,
+    maintainedOnOrAfter,
+    maintenanceLight,
     maintenanceProfile,
     moveStop,
     optimizeOrder,
     planRoute,
     roadFactorOf,
-    weekdayLabel,
 } from './routePlanner';
 import RouteMap from './RouteMap';
-import MobileRouteSheet, { WeekPlanControls } from './MobileRouteSheet';
+import MobileRouteSheet, { MaintenanceDot, WeekPlanControls } from './MobileRouteSheet';
 import RouteCalendar from './RouteCalendar';
 import StopWorkFields, { CompanionOption, emptyTasks, RouteCrewBar } from './StopWorkFields';
 
@@ -46,6 +44,39 @@ function stopTone(stop: RouteSheetStop): keyof typeof toneClass {
     if (stop.items.some((item) => item.tickets > 0)) return 'red';
     if (stop.items.some((item) => item.never || item.overdue > 0)) return 'amber';
     return 'blue';
+}
+
+interface RouteTemplate {
+    id: number;
+    name: string;
+    sortOrder: number;
+    ids: number[];
+}
+
+interface DayAssignment {
+    templateId: number | null;
+    ids: number[] | null;
+}
+
+function templateIds(templates: RouteTemplate[], templateId: number | null): number[] {
+    if (templateId == null) return [];
+    const found = templates.find((item) => item.id === templateId);
+    return found ? found.ids : [];
+}
+
+function assignmentIds(templates: RouteTemplate[], row: DayAssignment | undefined): number[] {
+    if (!row) return [];
+    if (row.ids != null) return [...row.ids];
+    return [...templateIds(templates, row.templateId)];
+}
+
+function dateFromKey(key: string): Date {
+    const [year, month, day] = key.split('-').map(Number);
+    return new Date(year, (month || 1) - 1, day || 1);
+}
+
+function calendarLabel(name: string): string {
+    return name.replace(/^Hoja de ruta\s+/i, 'Hoja ');
 }
 
 interface Props {
@@ -92,17 +123,13 @@ const RouteGeneratorModal: React.FC<Props> = ({ depositarios, onClose, onMainten
     const [roadPending, setRoadPending] = useState(false);
     const [routeId, setRouteId] = useState<number | null>(null);
     const [isSending, setIsSending] = useState(false);
-    const [plans, setPlans] = useState<Record<number, number[]>>({});
-    const [daySheets, setDaySheets] = useState<Record<string, number[]>>({});
-    const [dismissedCarry, setDismissedCarry] = useState<number[]>([]);
-    const [plansReady, setPlansReady] = useState(false);
-    const [focusDay, setFocusDay] = useState(() => isoWeekday(new Date()));
-    const [source, setSource] = useState<'programado' | 'automatico'>('automatico');
+    const [templates, setTemplates] = useState<RouteTemplate[]>([]);
+    const [assignments, setAssignments] = useState<Record<string, DayAssignment>>({});
+    const [editMode, setEditMode] = useState<'day' | 'template'>('day');
+    const [activeTemplateId, setActiveTemplateId] = useState<number | null>(null);
+    const [templateName, setTemplateName] = useState('');
     const [savingPlan, setSavingPlan] = useState(false);
-    const todayWeekday = useMemo(() => isoWeekday(new Date()), []);
 
-    const manual = useRef(false);
-    const lastPlanKey = useRef<string | null>(null);
     const bootstrapped = useRef(false);
 
     const budgetMin = budgetHours * 60;
@@ -125,32 +152,43 @@ const RouteGeneratorModal: React.FC<Props> = ({ depositarios, onClose, onMainten
         };
     }, [depositarios]);
 
-    const planKey = `${budgetMin}|${serviceMin}`;
-
     useEffect(() => {
         let cancelled = false;
         Promise.all([
-            api.get('/api/depositarios/route-plans'),
-            api.get('/api/depositarios/route-day-sheets').catch(() => ({ data: { data: [] } })),
+            api.get('/api/depositarios/route-templates').catch(() => ({ data: { data: [] } })),
+            api.get('/api/depositarios/route-assignments').catch(() => ({ data: { data: [] } })),
         ])
-            .then(([planRes, dayRes]) => {
+            .then(([templateRes, assignmentRes]) => {
                 if (cancelled) return;
-                const next: Record<number, number[]> = {};
-                (planRes.data.data || []).forEach((row: { weekday: number; depositario_ids: number[] }) => {
-                    next[Number(row.weekday)] = (row.depositario_ids || []).map(Number).filter((id) => Number.isInteger(id));
+                const nextTemplates: RouteTemplate[] = (templateRes.data.data || []).map((row: { id: number; name: string; sort_order: number; depositario_ids: number[] }) => ({
+                    id: Number(row.id),
+                    name: row.name || 'Hoja de ruta',
+                    sortOrder: Number(row.sort_order) || 0,
+                    ids: (row.depositario_ids || []).map(Number).filter((id) => Number.isInteger(id)),
+                }));
+                const nextAssignments: Record<string, DayAssignment> = {};
+                (assignmentRes.data.data || []).forEach((row: { route_date: string; template_id: number | null; depositario_ids: number[] | null }) => {
+                    const key = String(row.route_date).slice(0, 10);
+                    nextAssignments[key] = {
+                        templateId: row.template_id == null ? null : Number(row.template_id),
+                        ids: row.depositario_ids == null ? null : row.depositario_ids.map(Number).filter((id) => Number.isInteger(id)),
+                    };
                 });
-                const sheets: Record<string, number[]> = {};
-                (dayRes.data.data || []).forEach((row: { route_date: string; depositario_ids: number[] }) => {
-                    sheets[String(row.route_date).slice(0, 10)] = (row.depositario_ids || []).map(Number).filter((id) => Number.isInteger(id));
-                });
-                setPlans(next);
-                setDaySheets(sheets);
+                setTemplates(nextTemplates);
+                setAssignments(nextAssignments);
+                if (!bootstrapped.current) {
+                    bootstrapped.current = true;
+                    const todayKey = dateKey(new Date());
+                    const todayRow = nextAssignments[todayKey];
+                    if (todayRow) {
+                        setEditMode('day');
+                        setActiveTemplateId(todayRow.templateId);
+                        setSelectedIds(assignmentIds(nextTemplates, todayRow));
+                    }
+                }
             })
             .catch(() => {
-                /* Sin programación guardada se usa la hoja automática. */
-            })
-            .finally(() => {
-                if (!cancelled) setPlansReady(true);
+                /* Sin hojas guardadas el calendario queda libre. */
             });
         return () => {
             cancelled = true;
@@ -178,95 +216,23 @@ const RouteGeneratorModal: React.FC<Props> = ({ depositarios, onClose, onMainten
         };
     }, [user?.id]);
 
-    const validPlanIds = (day: number) => (plans[day] || []).filter((id) => catalog.some((dep) => dep.id === id && hasCoords(dep)));
+    const routeIds = selectedIds;
 
-    useEffect(() => {
-        if (!catalogReady || !plansReady || bootstrapped.current) return;
-        bootstrapped.current = true;
-        const saved = validPlanIds(todayWeekday);
-        if (saved.length > 0) {
-            manual.current = true;
-            setEdited(true);
-            setSource('programado');
-            lastPlanKey.current = planKey;
-            setSelectedIds(saved);
-        } else {
-            setSource('automatico');
-        }
-    }, [catalogReady, plansReady, plans, catalog, todayWeekday, planKey]);
-
-    useEffect(() => {
-        if (!catalogReady || !plansReady || manual.current || bootstrapped.current === false) return;
-        if (validPlanIds(todayWeekday).length > 0 && source === 'programado') return;
-        if (lastPlanKey.current === planKey) return;
-        lastPlanKey.current = planKey;
-        if (!catalog.some(hasCoords)) {
-            setSelectedIds([]);
-            return;
-        }
-        setSelectedIds(planRoute(catalog, { budgetMin, serviceMin }));
-    }, [catalogReady, plansReady, catalog, planKey, budgetMin, serviceMin, todayWeekday, source, plans]);
-
-    const carryoverIds = useMemo(() => {
-        const previous = addDays(pickedDate, -1);
-        const key = dateKey(previous);
-        const hasSheet = Object.prototype.hasOwnProperty.call(daySheets, key);
-        const source = hasSheet ? daySheets[key] : (plans[isoWeekday(previous)] || []);
-        return source.filter((id) => {
-            if (dismissedCarry.includes(id)) return false;
-            const dep = catalog.find((item) => item.id === id);
-            if (!dep || !hasCoords(dep)) return false;
-            return !maintainedOn(dep, previous) && !maintainedOn(dep, pickedDate);
-        });
-    }, [catalog, daySheets, dismissedCarry, pickedDate, plans]);
-
-    const routeIds = useMemo(() => {
-        const ids: number[] = [];
-        const seen = new Set<number>();
-        carryoverIds.forEach((id) => {
-            if (!seen.has(id)) {
-                seen.add(id);
-                ids.push(id);
-            }
-        });
-        selectedIds.forEach((id) => {
-            if (!seen.has(id)) {
-                seen.add(id);
-                ids.push(id);
-            }
-        });
-        return ids;
-    }, [carryoverIds, selectedIds]);
-
-    const carryover = useMemo(() => carryoverIds.map((id) => {
-        const dep = catalog.find((item) => item.id === id);
-        return {
-            id,
-            alias: dep?.alias || `Equipo ${id}`,
-            companyName: dep?.company_name || 'Sin cliente',
-        };
-    }), [carryoverIds, catalog]);
-
-    const carryoverFromLabel = addDays(pickedDate, -1).toLocaleDateString('es-AR', { weekday: 'long', day: 'numeric', month: 'long' });
-
-    const pendingCounts = useMemo(() => {
-        const counts: Record<string, number> = {};
-        const cursor = new Date(pickedDate.getFullYear(), pickedDate.getMonth(), 1);
-        cursor.setDate(cursor.getDate() - 7);
-        for (let i = 0; i < 70; i += 1) {
-            const day = addDays(cursor, i);
-            const previous = addDays(day, -1);
-            const key = dateKey(previous);
-            const hasSheet = Object.prototype.hasOwnProperty.call(daySheets, key);
-            const source = hasSheet ? daySheets[key] : (plans[isoWeekday(previous)] || []);
-            const pending = source.filter((id) => {
+    const pendingIds = useMemo(() => {
+        const today = dateKey(new Date());
+        const pending = new Set<number>();
+        Object.keys(assignments).forEach((key) => {
+            if (key >= today) return;
+            const day = dateFromKey(key);
+            assignmentIds(templates, assignments[key]).forEach((id) => {
                 const dep = catalog.find((item) => item.id === id);
-                return !!dep && hasCoords(dep) && !maintainedOn(dep, previous) && !maintainedOn(dep, day);
+                if (!dep) return;
+                if (maintainedOnOrAfter(dep, day)) return;
+                pending.add(id);
             });
-            if (pending.length > 0) counts[dateKey(day)] = pending.length;
-        }
-        return counts;
-    }, [catalog, daySheets, pickedDate, plans]);
+        });
+        return pending;
+    }, [assignments, catalog, templates]);
 
     const sheet = useMemo(
         () => buildRouteSheet(routeIds, catalog, drafts, startTime, serviceMin, road),
@@ -316,24 +282,6 @@ const RouteGeneratorModal: React.FC<Props> = ({ depositarios, onClose, onMainten
         };
     }, [sheet.routeKey, sheet.osrmPath, sheet.stops.length]);
 
-    useEffect(() => {
-        if (!catalogReady || !plansReady || !bootstrapped.current) return;
-        const key = dateKey(pickedDate);
-        const ids = routeIds;
-        const timer = window.setTimeout(() => {
-            api.put('/api/depositarios/route-day-sheets', { route_date: key, depositario_ids: ids })
-                .then(() => {
-                    setDaySheets((prev) => {
-                        const current = prev[key] || [];
-                        if (current.length === ids.length && current.every((id, index) => id === ids[index])) return prev;
-                        return { ...prev, [key]: ids };
-                    });
-                })
-                .catch(() => undefined);
-        }, 800);
-        return () => window.clearTimeout(timer);
-    }, [catalogReady, plansReady, pickedDate, routeIds]);
-
     const factor = roadFactorOf(sheet.driveMin, sheet.estimateDriveMin, sheet.source);
     // La línea del mapa solo cambia con el recorrido o cuando llega el trazado por calles.
     const mapPoints = useMemo(
@@ -377,81 +325,230 @@ const RouteGeneratorModal: React.FC<Props> = ({ depositarios, onClose, onMainten
     const unitCount = sheet.stops.reduce((sum, stop) => sum + stop.items.length, 0);
 
     const markEdited = () => {
-        manual.current = true;
         setEdited(true);
     };
 
-    const savedIds = plans[focusDay] || [];
-    const planDirty = savedIds.join(',') !== selectedIds.join(',');
-    const dayName = weekdayLabel(focusDay);
-    const hasSavedDay = savedIds.length > 0;
-    const planBanner = source === 'automatico'
-        ? hasSavedDay
-            ? `Estás en la hoja automática. El ${dayName} también tiene un recorrido guardado.`
-            : `Sin recorrido fijo para el ${dayName}. Estás viendo la hoja automática.`
-        : !hasSavedDay && selectedIds.length === 0
-            ? `El ${dayName} no tiene hoja fija. Sumá empresas o equipos y guardala: va a verse cada ${dayName} en el calendario.`
-            : planDirty
-                ? `Hay cambios sin guardar en el ${dayName}.`
-                : `Hoja fija de cada ${dayName}. Podés quitar, sumar o terminar cada parada.`;
+    const pickedKey = dateKey(pickedDate);
+    const pickedLabel = pickedDate.toLocaleDateString('es-AR', { weekday: 'long', day: 'numeric', month: 'long' });
+    const activeTemplate = templates.find((item) => item.id === activeTemplateId) || null;
+    const dayRow = assignments[pickedKey];
+    const savedIds = editMode === 'template'
+        ? (activeTemplate?.ids || [])
+        : assignmentIds(templates, dayRow);
+    const nameDirty = editMode === 'template' && !!activeTemplate && templateName.trim() !== activeTemplate.name;
+    const planDirty = nameDirty || savedIds.join(',') !== selectedIds.join(',');
+    const hojaName = activeTemplate?.name || '';
+    const planBanner = editMode === 'template'
+        ? `Estás editando ${templateName || 'la hoja base'}. Guardar cambia la base. Los días que ya modificaste siguen como estaban.`
+        : planDirty
+            ? `Hay cambios sin guardar. Quedan solo el ${pickedLabel}. La hoja base no se modifica.`
+            : dayRow?.ids
+                ? `Este día tiene cambios propios${hojaName ? ` sobre ${hojaName}` : ''}. La base queda igual para el resto.`
+                : hojaName
+                    ? `${hojaName} en esta fecha. Si sumás o sacás un depositario, cambia solo este día.`
+                    : 'Elegí una hoja para este día, o marcá depositarios y guardá solo esta fecha.';
+    const saveLabel = editMode === 'template' ? 'Guardar hoja base' : 'Guardar solo este día';
+    const customDay = editMode === 'day' && dayRow?.ids != null && activeTemplateId != null;
 
-    const planLabels = useMemo(() => {
-        const labels: Record<number, string> = {};
-        Object.keys(plans).forEach((key) => {
-            const weekday = Number(key);
-            const names = (plans[weekday] || [])
-                .map((id) => catalog.find((dep) => dep.id === id)?.alias)
-                .filter((name): name is string => !!name);
-            if (names.length === 0) return;
-            labels[weekday] = names.length <= 2 ? names.join(' · ') : `${names.slice(0, 2).join(' · ')} +${names.length - 2}`;
+    const dayLabels = useMemo(() => {
+        const labels: Record<string, string> = {};
+        Object.keys(assignments).forEach((key) => {
+            const row = assignments[key];
+            const name = templates.find((item) => item.id === row.templateId)?.name;
+            if (name) labels[key] = calendarLabel(name);
+            else if (row.ids && row.ids.length > 0) labels[key] = 'Este día';
         });
         return labels;
-    }, [catalog, plans]);
+    }, [assignments, templates]);
 
-    const pickedLabel = pickedDate.toLocaleDateString('es-AR', { weekday: 'long', day: 'numeric', month: 'long' });
-
-    const selectWeekday = (day: number): boolean => {
-        if (day === focusDay) return true;
-        if (source === 'programado' && planDirty && !window.confirm('Hay cambios sin guardar en este día. ¿Cambiar de día igual?')) return false;
-        setFocusDay(day);
-        const saved = validPlanIds(day);
-        if (saved.length > 0) {
-            markEdited();
-            setSource('programado');
-            setSelectedIds(saved);
-            return true;
-        }
-        if (day === todayWeekday) {
-            markEdited();
-            setSource('automatico');
-            setSelectedIds(planRoute(catalog, { budgetMin, serviceMin }));
-            return true;
-        }
-        markEdited();
-        setSource('programado');
-        setSelectedIds([]);
-        return true;
+    const abandonIfDirty = () => {
+        if (!planDirty) return true;
+        return window.confirm('Hay cambios sin guardar. ¿Seguir sin guardar?');
     };
 
     const pickDate = (date: Date): boolean => {
-        const accepted = selectWeekday(isoWeekday(date));
-        if (!accepted) return false;
-        setDismissedCarry([]);
+        if (dateKey(date) === pickedKey && editMode === 'day') return true;
+        if (!abandonIfDirty()) return false;
+        const key = dateKey(date);
+        const row = assignments[key];
         setPickedDate(date);
+        setEditMode('day');
+        setActiveTemplateId(row?.templateId ?? null);
+        setSelectedIds(assignmentIds(templates, row));
+        setEdited(false);
         return true;
+    };
+
+    const openTemplate = (id: number): boolean => {
+        if (editMode === 'template' && activeTemplateId === id) return true;
+        if (!abandonIfDirty()) return false;
+        const template = templates.find((item) => item.id === id);
+        if (!template) return false;
+        setEditMode('template');
+        setActiveTemplateId(id);
+        setTemplateName(template.name);
+        setSelectedIds([...template.ids]);
+        setEdited(false);
+        return true;
+    };
+
+    const createTemplate = async (): Promise<boolean> => {
+        if (!abandonIfDirty()) return false;
+        const number = templates.reduce((max, item) => {
+            const match = /(\d+)\s*$/.exec(item.name);
+            return Math.max(max, match ? Number(match[1]) : 0);
+        }, 0) + 1;
+        try {
+            const res = await api.post('/api/depositarios/route-templates', {
+                name: `Hoja de ruta ${number}`,
+                depositario_ids: [],
+            });
+            const row = res.data.data;
+            const created: RouteTemplate = {
+                id: Number(row.id),
+                name: row.name,
+                sortOrder: Number(row.sort_order) || number,
+                ids: [],
+            };
+            setTemplates((prev) => [...prev, created].sort((a, b) => a.sortOrder - b.sortOrder || a.id - b.id));
+            setEditMode('template');
+            setActiveTemplateId(created.id);
+            setTemplateName(created.name);
+            setSelectedIds([]);
+            setEdited(false);
+            return true;
+        } catch (error) {
+            console.error(error);
+            toast.error('No se pudo crear la hoja.');
+            return false;
+        }
+    };
+
+    const deleteTemplate = async () => {
+        if (activeTemplateId == null) return;
+        if (!window.confirm('¿Eliminar esta hoja base? Los días que ya tenían cambios propios se conservan.')) return;
+        try {
+            await api.delete(`/api/depositarios/route-templates/${activeTemplateId}`);
+            const removedId = activeTemplateId;
+            setTemplates((prev) => prev.filter((item) => item.id !== removedId));
+            setAssignments((prev) => {
+                const next: Record<string, DayAssignment> = {};
+                Object.keys(prev).forEach((key) => {
+                    const row = prev[key];
+                    next[key] = row.templateId === removedId ? { ...row, templateId: null } : row;
+                });
+                return next;
+            });
+            setEditMode('day');
+            setActiveTemplateId(null);
+            setTemplateName('');
+            setSelectedIds(assignmentIds(templates, { ...dayRow, templateId: null }));
+            toast.success('Hoja eliminada.');
+        } catch (error) {
+            console.error(error);
+            toast.error('No se pudo eliminar la hoja.');
+        }
+    };
+
+    const assignTemplate = async (templateId: number | null) => {
+        if (editMode !== 'day') return;
+        if (templateId === activeTemplateId && dayRow?.ids == null) return;
+        if (!abandonIfDirty()) return;
+        const template = templates.find((item) => item.id === templateId) || null;
+        setActiveTemplateId(templateId);
+        setSelectedIds(template ? [...template.ids] : []);
+        setEdited(false);
+        try {
+            const res = await api.put('/api/depositarios/route-assignments', {
+                route_date: pickedKey,
+                template_id: templateId,
+                depositario_ids: null,
+            });
+            const saved = res.data.data as { template_id: number | null; depositario_ids: number[] | null };
+            setAssignments((prev) => {
+                const next = { ...prev };
+                if (saved.template_id == null && saved.depositario_ids == null) delete next[pickedKey];
+                else next[pickedKey] = { templateId: saved.template_id, ids: saved.depositario_ids };
+                return next;
+            });
+        } catch (error) {
+            console.error(error);
+            toast.error('No se pudo asignar la hoja a esta fecha.');
+        }
+    };
+
+    const useBase = async () => {
+        if (!activeTemplate) return;
+        setSelectedIds([...activeTemplate.ids]);
+        setEdited(false);
+        try {
+            await api.put('/api/depositarios/route-assignments', {
+                route_date: pickedKey,
+                template_id: activeTemplate.id,
+                depositario_ids: null,
+            });
+            setAssignments((prev) => ({
+                ...prev,
+                [pickedKey]: { templateId: activeTemplate.id, ids: null },
+            }));
+            toast.success('Este día vuelve a usar la hoja base.');
+        } catch (error) {
+            console.error(error);
+            toast.error('No se pudo volver a la hoja base.');
+        }
+    };
+
+    const saveSheet = async () => {
+        setSavingPlan(true);
+        try {
+            if (editMode === 'template') {
+                if (activeTemplateId == null) return;
+                const name = templateName.trim();
+                if (!name) {
+                    toast.warn('La hoja necesita un nombre.');
+                    return;
+                }
+                await api.put(`/api/depositarios/route-templates/${activeTemplateId}`, {
+                    name,
+                    depositario_ids: selectedIds,
+                });
+                setTemplates((prev) => prev.map((item) => (
+                    item.id === activeTemplateId ? { ...item, name, ids: [...selectedIds] } : item
+                )));
+                setTemplateName(name);
+                toast.success('Hoja base guardada. Los días que ya cambiaste siguen como estaban.');
+            } else {
+                const res = await api.put('/api/depositarios/route-assignments', {
+                    route_date: pickedKey,
+                    template_id: activeTemplateId,
+                    depositario_ids: selectedIds,
+                });
+                const saved = res.data.data as { template_id: number | null; depositario_ids: number[] | null };
+                setAssignments((prev) => {
+                    const next = { ...prev };
+                    if (saved.template_id == null && saved.depositario_ids == null) delete next[pickedKey];
+                    else next[pickedKey] = { templateId: saved.template_id, ids: saved.depositario_ids };
+                    return next;
+                });
+                toast.success(selectedIds.length === 0
+                    ? 'Esta fecha quedó sin depositarios. La hoja base no se modificó.'
+                    : `Guardado solo para esta fecha, con ${selectedIds.length} equipos.`);
+            }
+            setEdited(false);
+        } catch (error) {
+            console.error(error);
+            toast.error('No se pudo guardar.');
+        } finally {
+            setSavingPlan(false);
+        }
     };
 
     const toggleUnit = (id: number) => {
         const dep = catalog.find((item) => item.id === id);
         if (!dep) return;
-        const onSheet = selectedSet.has(id) || carryoverIds.includes(id);
-        if (onSheet) {
+        if (selectedSet.has(id)) {
             markEdited();
-            setSource('programado');
             setSelectedIds((prev) => prev.filter((item) => item !== id));
-            if (carryoverIds.includes(id)) {
-                setDismissedCarry((prev) => (prev.includes(id) ? prev : [...prev, id]));
-            }
             return;
         }
         if (!hasCoords(dep)) {
@@ -459,49 +556,7 @@ const RouteGeneratorModal: React.FC<Props> = ({ depositarios, onClose, onMainten
             return;
         }
         markEdited();
-        setSource('programado');
-        setDismissedCarry((prev) => prev.filter((item) => item !== id));
         setSelectedIds((prev) => insertStop(prev, id, catalog));
-    };
-
-    const saveWeekPlan = async () => {
-        setSavingPlan(true);
-        try {
-            await api.put(`/api/depositarios/route-plans/${focusDay}`, { depositario_ids: selectedIds });
-            setPlans((prev) => {
-                const next = { ...prev };
-                if (selectedIds.length === 0) delete next[focusDay];
-                else next[focusDay] = [...selectedIds];
-                return next;
-            });
-            setSource(selectedIds.length === 0 ? 'automatico' : 'programado');
-            toast.success(selectedIds.length === 0
-                ? `Se borró la programación del ${dayName}. Ese día vuelve la hoja automática.`
-                : `El ${dayName} quedó fijo con ${selectedIds.length} equipos. El calendario lo muestra todas las semanas.`);
-        } catch (error) {
-            console.error(error);
-            toast.error('No se pudo guardar la programación.');
-        } finally {
-            setSavingPlan(false);
-        }
-    };
-
-    const useAutomatic = () => {
-        if (source !== 'automatico' && selectedIds.length > 0 && !window.confirm('Se reemplaza este recorrido por la hoja automática del día. ¿Continuar?')) return;
-        markEdited();
-        setSource('automatico');
-        setSelectedIds(planRoute(catalog, { budgetMin, serviceMin, companyId }));
-    };
-
-    const useProgrammed = () => {
-        const saved = validPlanIds(focusDay);
-        if (saved.length === 0) {
-            toast.info(`El ${dayName} no tiene un recorrido guardado.`);
-            return;
-        }
-        markEdited();
-        setSource('programado');
-        setSelectedIds(saved);
     };
 
     const addDepositary = (id: number) => {
@@ -517,7 +572,6 @@ const RouteGeneratorModal: React.FC<Props> = ({ depositarios, onClose, onMainten
         const place = after.stops.findIndex((stop) => stop.items.some((item) => item.id === id)) + 1;
         const delta = Math.max(0, Math.round(after.totalMin - sheet.totalMin));
         markEdited();
-        setSource('programado');
         setSelectedIds(next);
         setQuery('');
         toast.success(delta < 1
@@ -527,11 +581,7 @@ const RouteGeneratorModal: React.FC<Props> = ({ depositarios, onClose, onMainten
 
     const removeDepositary = (id: number) => {
         markEdited();
-        setSource('programado');
         setSelectedIds((prev) => prev.filter((item) => item !== id));
-        if (carryoverIds.includes(id)) {
-            setDismissedCarry((prev) => (prev.includes(id) ? prev : [...prev, id]));
-        }
     };
 
     const shiftDepositary = (id: number, direction: -1 | 1) => {
@@ -558,8 +608,6 @@ const RouteGeneratorModal: React.FC<Props> = ({ depositarios, onClose, onMainten
         }
         const next = planRoute(catalog, { budgetMin, serviceMin, companyId });
         markEdited();
-        setSource('automatico');
-        lastPlanKey.current = planKey;
         setSelectedIds(next);
         if (next.length === 0) toast.info('Ningún atrasado entra en esa jornada. Podés sumar uno igual para ver cuánto tardaría.');
         else toast.success(`Sugerencia de ${next.length} equipos. El tiempo de arriba ya incluye viaje, servicio y regreso.`);
@@ -578,7 +626,6 @@ const RouteGeneratorModal: React.FC<Props> = ({ depositarios, onClose, onMainten
         if (selectedIds.length === 0) return;
         if (!window.confirm('¿Vaciar la hoja de ruta?')) return;
         markEdited();
-        setSource('programado');
         setSelectedIds([]);
     };
 
@@ -717,29 +764,28 @@ const RouteGeneratorModal: React.FC<Props> = ({ depositarios, onClose, onMainten
         doc.save(`Ruta_BACAR_${today.replace(/\//g, '-')}.pdf`);
     };
 
-    const pickerUnits = useMemo(() => catalog.map((dep) => ({
-        id: dep.id,
-        alias: dep.alias,
-        companyName: dep.company_name || 'Sin cliente',
-        hasGps: hasCoords(dep),
-    })), [catalog]);
+    const pickerUnits = useMemo(() => catalog.map((dep) => {
+        const light = maintenanceLight(dep.last_maintenance);
+        return {
+            id: dep.id,
+            alias: dep.alias,
+            companyName: dep.company_name || 'Sin cliente',
+            hasGps: hasCoords(dep),
+            light: light.light,
+            lightLabel: light.label,
+            pending: pendingIds.has(dep.id),
+        };
+    }), [catalog, pendingIds]);
 
     const weekPlan = {
-        today: todayWeekday,
-        focusDay,
-        plans,
-        companies,
         units: pickerUnits,
-        checkedIds: routeIds,
-        source,
+        checkedIds: selectedIds,
         saving: savingPlan,
         planDirty,
         banner: planBanner,
-        onSelectDay: selectWeekday,
+        saveLabel,
         onToggleUnit: toggleUnit,
-        onSave: saveWeekPlan,
-        onUseAutomatic: useAutomatic,
-        onUseProgrammed: useProgrammed,
+        onSave: saveSheet,
     };
 
     if (appMode) {
@@ -759,15 +805,21 @@ const RouteGeneratorModal: React.FC<Props> = ({ depositarios, onClose, onMainten
                 query={query}
                 onQuery={setQuery}
                 onSearchEnter={() => { if (matches[0]) addDepositary(matches[0].dep.id); }}
-                matches={matches.map((row) => ({
-                    id: row.dep.id,
-                    alias: row.dep.alias,
-                    companyName: row.dep.company_name || 'Sin empresa',
-                    address: row.dep.address || '',
-                    daysLabel: row.profile.daysLabel,
-                    minutes: row.minutes,
-                    hasGps: hasCoords(row.dep),
-                }))}
+                matches={matches.map((row) => {
+                    const light = maintenanceLight(row.dep.last_maintenance);
+                    return {
+                        id: row.dep.id,
+                        alias: row.dep.alias,
+                        companyName: row.dep.company_name || 'Sin empresa',
+                        address: row.dep.address || '',
+                        daysLabel: row.profile.daysLabel,
+                        minutes: row.minutes,
+                        hasGps: hasCoords(row.dep),
+                        light: light.light,
+                        lightLabel: light.label,
+                        pending: pendingIds.has(row.dep.id),
+                    };
+                })}
                 serviceMin={serviceMin}
                 startTime={startTime}
                 onServiceMin={setServiceMin}
@@ -784,10 +836,19 @@ const RouteGeneratorModal: React.FC<Props> = ({ depositarios, onClose, onMainten
                 onFinishStop={finishStop}
                 finishingId={finishingId}
                 ticketByStop={ticketByStop}
-                planLabels={planLabels}
-                pendingCounts={pendingCounts}
-                carryover={carryover}
-                carryoverFromLabel={carryoverFromLabel}
+                templates={templates.map((item) => ({ id: item.id, name: item.name }))}
+                dayLabels={dayLabels}
+                selectedKey={editMode === 'day' ? pickedKey : ''}
+                editMode={editMode}
+                templateName={templateName}
+                onTemplateName={setTemplateName}
+                activeTemplateId={activeTemplateId}
+                onAssignTemplate={assignTemplate}
+                onOpenTemplate={openTemplate}
+                onCreateTemplate={createTemplate}
+                onDeleteTemplate={deleteTemplate}
+                customDay={customDay}
+                onUseBase={useBase}
                 pickedLabel={pickedLabel}
                 onPickDate={pickDate}
                 performedBy={performedBy}
@@ -811,8 +872,12 @@ const RouteGeneratorModal: React.FC<Props> = ({ depositarios, onClose, onMainten
                     <div className="flex flex-wrap items-start justify-between gap-3">
                         <div>
                             <h2 className="text-xl font-bold">Hoja de ruta</h2>
-                            <p className="text-xs text-slate-300 mt-1">
-                                {weekdayLabel(focusDay)} · {source === 'programado' ? 'programado' : 'automática'} · {unitCount} equipos · {sheet.stops.length} paradas
+                            <p className="text-xs text-slate-300 mt-1 capitalize">
+                                {editMode === 'template'
+                                    ? `Editando ${templateName || 'hoja base'}`
+                                    : `${pickedLabel}${hojaName ? ` · ${hojaName}` : ''}`}
+                                {' · '}
+                                {unitCount} equipos · {sheet.stops.length} paradas
                                 {routeId ? ` · ruta #${routeId}` : ''}
                             </p>
                         </div>
@@ -850,25 +915,56 @@ const RouteGeneratorModal: React.FC<Props> = ({ depositarios, onClose, onMainten
                 <div className="flex-1 min-h-0 overflow-y-auto lg:overflow-hidden flex flex-col lg:flex-row">
                     <div className="w-full lg:w-[46%] lg:h-full lg:overflow-y-auto border-b lg:border-b-0 lg:border-r border-gray-200 bg-gray-50">
                         <div className="p-4 space-y-3 border-b border-gray-200 bg-white">
-                            <RouteCalendar plans={plans} labels={planLabels} focusDay={focusDay} pendingCounts={pendingCounts} onPick={pickDate} />
-                            <p className="text-sm font-semibold capitalize text-slate-800">{pickedLabel}</p>
-                            {carryover.length > 0 && (
-                                <div className="rounded-xl border border-amber-300 bg-amber-50 p-3">
-                                    <p className="text-sm font-bold text-amber-950">Quedaron sin hacer {carryoverFromLabel}</p>
-                                    <p className="text-sm text-amber-900 mt-1">
-                                        {carryover.length === 1
-                                            ? '1 depositario pasa a este día. Hacelo primero.'
-                                            : `${carryover.length} depositarios pasan a este día. Hacelos primero.`}
-                                    </p>
-                                    <ul className="mt-2 space-y-1">
-                                        {carryover.map((item) => (
-                                            <li key={item.id} className="text-sm text-amber-950">
-                                                <span className="font-semibold">{item.alias}</span>
-                                                <span className="text-amber-800"> · {item.companyName}</span>
-                                            </li>
+                            <div className="flex gap-2 overflow-x-auto pb-1">
+                                {templates.map((template) => (
+                                    <button
+                                        key={template.id}
+                                        type="button"
+                                        onClick={() => openTemplate(template.id)}
+                                        className={`shrink-0 px-3 py-1.5 rounded-full border text-sm font-semibold ${editMode === 'template' && activeTemplateId === template.id ? 'bg-slate-900 text-white border-slate-900' : 'bg-white text-slate-800'}`}
+                                    >
+                                        {template.name}
+                                    </button>
+                                ))}
+                                <button type="button" onClick={createTemplate} className="shrink-0 px-3 py-1.5 rounded-full bg-purple-600 text-white text-sm font-semibold">
+                                    + Nueva hoja
+                                </button>
+                            </div>
+                            <RouteCalendar dayLabels={dayLabels} selectedKey={editMode === 'day' ? pickedKey : ''} onPick={pickDate} />
+                            {editMode === 'template' ? (
+                                <label className="block text-xs text-slate-600">
+                                    Nombre de la hoja base
+                                    <input
+                                        type="text"
+                                        value={templateName}
+                                        onChange={(event) => setTemplateName(event.target.value)}
+                                        className="mt-1 w-full border rounded px-2 py-1.5 text-sm text-slate-900"
+                                    />
+                                </label>
+                            ) : (
+                                <label className="block text-xs text-slate-600">
+                                    Hoja de {pickedLabel}
+                                    <select
+                                        value={activeTemplateId ?? ''}
+                                        onChange={(event) => assignTemplate(event.target.value ? Number(event.target.value) : null)}
+                                        className="mt-1 w-full border rounded px-2 py-1.5 text-sm text-slate-900 bg-white"
+                                    >
+                                        <option value="">Sin hoja</option>
+                                        {templates.map((template) => (
+                                            <option key={template.id} value={template.id}>{template.name}</option>
                                         ))}
-                                    </ul>
-                                </div>
+                                    </select>
+                                </label>
+                            )}
+                            {customDay && (
+                                <button type="button" onClick={useBase} className="px-3 py-1.5 rounded-lg border bg-white text-sm font-semibold">
+                                    Volver a la hoja base
+                                </button>
+                            )}
+                            {editMode === 'template' && (
+                                <button type="button" onClick={deleteTemplate} className="px-3 py-1.5 rounded-lg border border-red-200 text-red-700 text-sm font-semibold">
+                                    Eliminar esta hoja
+                                </button>
                             )}
                             <RouteCrewBar
                                 performedBy={performedBy}
@@ -904,8 +1000,12 @@ const RouteGeneratorModal: React.FC<Props> = ({ depositarios, onClose, onMainten
                                                     }}
                                                     className="w-full text-left px-3 py-2 text-sm hover:bg-slate-50 border-b last:border-b-0"
                                                 >
-                                                    <span className="font-medium">{row.dep.alias}</span>
+                                                    <span className="inline-flex items-center gap-2">
+                                                        <MaintenanceDot light={maintenanceLight(row.dep.last_maintenance).light} label={maintenanceLight(row.dep.last_maintenance).label} />
+                                                        <span className="font-medium">{row.dep.alias}</span>
+                                                    </span>
                                                     <span className="text-gray-500"> · {row.dep.company_name || 'Sin empresa'} · {row.profile.daysLabel}</span>
+                                                    {pendingIds.has(row.dep.id) && <span className="text-amber-800 font-semibold"> · Sin hacer</span>}
                                                     {row.minutes !== null && <span className="text-slate-700"> · +{formatDuration(row.minutes)}</span>}
                                                     {!hasCoords(row.dep) && <span className="text-red-600"> · sin GPS</span>}
                                                 </button>

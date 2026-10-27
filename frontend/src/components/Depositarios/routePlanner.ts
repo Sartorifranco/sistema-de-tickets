@@ -208,6 +208,30 @@ export function maintainedToday(dep: Depositario): boolean {
     return maintainedOn(dep, new Date());
 }
 
+/** Hecho ese día o después. Sirve para no marcar como pendiente algo que ya se visitó más tarde. */
+export function maintainedOnOrAfter(dep: Depositario, day: Date): boolean {
+    if (!dep.last_maintenance) return false;
+    const last = new Date(dep.last_maintenance);
+    if (Number.isNaN(last.getTime())) return false;
+    return argentinaDayStart(last) >= argentinaDayStart(day);
+}
+
+export type MaintenanceLight = 'green' | 'yellow' | 'red';
+
+/** Mismos cortes que la tarjeta de Gestión de depositarios: verde <20, amarillo hasta 30, rojo después o nunca. */
+export function maintenanceLight(lastMaintenance?: string | null): { light: MaintenanceLight; label: string } {
+    if (!lastMaintenance) return { light: 'red', label: 'Nunca' };
+    const last = new Date(lastMaintenance);
+    if (Number.isNaN(last.getTime())) return { light: 'red', label: 'Nunca' };
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    last.setHours(0, 0, 0, 0);
+    const daysSince = Math.floor((today.getTime() - last.getTime()) / 86400000);
+    if (daysSince < 20) return { light: 'green', label: daysSince <= 0 ? 'Hoy' : `${daysSince} d` };
+    if (daysSince <= 30) return { light: 'yellow', label: `${daysSince} d` };
+    return { light: 'red', label: `${daysSince} d` };
+}
+
 export function maintenanceProfile(dep: Depositario): MaintenanceProfile {
     const freqRaw = Number(dep.maintenance_freq);
     const freq = Number.isFinite(freqRaw) && freqRaw > 0 ? freqRaw : 30;

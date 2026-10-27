@@ -1,12 +1,11 @@
 import React, { useMemo, useState } from 'react';
-import { WEEKDAYS, dateKey, isoWeekday } from './routePlanner';
+import { WEEKDAYS, dateKey } from './routePlanner';
 
 interface Props {
-    plans: Record<number, number[]>;
-    labels: Record<number, string>;
-    focusDay: number;
-    /** Equipos que pasan de ayer, por fecha YYYY-MM-DD. */
-    pendingCounts?: Record<string, number>;
+    /** Nombre de la hoja asignada a cada fecha YYYY-MM-DD. */
+    dayLabels: Record<string, string>;
+    /** Una sola fecha marcada. Vacío si se está editando una hoja base. */
+    selectedKey?: string;
     onPick: (date: Date) => void;
 }
 
@@ -26,7 +25,7 @@ function sameDay(a: Date, b: Date): boolean {
     return a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate();
 }
 
-const RouteCalendar: React.FC<Props> = ({ plans, labels, focusDay, pendingCounts = {}, onPick }) => {
+const RouteCalendar: React.FC<Props> = ({ dayLabels, selectedKey = '', onPick }) => {
     const today = useMemo(() => new Date(), []);
     const [cursor, setCursor] = useState(() => new Date(today.getFullYear(), today.getMonth(), 1));
     const cells = monthCells(cursor.getFullYear(), cursor.getMonth());
@@ -42,7 +41,7 @@ const RouteCalendar: React.FC<Props> = ({ plans, labels, focusDay, pendingCounts
                 <button type="button" onClick={() => shiftMonth(-1)} className="min-h-11 min-w-11 rounded-xl border font-bold text-slate-700">‹</button>
                 <div className="text-center">
                     <p className="text-base font-bold capitalize text-slate-900">{title}</p>
-                    <p className="text-[11px] text-slate-500">Tocá un día para abrir su hoja. Se repite todas las semanas.</p>
+                    <p className="text-[11px] text-slate-500">Tocá una fecha. La hoja que elijas queda solo en ese día.</p>
                 </div>
                 <button type="button" onClick={() => shiftMonth(1)} className="min-h-11 min-w-11 rounded-xl border font-bold text-slate-700">›</button>
             </div>
@@ -54,26 +53,24 @@ const RouteCalendar: React.FC<Props> = ({ plans, labels, focusDay, pendingCounts
             <div className="grid grid-cols-7 gap-1">
                 {cells.map((date, index) => {
                     if (!date) return <div key={`empty-${index}`} />;
-                    const weekday = isoWeekday(date);
-                    const count = (plans[weekday] || []).length;
-                    const hasPlan = count > 0;
-                    const pending = pendingCounts[dateKey(date)] || 0;
+                    const key = dateKey(date);
+                    const label = dayLabels[key] || '';
                     const isToday = sameDay(date, today);
-                    const selected = weekday === focusDay;
+                    const selected = key === selectedKey;
                     return (
                         <button
-                            key={dateKey(date)}
+                            key={key}
                             type="button"
                             onClick={() => onPick(date)}
                             className={`min-h-[4.5rem] rounded-xl border px-1 py-1 text-left flex flex-col ${
-                                selected ? 'border-slate-900 ring-2 ring-slate-900' : pending > 0 ? 'border-amber-400 bg-amber-50' : hasPlan ? 'border-emerald-300 bg-emerald-50' : 'border-slate-200 bg-slate-50'
+                                selected ? 'border-slate-900 ring-2 ring-slate-900' : label ? 'border-emerald-300 bg-emerald-50' : 'border-slate-200 bg-slate-50'
                             }`}
                         >
                             <span className={`text-xs font-bold w-6 h-6 flex items-center justify-center rounded-full ${isToday ? 'bg-slate-900 text-white' : 'text-slate-800'}`}>
                                 {date.getDate()}
                             </span>
-                            <span className={`mt-1 text-[10px] leading-tight line-clamp-3 ${pending > 0 ? 'text-amber-900 font-semibold' : hasPlan ? 'text-emerald-900 font-medium' : 'text-slate-400'}`}>
-                                {pending > 0 ? `${pending} de ayer` : hasPlan ? (labels[weekday] || `${count} equipos`) : 'Sin hoja'}
+                            <span className={`mt-1 text-[10px] leading-tight line-clamp-3 ${label ? 'text-emerald-900 font-medium' : 'text-slate-400'}`}>
+                                {label || 'Libre'}
                             </span>
                         </button>
                     );

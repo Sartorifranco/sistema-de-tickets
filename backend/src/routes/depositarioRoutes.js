@@ -17,6 +17,12 @@ const {
     saveRoutePlan,
     getRouteDaySheets,
     saveRouteDaySheet,
+    getRouteTemplates,
+    createRouteTemplate,
+    updateRouteTemplate,
+    deleteRouteTemplate,
+    getRouteAssignments,
+    saveRouteAssignment,
     getDepositaryReports,
     getDepositaryAnalysis,
     finalizeRoute,
@@ -62,6 +68,12 @@ router.get('/route-plans', authorizeAccess(['admin', 'agent'], depPlan), getRout
 router.put('/route-plans/:weekday', authorizeAccess(['admin', 'agent'], depPlan), saveRoutePlan);
 router.get('/route-day-sheets', authorizeAccess(['admin', 'agent'], depPlan), getRouteDaySheets);
 router.put('/route-day-sheets', authorizeAccess(['admin', 'agent'], depPlan), saveRouteDaySheet);
+router.get('/route-templates', authorizeAccess(['admin', 'agent'], depPlan), getRouteTemplates);
+router.post('/route-templates', authorizeAccess(['admin', 'agent'], depPlan), createRouteTemplate);
+router.put('/route-templates/:id', authorizeAccess(['admin', 'agent'], depPlan), updateRouteTemplate);
+router.delete('/route-templates/:id', authorizeAccess(['admin', 'agent'], depPlan), deleteRouteTemplate);
+router.get('/route-assignments', authorizeAccess(['admin', 'agent'], depPlan), getRouteAssignments);
+router.put('/route-assignments', authorizeAccess(['admin', 'agent'], depPlan), saveRouteAssignment);
 
 router
     .route('/:id')

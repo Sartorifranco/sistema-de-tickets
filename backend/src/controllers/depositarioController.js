@@ -454,6 +454,155 @@ const saveRouteDaySheet = asyncHandler(async (req, res) => {
     res.status(200).json({ success: true, data: { route_date: routeDate, depositario_ids: ids } });
 });
 
+const getRouteTemplates = asyncHandler(async (req, res) => {
+    const [rows] = await pool.execute(
+        `SELECT id, name, sort_order, depositario_ids
+         FROM technician_route_templates
+         WHERE user_id = ?
+         ORDER BY sort_order, id`,
+        [req.user.id]
+    );
+    res.status(200).json({
+        success: true,
+        data: rows.map((row) => ({
+            id: Number(row.id),
+            name: row.name,
+            sort_order: Number(row.sort_order) || 0,
+            depositario_ids: normalizePlanIds(row.depositario_ids),
+        })),
+    });
+});
+
+const createRouteTemplate = asyncHandler(async (req, res) => {
+    const [maxRows] = await pool.execute(
+        'SELECT COALESCE(MAX(sort_order), 0) AS max_sort FROM technician_route_templates WHERE user_id = ?',
+        [req.user.id]
+    );
+    const sortOrder = Number(maxRows[0].max_sort) + 1;
+    const name = String((req.body && req.body.name) || '').trim().slice(0, 80) || `Hoja de ruta ${sortOrder}`;
+    const ids = normalizePlanIds(req.body && req.body.depositario_ids);
+    const [result] = await pool.execute(
+        `INSERT INTO technician_route_templates (user_id, name, sort_order, depositario_ids)
+         VALUES (?, ?, ?, ?)`,
+        [req.user.id, name, sortOrder, JSON.stringify(ids)]
+    );
+    res.status(201).json({
+        success: true,
+        data: { id: result.insertId, name, sort_order: sortOrder, depositario_ids: ids },
+    });
+});
+
+const updateRouteTemplate = asyncHandler(async (req, res) => {
+    const id = Number(req.params.id);
+    if (!Number.isInteger(id) || id <= 0) {
+        res.status(400);
+        throw new Error('Hoja inválida');
+    }
+    const [owned] = await pool.execute(
+        'SELECT id FROM technician_route_templates WHERE id = ? AND user_id = ?',
+        [id, req.user.id]
+    );
+    if (owned.length === 0) {
+        res.status(404);
+        throw new Error('Hoja no encontrada');
+    }
+    const name = String((req.body && req.body.name) || '').trim().slice(0, 80);
+    if (!name) {
+        res.status(400);
+        throw new Error('La hoja necesita un nombre');
+    }
+    const ids = normalizePlanIds(req.body && req.body.depositario_ids);
+    await pool.execute(
+        'UPDATE technician_route_templates SET name = ?, depositario_ids = ? WHERE id = ? AND user_id = ?',
+        [name, JSON.stringify(ids), id, req.user.id]
+    );
+    res.status(200).json({ success: true, data: { id, name, depositario_ids: ids } });
+});
+
+const deleteRouteTemplate = asyncHandler(async (req, res) => {
+    const id = Number(req.params.id);
+    if (!Number.isInteger(id) || id <= 0) {
+        res.status(400);
+        throw new Error('Hoja inválida');
+    }
+    const [result] = await pool.execute(
+        'DELETE FROM technician_route_templates WHERE id = ? AND user_id = ?',
+        [id, req.user.id]
+    );
+    if (!result.affectedRows) {
+        res.status(404);
+        throw new Error('Hoja no encontrada');
+    }
+    res.status(200).json({ success: true });
+});
+
+const getRouteAssignments = asyncHandler(async (req, res) => {
+    const [rows] = await pool.execute(
+        `SELECT DATE_FORMAT(route_date, '%Y-%m-%d') AS route_date, template_id, depositario_ids
+         FROM technician_route_assignments
+         WHERE user_id = ? AND route_date >= DATE_SUB(CURDATE(), INTERVAL 90 DAY)
+         ORDER BY route_date`,
+        [req.user.id]
+    );
+    res.status(200).json({
+        success: true,
+        data: rows.map((row) => ({
+            route_date: row.route_date,
+            template_id: row.template_id == null ? null : Number(row.template_id),
+            depositario_ids: row.depositario_ids == null ? null : normalizePlanIds(row.depositario_ids),
+        })),
+    });
+});
+
+const saveRouteAssignment = asyncHandler(async (req, res) => {
+    const routeDate = sqlDateOnly(req.body && req.body.route_date);
+    if (!routeDate) {
+        res.status(400);
+        throw new Error('Fecha inválida');
+    }
+    let templateId = req.body ? req.body.template_id : null;
+    if (templateId === '' || templateId === undefined || templateId === null) {
+        templateId = null;
+    } else {
+        templateId = Number(templateId);
+        if (!Number.isInteger(templateId) || templateId <= 0) {
+            res.status(400);
+            throw new Error('Hoja inválida');
+        }
+        const [owned] = await pool.execute(
+            'SELECT id FROM technician_route_templates WHERE id = ? AND user_id = ?',
+            [templateId, req.user.id]
+        );
+        if (owned.length === 0) {
+            res.status(404);
+            throw new Error('Hoja no encontrada');
+        }
+    }
+    const rawIds = req.body ? req.body.depositario_ids : null;
+    const ids = rawIds === null || rawIds === undefined ? null : normalizePlanIds(rawIds);
+    if (!templateId && (!ids || ids.length === 0)) {
+        await pool.execute(
+            'DELETE FROM technician_route_assignments WHERE user_id = ? AND route_date = ?',
+            [req.user.id, routeDate]
+        );
+        res.status(200).json({
+            success: true,
+            data: { route_date: routeDate, template_id: null, depositario_ids: null },
+        });
+        return;
+    }
+    await pool.execute(
+        `INSERT INTO technician_route_assignments (user_id, route_date, template_id, depositario_ids)
+         VALUES (?, ?, ?, ?)
+         ON DUPLICATE KEY UPDATE template_id = VALUES(template_id), depositario_ids = VALUES(depositario_ids)`,
+        [req.user.id, routeDate, templateId, ids ? JSON.stringify(ids) : null]
+    );
+    res.status(200).json({
+        success: true,
+        data: { route_date: routeDate, template_id: templateId, depositario_ids: ids },
+    });
+});
+
 const createDepositario = asyncHandler(async (req, res) => {
     const { alias, company_id, ...rest } = req.body;
     if (!alias || !company_id) { res.status(400); throw new Error('Datos incompletos'); }
@@ -682,7 +831,13 @@ module.exports = {
     getRoutePlans,
     saveRoutePlan,
     getRouteDaySheets,
-    saveRouteDaySheet, 
+    saveRouteDaySheet,
+    getRouteTemplates,
+    createRouteTemplate,
+    updateRouteTemplate,
+    deleteRouteTemplate,
+    getRouteAssignments,
+    saveRouteAssignment, 
     getDepositaryReports, 
     getDepositaryAnalysis,
     finalizeRoute 
