@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { Depositario, MaintenanceTask, User } from '../../types';
 import jsPDF from 'jspdf';
@@ -25,7 +25,7 @@ import {
     roadFactorOf,
 } from './routePlanner';
 import RouteMap from './RouteMap';
-import MobileRouteSheet, { MaintenanceDot, WeekPlanControls } from './MobileRouteSheet';
+import MobileRouteSheet, { MaintenanceDot, RouteHelpCard, WeekPlanControls } from './MobileRouteSheet';
 import RouteCalendar from './RouteCalendar';
 import StopWorkFields, { CompanionOption, emptyTasks, RouteCrewBar } from './StopWorkFields';
 
@@ -51,6 +51,7 @@ interface RouteTemplate {
     name: string;
     sortOrder: number;
     ids: number[];
+    authorName: string;
 }
 
 interface DayAssignment {
@@ -152,48 +153,60 @@ const RouteGeneratorModal: React.FC<Props> = ({ depositarios, onClose, onMainten
         };
     }, [depositarios]);
 
-    useEffect(() => {
-        let cancelled = false;
-        Promise.all([
+    const reloadSheets = useCallback(async () => {
+        const [templateRes, assignmentRes] = await Promise.all([
             api.get('/api/depositarios/route-templates').catch(() => ({ data: { data: [] } })),
             api.get('/api/depositarios/route-assignments').catch(() => ({ data: { data: [] } })),
-        ])
-            .then(([templateRes, assignmentRes]) => {
-                if (cancelled) return;
-                const nextTemplates: RouteTemplate[] = (templateRes.data.data || []).map((row: { id: number; name: string; sort_order: number; depositario_ids: number[] }) => ({
-                    id: Number(row.id),
-                    name: row.name || 'Hoja de ruta',
-                    sortOrder: Number(row.sort_order) || 0,
-                    ids: (row.depositario_ids || []).map(Number).filter((id) => Number.isInteger(id)),
-                }));
-                const nextAssignments: Record<string, DayAssignment> = {};
-                (assignmentRes.data.data || []).forEach((row: { route_date: string; template_id: number | null; depositario_ids: number[] | null }) => {
-                    const key = String(row.route_date).slice(0, 10);
-                    nextAssignments[key] = {
-                        templateId: row.template_id == null ? null : Number(row.template_id),
-                        ids: row.depositario_ids == null ? null : row.depositario_ids.map(Number).filter((id) => Number.isInteger(id)),
-                    };
-                });
-                setTemplates(nextTemplates);
-                setAssignments(nextAssignments);
-                if (!bootstrapped.current) {
-                    bootstrapped.current = true;
-                    const todayKey = dateKey(new Date());
-                    const todayRow = nextAssignments[todayKey];
-                    if (todayRow) {
-                        setEditMode('day');
-                        setActiveTemplateId(todayRow.templateId);
-                        setSelectedIds(assignmentIds(nextTemplates, todayRow));
-                    }
-                }
-            })
-            .catch(() => {
+        ]);
+        const nextTemplates: RouteTemplate[] = (templateRes.data.data || []).map((row: { id: number; name: string; sort_order: number; depositario_ids: number[]; author_name?: string }) => ({
+            id: Number(row.id),
+            name: row.name || 'Hoja de ruta',
+            sortOrder: Number(row.sort_order) || 0,
+            ids: (row.depositario_ids || []).map(Number).filter((id) => Number.isInteger(id)),
+            authorName: row.author_name || '',
+        }));
+        const nextAssignments: Record<string, DayAssignment> = {};
+        (assignmentRes.data.data || []).forEach((row: { route_date: string; template_id: number | null; depositario_ids: number[] | null }) => {
+            const key = String(row.route_date).slice(0, 10);
+            nextAssignments[key] = {
+                templateId: row.template_id == null ? null : Number(row.template_id),
+                ids: row.depositario_ids == null ? null : row.depositario_ids.map(Number).filter((id) => Number.isInteger(id)),
+            };
+        });
+        setTemplates(nextTemplates);
+        setAssignments(nextAssignments);
+        if (!bootstrapped.current) {
+            bootstrapped.current = true;
+            const todayKey = dateKey(new Date());
+            const todayRow = nextAssignments[todayKey];
+            if (todayRow) {
+                setEditMode('day');
+                setActiveTemplateId(todayRow.templateId);
+                setSelectedIds(assignmentIds(nextTemplates, todayRow));
+            }
+        }
+    }, []);
+
+    useEffect(() => {
+        let cancelled = false;
+        reloadSheets().catch(() => {
+            if (!cancelled) {
                 /* Sin hojas guardadas el calendario queda libre. */
-            });
+            }
+        });
+        const timer = window.setInterval(() => {
+            reloadSheets().catch(() => undefined);
+        }, 20000);
+        const onVisible = () => {
+            if (document.visibilityState === 'visible') reloadSheets().catch(() => undefined);
+        };
+        document.addEventListener('visibilitychange', onVisible);
         return () => {
             cancelled = true;
+            window.clearInterval(timer);
+            document.removeEventListener('visibilitychange', onVisible);
         };
-    }, []);
+    }, [reloadSheets]);
 
     useEffect(() => {
         let cancelled = false;
@@ -339,15 +352,17 @@ const RouteGeneratorModal: React.FC<Props> = ({ depositarios, onClose, onMainten
     const planDirty = nameDirty || savedIds.join(',') !== selectedIds.join(',');
     const hojaName = activeTemplate?.name || '';
     const planBanner = editMode === 'template'
-        ? `Estás editando ${templateName || 'la hoja base'}. Guardar cambia la base. Los días que ya modificaste siguen como estaban.`
+        ? (planDirty
+            ? 'Falta guardar. Tocá el botón violeta de abajo. Si no, el compañero no la ve.'
+            : 'Esta hoja ya está guardada. La ven todos.')
         : planDirty
-            ? `Hay cambios sin guardar. Quedan solo el ${pickedLabel}. La hoja base no se modifica.`
+            ? `Cambiaste solo el ${pickedLabel}. Tocá Guardar este día para que el compañero lo vea.`
             : dayRow?.ids
-                ? `Este día tiene cambios propios${hojaName ? ` sobre ${hojaName}` : ''}. La base queda igual para el resto.`
+                ? `Este día está distinto de la hoja${hojaName ? ` ${hojaName}` : ''}. Los otros días siguen igual.`
                 : hojaName
-                    ? `${hojaName} en esta fecha. Si sumás o sacás un depositario, cambia solo este día.`
-                    : 'Elegí una hoja para este día, o marcá depositarios y guardá solo esta fecha.';
-    const saveLabel = editMode === 'template' ? 'Guardar hoja base' : 'Guardar solo este día';
+                    ? `Este día usa ${hojaName}. El compañero ve lo mismo.`
+                    : 'Elegí una hoja en el recuadro de arriba. Si no elegís, este día queda vacío.';
+    const saveLabel = editMode === 'template' ? 'Guardar hoja' : 'Guardar este día';
     const customDay = editMode === 'day' && dayRow?.ids != null && activeTemplateId != null;
 
     const dayLabels = useMemo(() => {
@@ -367,7 +382,14 @@ const RouteGeneratorModal: React.FC<Props> = ({ depositarios, onClose, onMainten
     };
 
     const pickDate = (date: Date): boolean => {
-        if (dateKey(date) === pickedKey && editMode === 'day') return true;
+        if (dateKey(date) === pickedKey && editMode === 'day') {
+            if (!planDirty) {
+                const sameRow = assignments[pickedKey];
+                setActiveTemplateId(sameRow?.templateId ?? null);
+                setSelectedIds(assignmentIds(templates, sameRow));
+            }
+            return true;
+        }
         if (!abandonIfDirty()) return false;
         const key = dateKey(date);
         const row = assignments[key];
@@ -409,6 +431,7 @@ const RouteGeneratorModal: React.FC<Props> = ({ depositarios, onClose, onMainten
                 name: row.name,
                 sortOrder: Number(row.sort_order) || number,
                 ids: [],
+                authorName: row.author_name || '',
             };
             setTemplates((prev) => [...prev, created].sort((a, b) => a.sortOrder - b.sortOrder || a.id - b.id));
             setEditMode('template');
@@ -426,7 +449,7 @@ const RouteGeneratorModal: React.FC<Props> = ({ depositarios, onClose, onMainten
 
     const deleteTemplate = async () => {
         if (activeTemplateId == null) return;
-        if (!window.confirm('¿Eliminar esta hoja base? Los días que ya tenían cambios propios se conservan.')) return;
+        if (!window.confirm('¿Eliminar esta hoja? Los días que ya se cambiaron aparte siguen como estaban.')) return;
         try {
             await api.delete(`/api/depositarios/route-templates/${activeTemplateId}`);
             const removedId = activeTemplateId;
@@ -491,10 +514,10 @@ const RouteGeneratorModal: React.FC<Props> = ({ depositarios, onClose, onMainten
                 ...prev,
                 [pickedKey]: { templateId: activeTemplate.id, ids: null },
             }));
-            toast.success('Este día vuelve a usar la hoja base.');
+            toast.success('Este día vuelve a la hoja original.');
         } catch (error) {
             console.error(error);
-            toast.error('No se pudo volver a la hoja base.');
+            toast.error('No se pudo volver a la hoja original.');
         }
     };
 
@@ -516,7 +539,7 @@ const RouteGeneratorModal: React.FC<Props> = ({ depositarios, onClose, onMainten
                     item.id === activeTemplateId ? { ...item, name, ids: [...selectedIds] } : item
                 )));
                 setTemplateName(name);
-                toast.success('Hoja base guardada. Los días que ya cambiaste siguen como estaban.');
+                toast.success('Hoja guardada. La ven el compañero y todos.');
             } else {
                 const res = await api.put('/api/depositarios/route-assignments', {
                     route_date: pickedKey,
@@ -531,8 +554,8 @@ const RouteGeneratorModal: React.FC<Props> = ({ depositarios, onClose, onMainten
                     return next;
                 });
                 toast.success(selectedIds.length === 0
-                    ? 'Esta fecha quedó sin depositarios. La hoja base no se modificó.'
-                    : `Guardado solo para esta fecha, con ${selectedIds.length} equipos.`);
+                    ? 'Este día quedó vacío. La hoja original sigue igual para los otros días.'
+                    : `Guardado este día, con ${selectedIds.length} equipos. El compañero lo ve igual.`);
             }
             setEdited(false);
         } catch (error) {
@@ -836,7 +859,8 @@ const RouteGeneratorModal: React.FC<Props> = ({ depositarios, onClose, onMainten
                 onFinishStop={finishStop}
                 finishingId={finishingId}
                 ticketByStop={ticketByStop}
-                templates={templates.map((item) => ({ id: item.id, name: item.name }))}
+                templates={templates.map((item) => ({ id: item.id, name: item.name, authorName: item.authorName }))}
+                onRefresh={reloadSheets}
                 dayLabels={dayLabels}
                 selectedKey={editMode === 'day' ? pickedKey : ''}
                 editMode={editMode}
@@ -915,6 +939,7 @@ const RouteGeneratorModal: React.FC<Props> = ({ depositarios, onClose, onMainten
                 <div className="flex-1 min-h-0 overflow-y-auto lg:overflow-hidden flex flex-col lg:flex-row">
                     <div className="w-full lg:w-[46%] lg:h-full lg:overflow-y-auto border-b lg:border-b-0 lg:border-r border-gray-200 bg-gray-50">
                         <div className="p-4 space-y-3 border-b border-gray-200 bg-white">
+                            <RouteHelpCard step="home" />
                             <div className="flex gap-2 overflow-x-auto pb-1">
                                 {templates.map((template) => (
                                     <button
@@ -923,7 +948,8 @@ const RouteGeneratorModal: React.FC<Props> = ({ depositarios, onClose, onMainten
                                         onClick={() => openTemplate(template.id)}
                                         className={`shrink-0 px-3 py-1.5 rounded-full border text-sm font-semibold ${editMode === 'template' && activeTemplateId === template.id ? 'bg-slate-900 text-white border-slate-900' : 'bg-white text-slate-800'}`}
                                     >
-                                        {template.name}
+                                        <span className="block">{template.name}</span>
+                                        {template.authorName && <span className={`block text-[11px] font-normal ${editMode === 'template' && activeTemplateId === template.id ? 'text-slate-300' : 'text-slate-500'}`}>la armó {template.authorName}</span>}
                                     </button>
                                 ))}
                                 <button type="button" onClick={createTemplate} className="shrink-0 px-3 py-1.5 rounded-full bg-purple-600 text-white text-sm font-semibold">
@@ -932,8 +958,8 @@ const RouteGeneratorModal: React.FC<Props> = ({ depositarios, onClose, onMainten
                             </div>
                             <RouteCalendar dayLabels={dayLabels} selectedKey={editMode === 'day' ? pickedKey : ''} onPick={pickDate} />
                             {editMode === 'template' ? (
-                                <label className="block text-xs text-slate-600">
-                                    Nombre de la hoja base
+                                <label className="block text-sm font-semibold text-slate-700">
+                                    Nombre de la hoja
                                     <input
                                         type="text"
                                         value={templateName}
@@ -942,8 +968,8 @@ const RouteGeneratorModal: React.FC<Props> = ({ depositarios, onClose, onMainten
                                     />
                                 </label>
                             ) : (
-                                <label className="block text-xs text-slate-600">
-                                    Hoja de {pickedLabel}
+                                <label className="block text-sm font-semibold text-slate-800">
+                                    ¿Qué hoja se hace el {pickedLabel}?
                                     <select
                                         value={activeTemplateId ?? ''}
                                         onChange={(event) => assignTemplate(event.target.value ? Number(event.target.value) : null)}
@@ -958,7 +984,7 @@ const RouteGeneratorModal: React.FC<Props> = ({ depositarios, onClose, onMainten
                             )}
                             {customDay && (
                                 <button type="button" onClick={useBase} className="px-3 py-1.5 rounded-lg border bg-white text-sm font-semibold">
-                                    Volver a la hoja base
+                                    Usar la hoja original
                                 </button>
                             )}
                             {editMode === 'template' && (

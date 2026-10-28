@@ -41,7 +41,7 @@ const RouteCalendar: React.FC<Props> = ({ dayLabels, selectedKey = '', onPick })
                 <button type="button" onClick={() => shiftMonth(-1)} className="min-h-11 min-w-11 rounded-xl border font-bold text-slate-700">‹</button>
                 <div className="text-center">
                     <p className="text-base font-bold capitalize text-slate-900">{title}</p>
-                    <p className="text-[11px] text-slate-500">Tocá una fecha. La hoja que elijas queda solo en ese día.</p>
+                    <p className="text-[11px] text-slate-500">Tocá el número del día. El verde ya tiene una hoja.</p>
                 </div>
                 <button type="button" onClick={() => shiftMonth(1)} className="min-h-11 min-w-11 rounded-xl border font-bold text-slate-700">›</button>
             </div>

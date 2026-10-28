@@ -31,6 +31,50 @@ export interface PickerUnit {
 export interface RouteTemplateChip {
     id: number;
     name: string;
+    authorName?: string;
+}
+
+export function RouteHelpCard({ step }: { step: 'home' | 'sheet' | 'day' }) {
+    if (step === 'sheet') {
+        return (
+            <div className="rounded-2xl border-2 border-purple-300 bg-purple-50 p-4">
+                <p className="text-base font-bold text-purple-950">Paso 1 · Armá la hoja</p>
+                <p className="text-sm text-purple-950 mt-2 leading-relaxed">
+                    Marcá el cuadradito de cada depositario. Después tocá el botón violeta <span className="font-bold">Guardar hoja</span>.
+                    Si no lo tocás, no queda guardada y el compañero no la ve.
+                </p>
+            </div>
+        );
+    }
+    if (step === 'day') {
+        return (
+            <div className="rounded-2xl border-2 border-emerald-300 bg-emerald-50 p-4">
+                <p className="text-base font-bold text-emerald-950">Paso 3 · Elegí la hoja de este día</p>
+                <p className="text-sm text-emerald-950 mt-2 leading-relaxed">
+                    En el recuadro de abajo elegí Hoja 1, Hoja 2, etc. El compañero ve el mismo día.
+                    Si sacás o sumás un depositario, tocá <span className="font-bold">Guardar este día</span>. La hoja original no cambia.
+                </p>
+            </div>
+        );
+    }
+    return (
+        <div className="rounded-2xl border bg-white p-4 space-y-3">
+            <p className="text-base font-bold text-slate-900">Cómo se usa</p>
+            <p className="text-sm text-slate-600">Lo que carga uno lo ven el compañero y todos.</p>
+            <div className="flex gap-3">
+                <span className="w-9 h-9 rounded-full bg-purple-600 text-white font-bold flex items-center justify-center shrink-0">1</span>
+                <p className="text-sm text-slate-800 leading-relaxed"><span className="font-bold">Creá la hoja</span> con el botón violeta. Marcá los depositarios y guardá.</p>
+            </div>
+            <div className="flex gap-3">
+                <span className="w-9 h-9 rounded-full bg-slate-800 text-white font-bold flex items-center justify-center shrink-0">2</span>
+                <p className="text-sm text-slate-800 leading-relaxed"><span className="font-bold">Tocá el número</span> del día en el calendario.</p>
+            </div>
+            <div className="flex gap-3">
+                <span className="w-9 h-9 rounded-full bg-emerald-600 text-white font-bold flex items-center justify-center shrink-0">3</span>
+                <p className="text-sm text-slate-800 leading-relaxed"><span className="font-bold">Elegí qué hoja</span> se hace ese día. Ahí la ve tu compañero.</p>
+            </div>
+        </div>
+    );
 }
 
 export interface WeekPlanProps {
@@ -60,7 +104,7 @@ export function MaintenanceDot({ light, label }: { light: MaintenanceLight; labe
     );
 }
 
-export const WeekPlanControls: React.FC<WeekPlanProps & { dense?: boolean }> = ({
+export const WeekPlanControls: React.FC<WeekPlanProps & { dense?: boolean; hideSave?: boolean }> = ({
     units,
     checkedIds,
     saving,
@@ -70,6 +114,7 @@ export const WeekPlanControls: React.FC<WeekPlanProps & { dense?: boolean }> = (
     onToggleUnit,
     onSave,
     dense,
+    hideSave,
 }) => {
     const chosen = new Set(checkedIds);
     const groups: { name: string; units: PickerUnit[] }[] = [];
@@ -123,14 +168,16 @@ export const WeekPlanControls: React.FC<WeekPlanProps & { dense?: boolean }> = (
                     </div>
                 ))}
             </div>
-            <button
-                type="button"
-                onClick={onSave}
-                disabled={saving || !planDirty}
-                className="min-h-11 px-3 rounded-lg bg-purple-600 text-white text-sm font-semibold disabled:opacity-40"
-            >
-                {saving ? 'Guardando…' : saveLabel}
-            </button>
+            {!hideSave && (
+                <button
+                    type="button"
+                    onClick={onSave}
+                    disabled={saving || !planDirty}
+                    className="w-full min-h-14 px-3 rounded-xl bg-purple-600 text-white text-lg font-bold disabled:opacity-40"
+                >
+                    {saving ? 'Guardando…' : saveLabel}
+                </button>
+            )}
         </div>
     );
 };
@@ -176,6 +223,7 @@ interface MobileProps extends WeekPlanProps {
     onOpenTemplate: (id: number) => boolean | void;
     onCreateTemplate: () => Promise<boolean>;
     onDeleteTemplate: () => void;
+    onRefresh: () => void;
     customDay: boolean;
     onUseBase: () => void;
     pickedLabel: string;
@@ -233,7 +281,7 @@ const MobileRouteSheet: React.FC<MobileProps> = (props) => {
                         <div>
                             <p className="text-xs uppercase tracking-wide text-slate-400">Recorridos</p>
                             <h1 className="text-2xl font-bold">Hojas de ruta</h1>
-                            <p className="text-sm text-slate-300 mt-1">Armá la hoja 1, 2, 3 y elegí en qué fecha se hace.</p>
+                            <p className="text-sm text-slate-300 mt-1">Primero la hoja. Después el día. Todos ven lo mismo.</p>
                         </div>
                         <button type="button" onClick={props.onClose} className="min-h-11 px-2 text-sm font-semibold text-slate-200">
                             {props.closeLabel || 'Cerrar'}
@@ -241,21 +289,30 @@ const MobileRouteSheet: React.FC<MobileProps> = (props) => {
                     </div>
                 </header>
                 <div className="flex-1 overflow-y-auto p-4 pb-[max(1rem,env(safe-area-inset-bottom))] space-y-3">
-                    <div className="flex gap-2 overflow-x-auto pb-1">
-                        {props.templates.map((template) => (
-                            <button
-                                key={template.id}
-                                type="button"
-                                onClick={() => openTemplate(template.id)}
-                                className="shrink-0 min-h-11 px-3 rounded-full bg-white border font-semibold text-sm text-slate-900"
-                            >
-                                {template.name}
-                            </button>
-                        ))}
-                        <button type="button" onClick={createTemplate} className="shrink-0 min-h-11 px-3 rounded-full bg-purple-600 text-white text-sm font-semibold">
-                            + Nueva hoja
-                        </button>
-                    </div>
+                    <RouteHelpCard step="home" />
+                    <button type="button" onClick={createTemplate} className="w-full min-h-14 rounded-2xl bg-purple-600 text-white text-lg font-bold">
+                        + Nueva hoja
+                    </button>
+                    {props.templates.length > 0 && (
+                        <div>
+                            <p className="text-sm font-bold text-slate-800 mb-2">Hojas que ya cargaron</p>
+                            <div className="flex gap-2 overflow-x-auto pb-1">
+                                {props.templates.map((template) => (
+                                    <button
+                                        key={template.id}
+                                        type="button"
+                                        onClick={() => openTemplate(template.id)}
+                                        className="shrink-0 min-h-14 px-3 rounded-2xl bg-white border text-left"
+                                    >
+                                        <span className="block font-semibold text-sm text-slate-900">{template.name}</span>
+                                        {template.authorName && <span className="block text-[11px] text-slate-500">la armó {template.authorName}</span>}
+                                    </button>
+                                ))}
+                            </div>
+                            <p className="text-xs text-slate-500 mt-1">Tocá una hoja para cambiar sus depositarios.</p>
+                        </div>
+                    )}
+                    <p className="text-sm font-bold text-slate-800">Después tocá el día</p>
                     <RouteCalendar dayLabels={props.dayLabels} selectedKey="" onPick={openDay} />
                 </div>
             </div>
@@ -269,14 +326,26 @@ const MobileRouteSheet: React.FC<MobileProps> = (props) => {
             <header className="bg-slate-900 text-white px-4 pt-[max(1rem,env(safe-area-inset-top))] pb-3 shrink-0">
                 <div className="flex items-start justify-between gap-3">
                     <div>
-                        <button type="button" onClick={() => setScreen('home')} className="text-xs font-semibold text-slate-300 mb-1">
+                        <button
+                            type="button"
+                            onClick={() => {
+                                if (props.planDirty && !window.confirm('Hay cambios sin guardar. ¿Volver igual?')) return;
+                                setScreen('home');
+                                props.onRefresh();
+                            }}
+                            className="text-xs font-semibold text-slate-300 mb-1"
+                        >
                             ‹ Calendario
                         </button>
                         {editingBase ? (
                             <>
-                                <p className="text-xs uppercase tracking-wide text-slate-400">Hoja base</p>
+                                <p className="text-xs uppercase tracking-wide text-slate-400">La lista de la hoja</p>
                                 <h1 className="text-lg font-bold">{props.templateName || 'Nueva hoja'}</h1>
-                                <p className="text-xs text-slate-300 mt-0.5">Los cambios de esta pantalla quedan en la hoja. Un día ya modificado no se toca.</p>
+                                <p className="text-xs text-slate-300 mt-0.5">
+                                    {props.templates.find((item) => item.id === props.activeTemplateId)?.authorName
+                                        ? `La armó ${props.templates.find((item) => item.id === props.activeTemplateId)?.authorName}. La ven todos.`
+                                        : 'La ven todos.'}
+                                </p>
                             </>
                         ) : (
                             <>
@@ -319,32 +388,24 @@ const MobileRouteSheet: React.FC<MobileProps> = (props) => {
 
                 {(editingBase || tab === 'ruta') && (
                     <div className="p-4 space-y-3 pb-28">
+                        <RouteHelpCard step={editingBase ? 'sheet' : 'day'} />
                         {editingBase ? (
-                            <label className="block bg-white border rounded-xl px-3 py-2 text-xs text-slate-600">
+                            <label className="block bg-white border-2 border-purple-200 rounded-xl px-3 py-2 text-sm font-semibold text-slate-700">
                                 Nombre de la hoja
                                 <input
                                     type="text"
                                     value={props.templateName}
                                     onChange={(event) => props.onTemplateName(event.target.value)}
-                                    className="mt-1 w-full min-h-11 text-base text-slate-900"
+                                    className="mt-1 w-full min-h-12 text-base font-normal text-slate-900"
                                 />
                             </label>
                         ) : (
-                            <RouteCrewBar
-                                performedBy={props.performedBy}
-                                companionUserId={props.companionUserId}
-                                agents={props.agents}
-                                onPerformedBy={props.onPerformedBy}
-                                onCompanion={props.onCompanion}
-                            />
-                        )}
-                        {!editingBase && (
-                            <label className="block bg-white border rounded-xl px-3 py-2 text-xs text-slate-600">
-                                Hoja de este día
+                            <label className="block bg-white border-2 border-emerald-400 rounded-xl px-3 py-3 text-base font-bold text-slate-800">
+                                ¿Qué hoja se hace este día?
                                 <select
                                     value={props.activeTemplateId ?? ''}
                                     onChange={(event) => props.onAssignTemplate(event.target.value ? Number(event.target.value) : null)}
-                                    className="mt-1 w-full min-h-11 text-base text-slate-900 bg-white"
+                                    className="mt-2 w-full min-h-14 text-lg font-semibold text-slate-900 bg-white border rounded-xl px-2"
                                 >
                                     <option value="">Sin hoja</option>
                                     {props.templates.map((template) => (
@@ -353,12 +414,21 @@ const MobileRouteSheet: React.FC<MobileProps> = (props) => {
                                 </select>
                             </label>
                         )}
+                        {!editingBase && (
+                            <RouteCrewBar
+                                performedBy={props.performedBy}
+                                companionUserId={props.companionUserId}
+                                agents={props.agents}
+                                onPerformedBy={props.onPerformedBy}
+                                onCompanion={props.onCompanion}
+                            />
+                        )}
                         {props.customDay && !editingBase && (
-                            <button type="button" onClick={props.onUseBase} className="min-h-11 px-3 rounded-lg border bg-white text-sm font-semibold">
-                                Volver a la hoja base
+                            <button type="button" onClick={props.onUseBase} className="min-h-12 px-3 rounded-xl border bg-white text-sm font-semibold">
+                                Usar la hoja original
                             </button>
                         )}
-                        <WeekPlanControls {...props} dense />
+                        <WeekPlanControls {...props} dense hideSave={props.planDirty} />
                         {editingBase && (
                             <button type="button" onClick={props.onDeleteTemplate} className="min-h-11 px-3 rounded-lg border border-red-200 text-red-700 text-sm font-semibold">
                                 Eliminar esta hoja
@@ -488,6 +558,15 @@ const MobileRouteSheet: React.FC<MobileProps> = (props) => {
                     </div>
                 )}
             </div>
+
+            {props.planDirty && (editingBase || tab === 'ruta') && (
+                <div className="shrink-0 bg-amber-50 border-t border-amber-300 px-3 py-2">
+                    <p className="text-sm font-semibold text-amber-950 text-center mb-2">Falta guardar. Si no tocás el botón, el compañero no ve el cambio.</p>
+                    <button type="button" onClick={props.onSave} disabled={props.saving} className="w-full min-h-14 rounded-xl bg-purple-600 text-white text-lg font-bold">
+                        {props.saving ? 'Guardando…' : props.saveLabel}
+                    </button>
+                </div>
+            )}
 
             {!editingBase && tab === 'ruta' && (
                 <div className="shrink-0 bg-white border-t px-3 py-2 flex gap-2">

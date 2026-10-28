@@ -210,6 +210,11 @@ process.on('uncaughtException', (err) => {
 const PORT = process.env.PORT || 5040;
 server.listen(PORT, '0.0.0.0', () => {
   console.log(`🚀 Servidor corriendo en puerto ${PORT}`);
+  const pool = require('./config/db');
+  const { ensureSharedTechnicianRoutes } = require('./services/technicianRouteSchema');
+  ensureSharedTechnicianRoutes(pool)
+    .then(() => console.log('[Rutas] Hojas compartidas: una sola por fecha.'))
+    .catch((err) => console.error('[Rutas] No se pudo unificar la hoja por fecha:', err.message));
   startCronJobs();
   startPurchaseCrons();
 

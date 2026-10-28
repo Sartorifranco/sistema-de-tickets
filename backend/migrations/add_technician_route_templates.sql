@@ -22,7 +22,8 @@ CREATE TABLE IF NOT EXISTS technician_route_assignments (
   depositario_ids JSON NULL,
   updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   PRIMARY KEY (id),
-  UNIQUE KEY uniq_tech_route_assignment (user_id, route_date),
+  UNIQUE KEY uniq_tech_route_date (route_date),
+  KEY idx_tech_route_assignment_user (user_id),
   CONSTRAINT fk_tech_route_assignment_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
   CONSTRAINT fk_tech_route_assignment_template FOREIGN KEY (template_id) REFERENCES technician_route_templates(id) ON DELETE SET NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;

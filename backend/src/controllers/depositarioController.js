@@ -456,11 +456,11 @@ const saveRouteDaySheet = asyncHandler(async (req, res) => {
 
 const getRouteTemplates = asyncHandler(async (req, res) => {
     const [rows] = await pool.execute(
-        `SELECT id, name, sort_order, depositario_ids
-         FROM technician_route_templates
-         WHERE user_id = ?
-         ORDER BY sort_order, id`,
-        [req.user.id]
+        `SELECT t.id, t.name, t.sort_order, t.depositario_ids,
+                u.first_name, u.last_name, u.username
+         FROM technician_route_templates t
+         LEFT JOIN users u ON u.id = t.user_id
+         ORDER BY t.sort_order, t.id`
     );
     res.status(200).json({
         success: true,
@@ -469,14 +469,14 @@ const getRouteTemplates = asyncHandler(async (req, res) => {
             name: row.name,
             sort_order: Number(row.sort_order) || 0,
             depositario_ids: normalizePlanIds(row.depositario_ids),
+            author_name: formatPersonName(row),
         })),
     });
 });
 
 const createRouteTemplate = asyncHandler(async (req, res) => {
     const [maxRows] = await pool.execute(
-        'SELECT COALESCE(MAX(sort_order), 0) AS max_sort FROM technician_route_templates WHERE user_id = ?',
-        [req.user.id]
+        'SELECT COALESCE(MAX(sort_order), 0) AS max_sort FROM technician_route_templates'
     );
     const sortOrder = Number(maxRows[0].max_sort) + 1;
     const name = String((req.body && req.body.name) || '').trim().slice(0, 80) || `Hoja de ruta ${sortOrder}`;
@@ -488,7 +488,13 @@ const createRouteTemplate = asyncHandler(async (req, res) => {
     );
     res.status(201).json({
         success: true,
-        data: { id: result.insertId, name, sort_order: sortOrder, depositario_ids: ids },
+        data: {
+            id: result.insertId,
+            name,
+            sort_order: sortOrder,
+            depositario_ids: ids,
+            author_name: formatPersonName(req.user),
+        },
     });
 });
 
@@ -499,8 +505,8 @@ const updateRouteTemplate = asyncHandler(async (req, res) => {
         throw new Error('Hoja inválida');
     }
     const [owned] = await pool.execute(
-        'SELECT id FROM technician_route_templates WHERE id = ? AND user_id = ?',
-        [id, req.user.id]
+        'SELECT id FROM technician_route_templates WHERE id = ?',
+        [id]
     );
     if (owned.length === 0) {
         res.status(404);
@@ -513,8 +519,8 @@ const updateRouteTemplate = asyncHandler(async (req, res) => {
     }
     const ids = normalizePlanIds(req.body && req.body.depositario_ids);
     await pool.execute(
-        'UPDATE technician_route_templates SET name = ?, depositario_ids = ? WHERE id = ? AND user_id = ?',
-        [name, JSON.stringify(ids), id, req.user.id]
+        'UPDATE technician_route_templates SET name = ?, depositario_ids = ? WHERE id = ?',
+        [name, JSON.stringify(ids), id]
     );
     res.status(200).json({ success: true, data: { id, name, depositario_ids: ids } });
 });
@@ -526,8 +532,8 @@ const deleteRouteTemplate = asyncHandler(async (req, res) => {
         throw new Error('Hoja inválida');
     }
     const [result] = await pool.execute(
-        'DELETE FROM technician_route_templates WHERE id = ? AND user_id = ?',
-        [id, req.user.id]
+        'DELETE FROM technician_route_templates WHERE id = ?',
+        [id]
     );
     if (!result.affectedRows) {
         res.status(404);
@@ -538,11 +544,15 @@ const deleteRouteTemplate = asyncHandler(async (req, res) => {
 
 const getRouteAssignments = asyncHandler(async (req, res) => {
     const [rows] = await pool.execute(
-        `SELECT DATE_FORMAT(route_date, '%Y-%m-%d') AS route_date, template_id, depositario_ids
-         FROM technician_route_assignments
-         WHERE user_id = ? AND route_date >= DATE_SUB(CURDATE(), INTERVAL 90 DAY)
-         ORDER BY route_date`,
-        [req.user.id]
+        `SELECT DATE_FORMAT(a.route_date, '%Y-%m-%d') AS route_date, a.template_id, a.depositario_ids
+         FROM technician_route_assignments a
+         INNER JOIN (
+            SELECT MAX(id) AS id
+            FROM technician_route_assignments
+            WHERE route_date >= DATE_SUB(CURDATE(), INTERVAL 90 DAY)
+            GROUP BY route_date
+         ) latest ON latest.id = a.id
+         ORDER BY a.route_date`
     );
     res.status(200).json({
         success: true,
@@ -570,8 +580,8 @@ const saveRouteAssignment = asyncHandler(async (req, res) => {
             throw new Error('Hoja inválida');
         }
         const [owned] = await pool.execute(
-            'SELECT id FROM technician_route_templates WHERE id = ? AND user_id = ?',
-            [templateId, req.user.id]
+            'SELECT id FROM technician_route_templates WHERE id = ?',
+            [templateId]
         );
         if (owned.length === 0) {
             res.status(404);
@@ -582,8 +592,8 @@ const saveRouteAssignment = asyncHandler(async (req, res) => {
     const ids = rawIds === null || rawIds === undefined ? null : normalizePlanIds(rawIds);
     if (!templateId && (!ids || ids.length === 0)) {
         await pool.execute(
-            'DELETE FROM technician_route_assignments WHERE user_id = ? AND route_date = ?',
-            [req.user.id, routeDate]
+            'DELETE FROM technician_route_assignments WHERE route_date = ?',
+            [routeDate]
         );
         res.status(200).json({
             success: true,
@@ -591,12 +601,44 @@ const saveRouteAssignment = asyncHandler(async (req, res) => {
         });
         return;
     }
-    await pool.execute(
-        `INSERT INTO technician_route_assignments (user_id, route_date, template_id, depositario_ids)
-         VALUES (?, ?, ?, ?)
-         ON DUPLICATE KEY UPDATE template_id = VALUES(template_id), depositario_ids = VALUES(depositario_ids)`,
-        [req.user.id, routeDate, templateId, ids ? JSON.stringify(ids) : null]
-    );
+    const storedIds = ids ? JSON.stringify(ids) : null;
+    const keepSharedDay = async () => {
+        const [existing] = await pool.execute(
+            'SELECT id FROM technician_route_assignments WHERE route_date = ? ORDER BY id DESC LIMIT 1',
+            [routeDate]
+        );
+        if (existing.length > 0) {
+            const keepId = existing[0].id;
+            await pool.execute(
+                'UPDATE technician_route_assignments SET user_id = ?, template_id = ?, depositario_ids = ? WHERE id = ?',
+                [req.user.id, templateId, storedIds, keepId]
+            );
+            await pool.execute(
+                'DELETE FROM technician_route_assignments WHERE route_date = ? AND id <> ?',
+                [routeDate, keepId]
+            );
+            return;
+        }
+        try {
+            await pool.execute(
+                `INSERT INTO technician_route_assignments (user_id, route_date, template_id, depositario_ids)
+                 VALUES (?, ?, ?, ?)`,
+                [req.user.id, routeDate, templateId, storedIds]
+            );
+        } catch (error) {
+            if (error.code !== 'ER_DUP_ENTRY') throw error;
+            const [again] = await pool.execute(
+                'SELECT id FROM technician_route_assignments WHERE route_date = ? ORDER BY id DESC LIMIT 1',
+                [routeDate]
+            );
+            if (again.length === 0) throw error;
+            await pool.execute(
+                'UPDATE technician_route_assignments SET user_id = ?, template_id = ?, depositario_ids = ? WHERE id = ?',
+                [req.user.id, templateId, storedIds, again[0].id]
+            );
+        }
+    };
+    await keepSharedDay();
     res.status(200).json({
         success: true,
         data: { route_date: routeDate, template_id: templateId, depositario_ids: ids },
