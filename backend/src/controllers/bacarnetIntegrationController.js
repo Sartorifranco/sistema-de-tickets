@@ -5,6 +5,7 @@ const {
     BACAR_TICKET_DEPARTMENT_ID_LIST,
     ALLOWED_PRIORITIES,
     CATALOG_CACHE_TTL_MS,
+    BACARNET_INTEGRATION_SOURCE,
 } = require('../constants/bacarnetIntegration');
 const { findOrCreateBacarnetClient } = require('../services/userCreationService');
 const { notifyBacarnetTicketStatusChangeSafe } = require('../services/bacarnetWebhookService');
@@ -12,7 +13,15 @@ const {
     getOwnedBacarnetTicket,
     commentAuthorLabel,
     isStaffRole,
+    isBacarnetOriginTicket,
 } = require('../utils/bacarnetTicketAccess');
+const {
+    assignBacarnetAgent,
+    addBacarnetHours,
+    resolveBacarnetTicket,
+    closeBacarnetTicketComplete,
+    loadUserById,
+} = require('../services/bacarnetWorkflowService');
 
 async function ownedTicket(res, ticketId, requesterEmail) {
     try {
@@ -202,9 +211,9 @@ const createBacarnetTicket = asyncHandler(async (req, res) => {
 
     const [result] = await pool.execute(
         `INSERT INTO tickets (
-            user_id, title, description, priority, category_id, department_id, status
-        ) VALUES (?, ?, ?, ?, ?, ?, 'open')`,
-        [user.id, ticketTitle, ticketDescription, finalPriority, categoryId, departmentId]
+            user_id, title, description, priority, category_id, department_id, status, integration_source
+        ) VALUES (?, ?, ?, ?, ?, ?, 'open', ?)`,
+        [user.id, ticketTitle, ticketDescription, finalPriority, categoryId, departmentId, BACARNET_INTEGRATION_SOURCE]
     );
 
     const stTicketId = result.insertId;
@@ -348,15 +357,109 @@ const addBacarnetAttachments = asyncHandler(async (req, res) => {
     return res.status(201).json({ success: true, data: attachments });
 });
 
+function rethrowWorkflow(res, err) {
+    if (err.statusCode) res.status(err.statusCode);
+    throw err;
+}
+
+function emitDashboard(req, message) {
+    if (req.io && typeof req.io.to === 'function') {
+        req.io.to('admin').to('agent').emit('dashboard_update', { message });
+    }
+}
+
+const assignBacarnetTicket = asyncHandler(async (req, res) => {
+    let data;
+    try {
+        data = await assignBacarnetAgent(req.params.id, req.body || {});
+    } catch (err) {
+        rethrowWorkflow(res, err);
+    }
+    emitDashboard(req, `Ticket #${data.stTicketId} asignado (Bacarnet)`);
+    return res.status(200).json({ success: true, data });
+});
+
+const addBacarnetTicketHours = asyncHandler(async (req, res) => {
+    let data;
+    try {
+        data = await addBacarnetHours(req.params.id, req.body || {});
+    } catch (err) {
+        rethrowWorkflow(res, err);
+    }
+    emitDashboard(req, `Horas cargadas en ticket #${data.stTicketId} (Bacarnet)`);
+    return res.status(201).json({ success: true, data });
+});
+
+const closeBacarnetTicketFully = asyncHandler(async (req, res) => {
+    let data;
+    try {
+        data = await closeBacarnetTicketComplete(req.params.id, req.body || {});
+    } catch (err) {
+        rethrowWorkflow(res, err);
+    }
+    emitDashboard(req, `Ticket #${data.stTicketId} cerrado por la integración Bacarnet`);
+    notifyBacarnetTicketStatusChangeSafe({
+        stTicketId: data.stTicketId,
+        status: data.status,
+        previousStatus: data.previousStatus,
+        requesterEmail: data.requesterEmail,
+        title: data.title,
+        assignedToUserId: data.assigned_to_user_id,
+        changedAt: new Date().toISOString(),
+        source: 'bacarnet',
+    });
+    return res.status(200).json({
+        success: true,
+        data: {
+            stTicketId: data.stTicketId,
+            status: data.status,
+            previousStatus: data.previousStatus,
+            accion: data.accion,
+            assigned_to_user_id: data.assigned_to_user_id,
+            agentEmail: data.agentEmail,
+            minutos: data.minutos,
+            horas_reales: data.horas_reales,
+        },
+    });
+});
+
 const updateBacarnetTicketEstado = asyncHandler(async (req, res) => {
     const accion = String((req.body || {}).accion || '').trim().toLowerCase();
-    if (accion !== 'reabrir' && accion !== 'cerrar') {
+    if (accion !== 'reabrir' && accion !== 'cerrar' && accion !== 'resolver') {
         res.status(400);
-        throw new Error("accion debe ser 'reabrir' o 'cerrar'.");
+        throw new Error("accion debe ser 'reabrir', 'cerrar' o 'resolver'.");
     }
 
     const { ticket, email } = await ownedTicket(res, req.params.id, (req.body || {}).requesterEmail);
     const current = ticket.status;
+
+    if (accion === 'resolver') {
+        if (!isBacarnetOriginTicket(ticket)) {
+            res.status(403);
+            throw new Error('La integración solo puede operar tickets creados por Bacarnet.');
+        }
+        let data;
+        try {
+            const actor = ticket.assigned_to_user_id
+                ? await loadUserById(ticket.assigned_to_user_id)
+                : null;
+            data = await resolveBacarnetTicket(ticket, actor);
+        } catch (err) {
+            rethrowWorkflow(res, err);
+        }
+        emitDashboard(req, `Estado del ticket #${ticket.id} actualizado (Bacarnet)`);
+        notifyBacarnetTicketStatusChangeSafe({
+            stTicketId: ticket.id,
+            status: data.status,
+            previousStatus: data.previousStatus,
+            requesterEmail: email,
+            title: ticket.title,
+            assignedToUserId: ticket.assigned_to_user_id,
+            changedAt: new Date().toISOString(),
+            source: 'bacarnet',
+        });
+        return res.status(200).json({ success: true, data });
+    }
 
     const canReopen = current === 'resolved' && accion === 'reabrir';
     const canClose = current === 'resolved' && accion === 'cerrar';
@@ -412,4 +515,7 @@ module.exports = {
     getBacarnetComments,
     addBacarnetAttachments,
     updateBacarnetTicketEstado,
+    assignBacarnetTicket,
+    addBacarnetTicketHours,
+    closeBacarnetTicketFully,
 };

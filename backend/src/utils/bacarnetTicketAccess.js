@@ -1,5 +1,10 @@
 const pool = require('../config/db');
 const { findUserByEmail } = require('../services/userCreationService');
+const {
+    BACARNET_INTEGRATION_SOURCE,
+    BACARNET_LEGACY_TITLE_PREFIX,
+    BACAR_TICKET_DEPARTMENT_ID_LIST,
+} = require('../constants/bacarnetIntegration');
 
 const STAFF_ROLES = new Set(['admin', 'agent', 'boss', 'purchasing']);
 
@@ -32,9 +37,12 @@ async function getOwnedBacarnetTicket(ticketIdRaw, requesterEmailRaw) {
 
     const [rows] = await pool.execute(
         `SELECT t.id, t.user_id, t.title, t.status, t.assigned_to_user_id,
+                t.horas_reales, t.es_tarea_interna, t.department_id, t.integration_source,
+                d.name AS department_name,
                 u.email AS requester_email
          FROM tickets t
          LEFT JOIN users u ON t.user_id = u.id
+         LEFT JOIN departments d ON t.department_id = d.id
          WHERE t.id = ?`,
         [ticketId]
     );
@@ -53,6 +61,20 @@ async function getOwnedBacarnetTicket(ticketIdRaw, requesterEmailRaw) {
     }
 
     return { ticket, user, email };
+}
+
+/**
+ * La clave solo opera tickets creados por la integración:
+ * columna integration_source, o el lote anterior (título "Bacarnet - " en un área Bacar).
+ */
+function isBacarnetOriginTicket(ticket) {
+    if (!ticket) return false;
+    if (ticket.integration_source === BACARNET_INTEGRATION_SOURCE) return true;
+    const source = ticket.integration_source;
+    const unmarked = source == null || source === '';
+    const legacyTitle = String(ticket.title || '').startsWith(BACARNET_LEGACY_TITLE_PREFIX);
+    const bacarDepartment = BACAR_TICKET_DEPARTMENT_ID_LIST.includes(Number(ticket.department_id));
+    return unmarked && legacyTitle && bacarDepartment;
 }
 
 function commentAuthorLabel(comment, requesterUserId) {
@@ -76,6 +98,7 @@ module.exports = {
     normalizeEmail,
     requireRequesterEmail,
     getOwnedBacarnetTicket,
+    isBacarnetOriginTicket,
     commentAuthorLabel,
     isStaffRole,
 };

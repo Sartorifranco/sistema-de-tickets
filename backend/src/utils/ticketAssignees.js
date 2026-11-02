@@ -50,7 +50,7 @@ async function resolveAssignableUserIds(ids, allowedRoles = ASSIGNABLE_ROLES) {
  * Reemplaza assignees de un ticket. El primero es primario.
  * También actualiza tickets.assigned_to_user_id.
  */
-async function syncTicketAssignees(ticketId, userIds) {
+async function syncTicketAssignees(ticketId, userIds, db = pool) {
     const unique = [];
     const seen = new Set();
     for (const id of userIds || []) {
@@ -60,21 +60,21 @@ async function syncTicketAssignees(ticketId, userIds) {
         unique.push(n);
     }
 
-    await pool.execute('DELETE FROM ticket_assignees WHERE ticket_id = ?', [ticketId]);
+    await db.execute('DELETE FROM ticket_assignees WHERE ticket_id = ?', [ticketId]);
 
     if (unique.length === 0) {
-        await pool.execute('UPDATE tickets SET assigned_to_user_id = NULL WHERE id = ?', [ticketId]);
+        await db.execute('UPDATE tickets SET assigned_to_user_id = NULL WHERE id = ?', [ticketId]);
         return { primaryId: null, assigneeIds: [] };
     }
 
     const primaryId = unique[0];
     for (let i = 0; i < unique.length; i += 1) {
-        await pool.execute(
+        await db.execute(
             'INSERT INTO ticket_assignees (ticket_id, user_id, is_primary) VALUES (?, ?, ?)',
             [ticketId, unique[i], i === 0 ? 1 : 0]
         );
     }
-    await pool.execute('UPDATE tickets SET assigned_to_user_id = ? WHERE id = ?', [primaryId, ticketId]);
+    await db.execute('UPDATE tickets SET assigned_to_user_id = ? WHERE id = ?', [primaryId, ticketId]);
     return { primaryId, assigneeIds: unique };
 }
 

@@ -17,40 +17,16 @@ const {
     hasAuthorizationTable,
     AUTHORIZATION_STATUS_SQL,
 } = require('../services/ticketAuthorizationService');
+const {
+    parseCreateBool,
+    isDesarrolloDepartmentName,
+    realHoursBlockReason,
+} = require('../utils/ticketClosureRules');
 
 function parseOptionalDecimal(value) {
     if (value === undefined || value === null || value === '') return null;
     const n = parseFloat(String(value).replace(',', '.'));
     return Number.isFinite(n) ? n : null;
-}
-
-function parseCreateBool(value, defaultValue = false) {
-    if (value === undefined || value === null || value === '') return defaultValue;
-    if (typeof value === 'boolean') return value;
-    const s = String(value).toLowerCase();
-    return s === 'true' || s === '1' || value === 1;
-}
-
-function normalizeDeptLabel(name) {
-    if (!name) return '';
-    return String(name)
-        .trim()
-        .toLowerCase()
-        .normalize('NFD')
-        .replace(/[\u0300-\u036f]/g, '');
-}
-
-function isDesarrolloDepartmentName(name) {
-    const n = normalizeDeptLabel(name);
-    if (!n) return false;
-    return n === 'desarrollo' || n.includes('desarrollo');
-}
-
-/** horas reales obligatorias al pasar a resolved/closed: > 0 */
-function realHoursMeaningful(value) {
-    if (value === undefined || value === null || value === '') return false;
-    const n = parseFloat(String(value).replace(',', '.'));
-    return Number.isFinite(n) && n > 0;
 }
 
 /** Teléfono opcional: vacío → null, máx. 64 caracteres */
@@ -643,18 +619,12 @@ const updateTicketStatus = asyncHandler(async (req, res) => {
     }
     const ticket = tickets[0];
 
-    const requiresRealHoursClosure =
-        isDesarrolloDepartmentName(ticket.department_name) || parseCreateBool(ticket.es_tarea_interna, false);
-
-    if (
-        (newStatus === 'resolved' || newStatus === 'closed') &&
-        requiresRealHoursClosure &&
-        !realHoursMeaningful(ticket.horas_reales)
-    ) {
-        res.status(400);
-        throw new Error(
-            'Las horas reales son obligatorias (mayores a cero) para tickets de Desarrollo o tareas internas antes de resolver o cerrar.'
-        );
+    if (newStatus === 'resolved' || newStatus === 'closed') {
+        const hoursBlock = realHoursBlockReason(ticket);
+        if (hoursBlock) {
+            res.status(400);
+            throw new Error(hoursBlock);
+        }
     }
 
     if (['client', 'boss', 'purchasing'].includes(userRole)) {

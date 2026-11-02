@@ -20,10 +20,25 @@ const ALLOWED_PRIORITIES = Object.freeze(['low', 'medium', 'high', 'urgent']);
 
 const CATALOG_CACHE_TTL_MS = 5 * 60 * 1000;
 
+/** Valor de tickets.integration_source para altas hechas por esta API. */
+const BACARNET_INTEGRATION_SOURCE = 'bacarnet';
+
+/**
+ * Tickets creados por la integración antes de existir integration_source.
+ * No se reescriben: se reconocen por este prefijo de título.
+ */
+const BACARNET_LEGACY_TITLE_PREFIX = 'Bacarnet - ';
+
+/** Tope de tickets.horas_reales (decimal 5,2). */
+const HORAS_REALES_MAX = 999.99;
+
 module.exports = {
     BACAR_COMPANY_ID,
     BACAR_TICKET_DEPARTMENT_IDS,
     BACAR_TICKET_DEPARTMENT_ID_LIST,
     ALLOWED_PRIORITIES,
     CATALOG_CACHE_TTL_MS,
+    BACARNET_INTEGRATION_SOURCE,
+    BACARNET_LEGACY_TITLE_PREFIX,
+    HORAS_REALES_MAX,
 };
