@@ -9,6 +9,7 @@ import DepositaryMap from '../components/Depositarios/DepositaryMap';
 import RouteGeneratorModal from '../components/Depositarios/RouteGeneratorModal';
 import RouteHistoryModal from '../components/Depositarios/RouteHistoryModal';
 import DepositaryReportModal from '../components/Depositarios/DepositaryReportModal';
+import { downloadDepositariosWorkbook } from '../utils/depositariosWorkbook';
 
 // --- HELPERS ---
 const getMaintenanceCardClass = (lastMaintenance: string | null | undefined): string => {
@@ -21,6 +22,26 @@ const getMaintenanceCardClass = (lastMaintenance: string | null | undefined): st
     if (daysSince < 20) return 'border-t-4 border-green-500 bg-green-50';
     if (daysSince <= 30) return 'border-t-4 border-yellow-500 bg-yellow-50';
     return 'border-t-4 border-red-500 bg-red-50';
+};
+
+const commercialLabel = (value?: string | null) => {
+    if (value === 'COMPRADO') return 'Comprado';
+    if (value === 'ALQUILADO') return 'Alquilado';
+    if (value === 'VENDIDO') return 'Vendido';
+    return 'Sin dato';
+};
+
+const installLabel = (value?: string | null, source?: string | null) => {
+    const raw = String(value || '').slice(0, 10);
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(raw)) return 'Sin dato';
+    const [year, month, day] = raw.split('-');
+    if (source === 'numero_de_serie') return `${month}/${year} (estimada por serie)`;
+    return `${day}/${month}/${year}`;
+};
+
+const dateInputValue = (value?: string | null) => {
+    const raw = String(value || '').slice(0, 10);
+    return /^\d{4}-\d{2}-\d{2}$/.test(raw) ? raw : '';
 };
 
 const getCompanyBadgeClass = (companyName?: string | null) => {
@@ -51,6 +72,10 @@ const DepositarioModal: React.FC<{
         alias: initialData?.alias || '',
         company_id: initialData?.company_id || '',
         serial_number: initialData?.serial_number || '',
+        owner: initialData?.owner || '',
+        commercial_action: initialData?.commercial_action || '',
+        installed_on: dateInputValue(initialData?.installed_on),
+        install_date_source: initialData?.install_date_source || '',
         address: initialData?.address || '',
         location_description: initialData?.location_description || '',
         km_from_base: initialData?.km_from_base || '',
@@ -62,6 +87,15 @@ const DepositarioModal: React.FC<{
 
     const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
         setFormData({ ...formData, [e.target.name]: e.target.value });
+    };
+
+    const handleInstallDateChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const value = e.target.value;
+        setFormData({
+            ...formData,
+            installed_on: value,
+            install_date_source: value ? 'manual' : '',
+        });
     };
 
     const handleAddressChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -176,6 +210,28 @@ const DepositarioModal: React.FC<{
                             <label className="block text-sm font-medium text-gray-700">Frec. Mantenimiento (Días)</label>
                             <input type="number" name="maintenance_freq" value={formData.maintenance_freq} onChange={handleChange} className="w-full p-2 border rounded" placeholder="30" />
                         </div>
+                    </div>
+                    <div className="grid grid-cols-2 gap-4">
+                        <div>
+                            <label className="block text-sm font-medium text-gray-700">Propietario</label>
+                            <input name="owner" value={formData.owner} onChange={handleChange} className="w-full p-2 border rounded" placeholder="Ej: BACAR" />
+                        </div>
+                        <div>
+                            <label className="block text-sm font-medium text-gray-700">Condición</label>
+                            <select name="commercial_action" value={formData.commercial_action} onChange={handleChange} className="w-full p-2 border rounded bg-white">
+                                <option value="">Sin dato</option>
+                                <option value="COMPRADO">Comprado</option>
+                                <option value="ALQUILADO">Alquilado</option>
+                                <option value="VENDIDO">Vendido</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div>
+                        <label className="block text-sm font-medium text-gray-700">Fecha de instalación</label>
+                        <input type="date" name="installed_on" value={formData.installed_on} onChange={handleInstallDateChange} className="w-full p-2 border rounded" />
+                        {formData.install_date_source === 'numero_de_serie' && (
+                            <p className="text-xs text-amber-700 mt-1">Estimada por el mes y año del número de serie. Si la corregís, queda como fecha cargada a mano.</p>
+                        )}
                     </div>
                     <div>
                         <label className="block text-sm font-medium text-gray-700">Descripción Ubicación</label>
@@ -399,6 +455,7 @@ const DepositariosPage: React.FC = () => {
     const [isRouteModalOpen, setIsRouteModalOpen] = useState(false); 
     const [isRouteHistoryOpen, setIsRouteHistoryOpen] = useState(false); 
     const [isReportModalOpen, setIsReportModalOpen] = useState(false);
+    const [exportingExcel, setExportingExcel] = useState(false);
     const [historyData, setHistoryData] = useState<MaintenanceRecord[]>([]);
 
     const fetchData = useCallback(async () => {
@@ -451,6 +508,20 @@ const DepositariosPage: React.FC = () => {
 
     const handleMaintenanceSave = () => {
         fetchData();
+    };
+
+    const handleExportExcel = async () => {
+        setExportingExcel(true);
+        try {
+            const res = await api.get('/api/depositarios');
+            const rows = Array.isArray(res.data?.data) ? res.data.data : [];
+            downloadDepositariosWorkbook(rows);
+            toast.success(`Excel descargado con ${rows.length} depositarios.`);
+        } catch {
+            toast.error('No se pudo descargar el Excel.');
+        } finally {
+            setExportingExcel(false);
+        }
     };
 
     // --- HELPER PARA RENDERIZAR TAREAS DEL CHECKLIST ---
@@ -520,6 +591,16 @@ const DepositariosPage: React.FC = () => {
                         </button>
                     </div>
 
+                    <button
+                        type="button"
+                        onClick={handleExportExcel}
+                        disabled={exportingExcel}
+                        className="bg-emerald-700 hover:bg-emerald-800 disabled:opacity-60 text-white font-bold py-2 px-4 rounded-lg shadow-md transition-colors flex items-center gap-2"
+                        title="Descarga los depositarios activos con serie, propietario, condición y fecha de instalación."
+                    >
+                        📥 {exportingExcel ? 'Armando Excel...' : 'Excel'}
+                    </button>
+
                     {/* BOTÓN REPORTES (NUEVO) */}
                     <button
                         onClick={() => setIsReportModalOpen(true)}
@@ -562,7 +643,7 @@ const DepositariosPage: React.FC = () => {
                     <div className="bg-white p-4 rounded-lg shadow-md mb-8 flex flex-col sm:flex-row gap-4 items-center animate-fade-in">
                         <div className="flex-grow w-full">
                             <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Buscar</label>
-                            <input type="text" placeholder="Alias, Nro Serie o Dirección..." className="w-full p-2 border rounded focus:ring-2 focus:ring-blue-500 outline-none" value={searchTerm} onChange={e => setSearchTerm(e.target.value)} />
+                            <input type="text" placeholder="Alias, serie, dirección o propietario..." className="w-full p-2 border rounded focus:ring-2 focus:ring-blue-500 outline-none" value={searchTerm} onChange={e => setSearchTerm(e.target.value)} />
                         </div>
                         <div className="w-full sm:w-64">
                             <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Empresa</label>
@@ -596,8 +677,11 @@ const DepositariosPage: React.FC = () => {
                                             <span className={`text-xs px-2 py-1 rounded-full font-bold border ${getCompanyBadgeClass(dep.company_name)}`}>{dep.company_name || 'Sin empresa'}</span>
                                         </div>
                                         <div className="space-y-2 text-sm text-gray-600">
-                                            <p><span className="font-semibold text-gray-900">Serie:</span> {dep.serial_number || 'N/A'}</p>
-                                            <p><span className="font-semibold text-gray-900">Ubicación:</span> {dep.address}</p>
+                                            <p><span className="font-semibold text-gray-900">Serie:</span> {dep.serial_number || 'Sin dato'}</p>
+                                            <p><span className="font-semibold text-gray-900">Propietario:</span> {dep.owner || 'Sin dato'}</p>
+                                            <p><span className="font-semibold text-gray-900">Condición:</span> {commercialLabel(dep.commercial_action)}</p>
+                                            <p><span className="font-semibold text-gray-900">Instalación:</span> {installLabel(dep.installed_on, dep.install_date_source)}</p>
+                                            <p><span className="font-semibold text-gray-900">Ubicación:</span> {dep.address || 'Sin dirección'}</p>
                                             <div className="flex items-center gap-4 mt-2">
                                                 <span className="bg-gray-100 px-2 py-1 rounded text-xs">🚗 {dep.km_from_base} km</span>
                                                 <span className="bg-gray-100 px-2 py-1 rounded text-xs">⏱ {dep.duration_trip}</span>

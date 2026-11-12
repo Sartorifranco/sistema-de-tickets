@@ -284,6 +284,10 @@ export interface Depositario {
     company_id: number;
     company_name?: string | null;
     serial_number: string;
+    owner?: string | null;
+    commercial_action?: 'COMPRADO' | 'ALQUILADO' | 'VENDIDO' | '' | null;
+    installed_on?: string | null;
+    install_date_source?: 'numero_de_serie' | 'manual' | '' | null;
     location_description: string;
     address: string;
     km_from_base: string;

@@ -9,6 +9,40 @@ const {
 
 const MAINTENANCE_TICKET_CATEGORY = 'Problemas de depositarios (General)';
 
+const COMMERCIAL_ACTIONS = new Set(['COMPRADO', 'ALQUILADO', 'VENDIDO']);
+
+function cleanOptionalText(value, maxLength) {
+    if (value === undefined || value === null) return null;
+    const text = String(value).trim();
+    if (!text) return null;
+    return text.slice(0, maxLength);
+}
+
+function cleanCommercialAction(value, res) {
+    if (value === undefined || value === null || String(value).trim() === '') return null;
+    const action = String(value).trim().toUpperCase();
+    if (!COMMERCIAL_ACTIONS.has(action)) {
+        res.status(400);
+        throw new Error('La acción comercial debe ser Comprado, Alquilado o Vendido');
+    }
+    return action;
+}
+
+function cleanInstalledOn(value, res) {
+    if (value === undefined || value === null || String(value).trim() === '') return null;
+    const text = String(value).trim().slice(0, 10);
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(text)) {
+        res.status(400);
+        throw new Error('La fecha de instalación es inválida');
+    }
+    return text;
+}
+
+function cleanInstallSource(installedOn, source) {
+    if (!installedOn) return null;
+    return source === 'numero_de_serie' ? 'numero_de_serie' : 'manual';
+}
+
 function formatPersonName(user) {
     if (!user) return '';
     if (user.first_name && user.last_name) return `${user.first_name} ${user.last_name}`;
@@ -68,7 +102,8 @@ const getDepositarios = asyncHandler(async (req, res) => {
     
     let query = `
         SELECT 
-            d.*, 
+            d.*,
+            DATE_FORMAT(d.installed_on, '%Y-%m-%d') AS installed_on,
             c.name as company_name,
             (SELECT MAX(m.maintenance_date) FROM mantenimientos m WHERE m.depositario_id = d.id) as last_maintenance,
             (SELECT COUNT(*) FROM tickets t 
@@ -83,9 +118,9 @@ const getDepositarios = asyncHandler(async (req, res) => {
     const params = [];
     if (companyId) { query += ' AND d.company_id = ?'; params.push(companyId); }
     if (search) {
-        query += ' AND (d.alias LIKE ? OR d.serial_number LIKE ? OR d.address LIKE ?)';
+        query += ' AND (d.alias LIKE ? OR d.serial_number LIKE ? OR d.address LIKE ? OR d.owner LIKE ? OR d.commercial_action LIKE ?)';
         const searchTerm = `%${search}%`;
-        params.push(searchTerm, searchTerm, searchTerm);
+        params.push(searchTerm, searchTerm, searchTerm, searchTerm, searchTerm);
     }
     query += ' ORDER BY d.alias ASC';
 
@@ -648,13 +683,59 @@ const saveRouteAssignment = asyncHandler(async (req, res) => {
 const createDepositario = asyncHandler(async (req, res) => {
     const { alias, company_id, ...rest } = req.body;
     if (!alias || !company_id) { res.status(400); throw new Error('Datos incompletos'); }
-    await pool.execute(`INSERT INTO depositarios (alias, company_id, serial_number, location_description, address, km_from_base, duration_trip, lat, lng, maintenance_freq) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`, [alias, company_id, rest.serial_number, rest.location_description, rest.address, rest.km_from_base, rest.duration_trip, rest.lat, rest.lng, rest.maintenance_freq || 30]);
+    const installedOn = cleanInstalledOn(rest.installed_on, res);
+    await pool.execute(
+        `INSERT INTO depositarios (
+            alias, company_id, serial_number, owner, commercial_action, installed_on, install_date_source,
+            location_description, address, km_from_base, duration_trip, lat, lng, maintenance_freq
+         ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        [
+            alias,
+            company_id,
+            cleanOptionalText(rest.serial_number, 100),
+            cleanOptionalText(rest.owner, 100),
+            cleanCommercialAction(rest.commercial_action, res),
+            installedOn,
+            cleanInstallSource(installedOn, rest.install_date_source),
+            rest.location_description,
+            rest.address,
+            rest.km_from_base,
+            rest.duration_trip,
+            rest.lat,
+            rest.lng,
+            rest.maintenance_freq || 30,
+        ]
+    );
     res.status(201).json({ success: true, message: 'Creado.' });
 });
 
 const updateDepositario = asyncHandler(async (req, res) => {
-    const { id } = req.params; const body = req.body;
-    await pool.execute(`UPDATE depositarios SET alias=?, company_id=?, serial_number=?, location_description=?, address=?, km_from_base=?, duration_trip=?, lat=?, lng=?, maintenance_freq=? WHERE id = ?`, [body.alias, body.company_id, body.serial_number, body.location_description, body.address, body.km_from_base, body.duration_trip, body.lat, body.lng, body.maintenance_freq, id]);
+    const { id } = req.params;
+    const body = req.body;
+    const installedOn = cleanInstalledOn(body.installed_on, res);
+    await pool.execute(
+        `UPDATE depositarios
+         SET alias=?, company_id=?, serial_number=?, owner=?, commercial_action=?, installed_on=?, install_date_source=?,
+             location_description=?, address=?, km_from_base=?, duration_trip=?, lat=?, lng=?, maintenance_freq=?
+         WHERE id = ?`,
+        [
+            body.alias,
+            body.company_id,
+            cleanOptionalText(body.serial_number, 100),
+            cleanOptionalText(body.owner, 100),
+            cleanCommercialAction(body.commercial_action, res),
+            installedOn,
+            cleanInstallSource(installedOn, body.install_date_source),
+            body.location_description,
+            body.address,
+            body.km_from_base,
+            body.duration_trip,
+            body.lat,
+            body.lng,
+            body.maintenance_freq,
+            id,
+        ]
+    );
     res.status(200).json({ success: true, message: 'Actualizado.' });
 });
 
